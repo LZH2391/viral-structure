@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getFunctionSlotLibraryItems, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, runtimeUrl, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
@@ -12,6 +12,7 @@ import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./Anal
 import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
 import { buildReplacementDraftSummary, SlotAtomView } from "../agent-chat/SlotAtomReplacementPanel";
 import { NewUiRestructureWorkspace, type NewUiMaterialPackOption, type NewUiRestructureSendContext, type NewUiStructureOption, type NewUiTurnTimelineTarget } from "./NewUiRestructureWorkspace";
+import { startAnalysisUpload } from "./analysisBackend";
 import { listAnalysisHistorySamples } from "./analysisHistoryData";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
@@ -122,6 +123,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const restructureSubmissionBusyRef = useRef(false);
   const autoAdvanceSubmittedKeysRef = useRef<Set<string>>(new Set());
   const compactedRestructureUsageKeysRef = useRef<Set<string>>(new Set());
+  const restructureMaterialUploadInputRef = useRef<HTMLInputElement | null>(null);
   const activeSectionRef = useRef<NewUiSectionId>("analysis");
   const activeRestructureConversationIdRef = useRef<string | null>(null);
   const draftingRestructureConversationRef = useRef(false);
@@ -146,6 +148,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [restructureStructureOptions, setRestructureStructureOptions] = useState<NewUiStructureOption[]>([]);
   const [loadingRestructureMaterialPacks, setLoadingRestructureMaterialPacks] = useState(false);
   const [loadingRestructureStructures, setLoadingRestructureStructures] = useState(false);
+  const [selectedRestructureMaterialPack, setSelectedRestructureMaterialPack] = useState<NewUiMaterialPackOption | null>(null);
+  const [uploadingRestructureMaterial, setUploadingRestructureMaterial] = useState(false);
   const [compactingRestructureContext, setCompactingRestructureContext] = useState(false);
   const [stoppingRestructureTurn, setStoppingRestructureTurn] = useState(false);
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
@@ -702,10 +706,29 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   }, []);
 
   const openMaterialRecognitionUploadFromRestructure = useCallback(() => {
-    setStructureGraphReturn(null);
-    setActiveAnalysisChild("materialRecognition");
-    setActiveSection("analysis");
+    restructureMaterialUploadInputRef.current?.click();
   }, []);
+
+  const handleRestructureMaterialUploadChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.currentTarget.files;
+    event.currentTarget.value = "";
+    const file = files ? Array.from(files).find((item) => item.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(item.name)) : null;
+    if (!file || uploadingRestructureMaterial) return;
+    setUploadingRestructureMaterial(true);
+    setLoadingRestructureMaterialPacks(true);
+    try {
+      const { item } = await startAnalysisUpload(file, "materialRecognition");
+      const option = materialPackOptionFromAnalysisItem(item, file.name);
+      setSelectedRestructureMaterialPack(option);
+      setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, option));
+      await refreshRestructureMaterialPackOptions().catch(() => undefined);
+    } catch (error) {
+      markRestructureConversationError(selectedRestructureConversation?.conversationId ?? null, error);
+    } finally {
+      setUploadingRestructureMaterial(false);
+      setLoadingRestructureMaterialPacks(false);
+    }
+  }, [markRestructureConversationError, refreshRestructureMaterialPackOptions, selectedRestructureConversation?.conversationId, uploadingRestructureMaterial]);
 
   const handleSidebarRestructureConversationChange = useCallback((conversationId: string) => {
     setStructureGraphReturn(null);
@@ -1397,6 +1420,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       data-active-section={activeSection}
       aria-label="新 UI 三栏工作区"
     >
+      <input
+        ref={restructureMaterialUploadInputRef}
+        type="file"
+        accept="video/*"
+        hidden
+        onChange={handleRestructureMaterialUploadChange}
+      />
       <aside className="new-ui-pane new-ui-pane-left" aria-label="左侧栏">
         <PaneHeader collapsed={leftCollapsed} onToggle={toggleLeftCollapsed} side="left" />
         <div className="new-ui-pane-body">
@@ -1481,7 +1511,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               onSendMessage={handleSendRestructureMessage}
               materialPackOptions={restructureMaterialPackOptions}
               structureOptions={restructureStructureOptions}
+              selectedMaterialPack={selectedRestructureMaterialPack}
+              onSelectedMaterialPackChange={setSelectedRestructureMaterialPack}
               loadingMaterialPackOptions={loadingRestructureMaterialPacks}
+              uploadingMaterial={uploadingRestructureMaterial}
               loadingStructureOptions={loadingRestructureStructures}
               onRefreshMaterialPackOptions={refreshRestructureMaterialPackOptions}
               onRefreshStructureOptions={refreshRestructureStructureOptions}
@@ -1934,6 +1967,26 @@ function resolveRestructureUserInputOrigin(context: NewUiRestructureSendContext)
 
 function runtimeUrlSafe(uri?: string | null) {
   return runtimeUrl(uri) ?? null;
+}
+
+function materialPackOptionFromAnalysisItem(item: { sampleVideoId: string; artifactId?: string | null; title?: string | null; traceId?: string | null; coverUri?: string | null; durationSeconds?: number | null; artifact?: { userMaterialPack?: { artifactId?: string | null; shotCards?: unknown[]; materialGroups?: unknown[]; proofCoverage?: unknown[] } | null } | null }, fallbackTitle?: string | null): NewUiMaterialPackOption {
+  const pack = item.artifact?.userMaterialPack ?? null;
+  return {
+    sampleVideoId: item.sampleVideoId,
+    artifactId: pack?.artifactId ?? item.artifactId ?? null,
+    title: stripMediaExtension(item.title ?? fallbackTitle ?? item.sampleVideoId),
+    traceId: item.traceId ?? null,
+    coverUrl: runtimeUrlSafe(item.coverUri),
+    durationSeconds: item.durationSeconds ?? null,
+    shotCardCount: Array.isArray(pack?.shotCards) ? pack.shotCards.length : null,
+    materialGroupCount: Array.isArray(pack?.materialGroups) ? pack.materialGroups.length : null,
+    proofCoverageCount: Array.isArray(pack?.proofCoverage) ? pack.proofCoverage.length : null,
+  };
+}
+
+function upsertMaterialPackOption(options: NewUiMaterialPackOption[], next: NewUiMaterialPackOption) {
+  const same = (item: NewUiMaterialPackOption) => item.sampleVideoId === next.sampleVideoId && (item.artifactId ?? null) === (next.artifactId ?? null);
+  return [next, ...options.filter((item) => !same(item))];
 }
 
 function stripMediaExtension(value?: string | null) {

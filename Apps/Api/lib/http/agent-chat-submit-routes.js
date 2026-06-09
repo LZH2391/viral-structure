@@ -176,14 +176,11 @@ async function buildRestructureContext({ body, handlers, role, workspaceRoot }) 
     ? await buildMaterialPackContext(materialPackRef, handlers)
     : null;
   const structureContext = structureRef
-    ? buildStructureContext(structureRef)
+    ? await buildStructureContext(structureRef, handlers)
     : null;
   const sections = [
-    "【重组附加上下文】",
     materialPackContext,
     structureContext,
-    materialPackContext ? "- 使用要求：如果素材能力不足，先明确缺口；如果素材足够，把该素材包作为 user-material-pack.stable 的来源参与素材供给判断和后续 shot design。" : null,
-    structureContext ? "- 使用要求：用户已固定引用该样例结构。不要再重新挑选样例结构；需要结合 brief 做目标适配、素材可用性判断和必要的 adapter 风险说明。" : null,
   ].filter(Boolean);
   return {
     agentMessage: sections.join("\n"),
@@ -200,33 +197,25 @@ async function buildMaterialPackContext(ref, handlers) {
     ? await handlers.artifactIndex.getItem(ref.sampleVideoId).catch(() => null)
     : null;
   const pack = detail?.artifact?.userMaterialPack ?? null;
-  const sampleTitle = normalizeText(ref.title ?? detail?.filename ?? detail?.artifact?.sampleVideo?.original?.summary) ?? ref.sampleVideoId;
-  const artifactId = normalizeText(ref.artifactId ?? pack?.artifactId);
   const resultUri = normalizeText(detail?.artifact?.userMaterialPackRef?.uri ?? pack?.resultUri);
-  const shotCards = Array.isArray(pack?.shotCards) ? pack.shotCards.length : nullableNumber(ref.shotCardCount);
-  const materialGroups = Array.isArray(pack?.materialGroups) ? pack.materialGroups.length : nullableNumber(ref.materialGroupCount);
-  const proofCoverage = Array.isArray(pack?.proofCoverage) ? pack.proofCoverage.length : nullableNumber(ref.proofCoverageCount);
-  return [
-    "- 素材包：",
-    `  sampleVideoId: ${ref.sampleVideoId}`,
-    artifactId ? `  artifactId: ${artifactId}` : null,
-    resultUri ? `  userMaterialPackPath: ${resultUri}` : null,
-    `  title: ${safePreview(sampleTitle, 120)}`,
-    `  counts: ${shotCards ?? 0} shotCards / ${materialGroups ?? 0} materialGroups / ${proofCoverage ?? 0} proofCoverage`,
-    ref.traceId ? `  traceId: ${ref.traceId}` : null,
-  ].filter(Boolean).join("\n");
+  if (pack?.type !== "user-material-pack" || pack?.schemaVersion !== "user-material-pack.stable" || !resultUri) {
+    throw badRequestError(
+      "agent_chat_material_pack_path_required",
+      "素材包引用必须解析到已完成的 user-material-pack.stable 结果文件",
+    );
+  }
+  return `使用此素材包：${resultUri}`;
 }
 
-function buildStructureContext(ref) {
-  return [
-    "- 引用结构：",
-    `  artifactId: ${ref.artifactId}`,
-    ref.sampleVideoId ? `  sampleVideoId: ${ref.sampleVideoId}` : null,
-    ref.title ? `  title: ${safePreview(ref.title, 120)}` : null,
-    `  counts: ${ref.slotCount ?? 0} slots / ${ref.atomCount ?? 0} atoms`,
-    ref.traceId ? `  traceId: ${ref.traceId}` : null,
-    "  source: FunctionSlotLibrary 样例结构图",
-  ].filter(Boolean).join("\n");
+async function buildStructureContext(ref, handlers) {
+  const artifactId = sanitizeLibraryArtifactId(ref.artifactId);
+  const libraryArtifact = typeof handlers.functionSlotLibraryService?.readLibraryArtifact === "function"
+    ? await handlers.functionSlotLibraryService.readLibraryArtifact(artifactId).catch(() => null)
+    : null;
+  if (!libraryArtifact) {
+    throw badRequestError("agent_chat_structure_ref_not_found", "引用结构必须指向已入库的 FunctionSlotLibrary 样例结构");
+  }
+  return `使用此样例结构：Artifacts/FunctionSlotLibrary/${artifactId}`;
 }
 
 function normalizeMaterialPackRef(value) {
@@ -261,6 +250,14 @@ function normalizeStructureRef(value) {
 function summarizeContextRef(value, keys) {
   if (!value || typeof value !== "object") return null;
   return Object.fromEntries(keys.map((key) => [key, normalizeText(value[key])]));
+}
+
+function sanitizeLibraryArtifactId(value) {
+  const artifactId = normalizeText(value);
+  if (!artifactId || !/^[A-Za-z0-9_.-]+$/.test(artifactId)) {
+    throw badRequestError("agent_chat_structure_artifact_invalid", "引用结构 artifactId 不合法");
+  }
+  return artifactId;
 }
 
 async function handleAgentChatManualReplacementSubmit(req, res, threadId, handlers = {}) {

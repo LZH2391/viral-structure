@@ -29,7 +29,10 @@ type NewUiRestructureWorkspaceProps = {
   onSendMessage: (message: string, context?: NewUiRestructureSendContext) => Promise<void>;
   materialPackOptions?: NewUiMaterialPackOption[];
   structureOptions?: NewUiStructureOption[];
+  selectedMaterialPack?: NewUiMaterialPackOption | null;
+  onSelectedMaterialPackChange?: (option: NewUiMaterialPackOption | null) => void;
   loadingMaterialPackOptions?: boolean;
+  uploadingMaterial?: boolean;
   loadingStructureOptions?: boolean;
   onRefreshMaterialPackOptions?: () => Promise<void> | void;
   onRefreshStructureOptions?: () => Promise<void> | void;
@@ -104,7 +107,10 @@ export function NewUiRestructureWorkspace({
   onSendMessage,
   materialPackOptions = [],
   structureOptions = [],
+  selectedMaterialPack: controlledSelectedMaterialPack,
+  onSelectedMaterialPackChange,
   loadingMaterialPackOptions = false,
+  uploadingMaterial = false,
   loadingStructureOptions = false,
   onRefreshMaterialPackOptions,
   onRefreshStructureOptions,
@@ -128,7 +134,7 @@ export function NewUiRestructureWorkspace({
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [activeAttachmentPanel, setActiveAttachmentPanel] = useState<"material" | "structure" | null>(null);
-  const [selectedMaterialPack, setSelectedMaterialPack] = useState<NewUiMaterialPackOption | null>(null);
+  const [uncontrolledSelectedMaterialPack, setUncontrolledSelectedMaterialPack] = useState<NewUiMaterialPackOption | null>(null);
   const [selectedStructure, setSelectedStructure] = useState<NewUiStructureOption | null>(null);
   const [timelineActivityExpandedByScope, setTimelineActivityExpandedByScope] = useState<Record<string, boolean>>({});
   const [processMessageExpandedByScope, setProcessMessageExpandedByScope] = useState<Record<string, boolean>>({});
@@ -142,6 +148,8 @@ export function NewUiRestructureWorkspace({
   const contextUsageScopeKey = conversation?.conversationId ?? conversation?.threadId ?? null;
   const contextUsage = useLastKnownContextUsage(rawContextUsage, contextUsageScopeKey);
   const canStopTurn = Boolean(activeTurnTarget?.running && activeTurnTarget.threadId && activeTurnTarget.turnId && !stoppingTurn);
+  const selectedMaterialPack = controlledSelectedMaterialPack !== undefined ? controlledSelectedMaterialPack : uncontrolledSelectedMaterialPack;
+  const setSelectedMaterialPack = onSelectedMaterialPackChange ?? setUncontrolledSelectedMaterialPack;
   const rawTimelineDisplayItems = buildRestructureTimelineDisplayItems(timeline?.items ?? []);
   const timelineTurnId = activeTurnTarget?.turnId && rawTimelineDisplayItems.length ? activeTurnTarget.turnId : null;
   const timelineConversationAssistantMessage = timelineTurnId
@@ -362,6 +370,7 @@ export function NewUiRestructureWorkspace({
             options={materialPackOptions}
             selected={selectedMaterialPack}
             loading={loadingMaterialPackOptions}
+            uploading={uploadingMaterial}
             onSelect={(option) => {
               setSelectedMaterialPack(option);
               setActiveAttachmentPanel(null);
@@ -661,23 +670,25 @@ function MaterialPackPickerPanel({
   options,
   selected,
   loading,
+  uploading,
   onSelect,
   onUpload,
 }: {
   options: NewUiMaterialPackOption[];
   selected: NewUiMaterialPackOption | null;
   loading: boolean;
+  uploading: boolean;
   onSelect: (option: NewUiMaterialPackOption) => void;
   onUpload?: () => void;
 }) {
   return (
     <section className="new-ui-restructure-picker-panel is-material" aria-label="选择素材识别包">
-      <button className="new-ui-restructure-picker-card is-upload-card" type="button" disabled={!onUpload} onClick={onUpload}>
+      <button className="new-ui-restructure-picker-card is-upload-card" type="button" disabled={!onUpload || uploading} onClick={onUpload}>
         <span className="new-ui-restructure-picker-card-icon" aria-hidden="true">
           <UploadMaterialGlyph />
         </span>
-        <strong>上传新素材</strong>
-        <small>进入素材识别，生成新的素材能力包</small>
+        <strong>{uploading ? "正在上传素材" : "上传新素材"}</strong>
+        <small>{uploading ? "素材识别启动后会自动附加" : "选择视频并启动素材识别"}</small>
       </button>
       {loading ? <PickerStateCard text="正在读取素材包" /> : null}
       {!loading && !options.length ? <PickerStateCard text="暂无可用素材识别结果" /> : null}
@@ -777,8 +788,7 @@ function formatMaterialPackOptionMeta(option: NewUiMaterialPackOption) {
     option.proofCoverageCount != null ? `${option.proofCoverageCount} 证明项` : null,
   ].filter(Boolean);
   const duration = option.durationSeconds != null ? formatSecondsCompact(option.durationSeconds) : null;
-  const trace = option.traceId ? `trace ${shortId(option.traceId)}` : null;
-  return [...counts, duration, trace].filter(Boolean).join(" / ") || `sample ${shortId(option.sampleVideoId)}`;
+  return [...counts, duration].filter(Boolean).join(" / ") || `sample ${shortId(option.sampleVideoId)}`;
 }
 
 function formatStructureOptionMeta(option: NewUiStructureOption) {
@@ -786,8 +796,7 @@ function formatStructureOptionMeta(option: NewUiStructureOption) {
     option.slotCount != null ? `${option.slotCount} 槽位` : null,
     option.atomCount != null ? `${option.atomCount} 原子` : null,
   ].filter(Boolean);
-  const trace = option.traceId ? `trace ${shortId(option.traceId)}` : null;
-  return [...counts, trace].filter(Boolean).join(" / ") || `artifact ${shortId(option.artifactId)}`;
+  return counts.join(" / ") || `artifact ${shortId(option.artifactId)}`;
 }
 
 function resolveRestructureTitle(title: string | null | undefined) {
