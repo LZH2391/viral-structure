@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type FormEvent, type KeyboardEvent, type MutableRefObject, type ReactNode, type SetStateAction } from "react";
-import { IconAtom } from "@tabler/icons-react";
+import { IconArrowRight, IconAtom } from "@tabler/icons-react";
 import { getAgentChatTurnTimeline } from "../../api/client";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTimelineItem, AgentTurnTimeline } from "../../types";
 
@@ -26,11 +26,18 @@ type NewUiRestructureWorkspaceProps = {
   onContextUsageChange?: (usage: AgentTurnTimeline["activity"]["tokenUsage"] | null) => void;
   onSendMessage: (message: string) => Promise<void>;
   onStopTurn?: () => Promise<void> | void;
+  onOpenPlanTrace?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
+  onConfirmPlan?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
+  onAutoAdvanceToggle?: (enabled: boolean) => void;
   activeTurnTarget?: NewUiTurnTimelineTarget | null;
   pendingAssistantMessage?: AgentChatMessageSnapshot | null;
   pendingUserMessage?: AgentChatMessageSnapshot | null;
   sendErrorMessage?: string | null;
   sendingMessage: boolean;
+  autoAdvanceEnabled?: boolean;
+  autoAdvanceBusy?: boolean;
+  openingPlanTraceMessageId?: string | null;
+  confirmingPlanMessageId?: string | null;
 };
 
 type RestructureTimelineActivityItem = {
@@ -58,7 +65,7 @@ type RestructureMessageRenderItem =
   | { kind: "message"; message: AgentChatMessageSnapshot }
   | { kind: "process_group"; id: string; messages: AgentChatMessageSnapshot[] };
 type RestructureNotePillTone = "neutral" | "success" | "warning" | "danger";
-type RestructureNotePillIcon = "slot" | "atom" | "check" | "review" | "rework" | "issue";
+type RestructureNotePillIcon = "slot" | "atom" | "check" | "review" | "rework" | "issue" | "trace" | "confirm";
 
 export function NewUiRestructureWorkspace({
   conversation,
@@ -71,11 +78,18 @@ export function NewUiRestructureWorkspace({
   onContextUsageChange,
   onSendMessage,
   onStopTurn,
+  onOpenPlanTrace,
+  onConfirmPlan,
+  onAutoAdvanceToggle,
   activeTurnTarget = null,
   pendingAssistantMessage = null,
   pendingUserMessage = null,
   sendErrorMessage = null,
   sendingMessage,
+  autoAdvanceEnabled = false,
+  autoAdvanceBusy = false,
+  openingPlanTraceMessageId = null,
+  confirmingPlanMessageId = null,
 }: NewUiRestructureWorkspaceProps) {
   const messages = conversation?.messages ?? [];
   const displayTitle = resolveRestructureTitle(conversation?.title);
@@ -270,6 +284,21 @@ export function NewUiRestructureWorkspace({
             <span>引用结构</span>
           </button>
         </div>
+        {onAutoAdvanceToggle ? (
+          <button
+            className={`new-ui-restructure-auto-advance-toggle ${autoAdvanceEnabled ? "is-on" : ""}`.trim()}
+            type="button"
+            aria-pressed={autoAdvanceEnabled}
+            data-tooltip={autoAdvanceEnabled ? "槽位完成后自动完善 Shot 设计；Shot 设计审查通过后自动确认方案" : "开启后，槽位完成会自动推进到 Shot 设计和确认方案"}
+            disabled={autoAdvanceBusy}
+            onClick={() => onAutoAdvanceToggle(!autoAdvanceEnabled)}
+          >
+            <span className="new-ui-restructure-auto-advance-switch" aria-hidden="true">
+              <i />
+            </span>
+            <span>{autoAdvanceBusy ? "推进中" : "自动推进"}</span>
+          </button>
+        ) : null}
         <ContextUsageIndicator usage={contextUsage} />
         {onStopTurn && (activeTurnTarget?.running || stoppingTurn) ? (
           <button
@@ -437,6 +466,11 @@ export function NewUiRestructureWorkspace({
                       message={renderItem.message}
                       displayText={getDisplayText(renderItem.message)}
                       pseudoStreaming={isPseudoStreaming(renderItem.message)}
+                      onOpenPlanTrace={onOpenPlanTrace}
+                      onConfirmPlan={onConfirmPlan}
+                      actionsDisabled={sendingMessage}
+                      openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
+                      confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
                     />
                   ) : null}
                 </Fragment>
@@ -590,11 +624,31 @@ function formatContextUsageTitle(usage: AgentTurnTimeline["activity"]["tokenUsag
   ].filter(Boolean).join(" / ") || "上下文使用未知";
 }
 
-function RestructureMessage({ message, displayText, pseudoStreaming = false }: { message: AgentChatMessageSnapshot; displayText?: string; pseudoStreaming?: boolean }) {
+function RestructureMessage({
+  message,
+  displayText,
+  pseudoStreaming = false,
+  onOpenPlanTrace,
+  onConfirmPlan,
+  actionsDisabled = false,
+  openingPlanTrace = false,
+  confirmingPlan = false,
+}: {
+  message: AgentChatMessageSnapshot;
+  displayText?: string;
+  pseudoStreaming?: boolean;
+  onOpenPlanTrace?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
+  onConfirmPlan?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
+  actionsDisabled?: boolean;
+  openingPlanTrace?: boolean;
+  confirmingPlan?: boolean;
+}) {
   const renderedText = displayText ?? message.text;
   const isThinking = message.role === "assistant" && message.status === "running" && !hasRenderableAssistantText(renderedText);
   const showDetails = !isThinking && !pseudoStreaming;
   const userInputOrigin = resolveUserInputOriginDisplay(message);
+  const planTraceDisabled = actionsDisabled || openingPlanTrace || !message.slotAtomDisplay?.displayJsonPath;
+  const confirmPlanDisabled = actionsDisabled || confirmingPlan || !isDialogueReviewPassed(message);
 
   return (
     <article className={`new-ui-restructure-message is-${message.role} ${message.status ?? ""} ${pseudoStreaming ? "pseudo-streaming" : ""}`.trim()} aria-busy={isThinking || pseudoStreaming || undefined}>
@@ -616,6 +670,16 @@ function RestructureMessage({ message, displayText, pseudoStreaming = false }: {
                 {formatSlotAtomStatus(message.slotAtomDisplay.status)}
               </RestructureNotePill>
             ) : null}
+            {onOpenPlanTrace ? (
+              <RestructureNotePill
+                icon="trace"
+                onClick={() => void onOpenPlanTrace(message)}
+                disabled={planTraceDisabled}
+                tooltip={message.slotAtomDisplay.displayJsonPath ? "登记当前方案并打开方案溯源图" : "需要当前方案已生成 restructure.display.json"}
+              >
+                {openingPlanTrace ? "登记中" : "查看溯源图"}
+              </RestructureNotePill>
+            ) : null}
           </div>
         ) : null}
         {showDetails && message.dialogueRoboticReview ? (
@@ -627,6 +691,17 @@ function RestructureMessage({ message, displayText, pseudoStreaming = false }: {
               </RestructureNotePill>
             ) : null}
             <RestructureNotePill icon="issue">{message.dialogueRoboticReview.issueCount ?? 0} 项问题</RestructureNotePill>
+            {onConfirmPlan && isDialogueReviewPassed(message) ? (
+              <RestructureNotePill
+                icon="confirm"
+                tone="success"
+                onClick={() => void onConfirmPlan(message)}
+                disabled={confirmPlanDisabled}
+                tooltip="确认当前方案并触发故事板准备流水线"
+              >
+                {confirmingPlan ? "确认中" : "确认方案"}
+              </RestructureNotePill>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -694,14 +769,27 @@ function RestructureNotePill({
   icon,
   tone = "neutral",
   tooltip,
+  onClick,
+  disabled = false,
 }: {
   children: ReactNode;
   icon: RestructureNotePillIcon;
   tone?: RestructureNotePillTone;
   tooltip?: string | null;
+  onClick?: () => void;
+  disabled?: boolean;
 }) {
+  const className = `new-ui-restructure-note-pill is-${tone} ${onClick ? "is-action" : ""}`.trim();
+  if (onClick) {
+    return (
+      <button className={className} type="button" data-tooltip={tooltip || undefined} disabled={disabled} onClick={onClick}>
+        <RestructureNotePillIcon icon={icon} />
+        <span>{children}</span>
+      </button>
+    );
+  }
   return (
-    <span className={`new-ui-restructure-note-pill is-${tone}`} data-tooltip={tooltip || undefined} tabIndex={tooltip ? 0 : undefined}>
+    <span className={className} data-tooltip={tooltip || undefined} tabIndex={tooltip ? 0 : undefined}>
       <RestructureNotePillIcon icon={icon} />
       <span>{children}</span>
     </span>
@@ -719,10 +807,24 @@ function RestructureNotePillIcon({ icon }: { icon: RestructureNotePillIcon }) {
   if (icon === "atom") {
     return <IconAtom aria-hidden="true" focusable="false" />;
   }
+  if (icon === "confirm") {
+    return <IconArrowRight aria-hidden="true" focusable="false" />;
+  }
   if (icon === "check") {
     return (
       <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
         <path d="m4.6 10.4 3.3 3.2 7.5-7.2" />
+      </svg>
+    );
+  }
+  if (icon === "trace") {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
+        <path d="M3.5 13.5 7.7 8.8l3.4 3.1 5.4-6.3" />
+        <circle cx="3.5" cy="13.5" r="1.1" />
+        <circle cx="7.7" cy="8.8" r="1.1" />
+        <circle cx="11.1" cy="11.9" r="1.1" />
+        <circle cx="16.5" cy="5.6" r="1.1" />
       </svg>
     );
   }
@@ -774,6 +876,14 @@ function resolveUserInputOriginDisplay(message: AgentChatMessageSnapshot) {
       tooltip: "这条输入由台词审查结果自动触发，用于让 Agent 按审查问题继续返工台词。",
       icon: "review" as const,
       tone: "warning" as const,
+    };
+  }
+  if (origin === "auto_advance") {
+    return {
+      label: "自动推进",
+      tooltip: "这条输入由自动推进触发，用于从已完成的槽位方案继续完善具体 Shot 设计。",
+      icon: "confirm" as const,
+      tone: "success" as const,
     };
   }
   return null;
@@ -931,6 +1041,10 @@ function dialogueReviewDecisionTone(value: string): RestructureNotePillTone {
 
 function dialogueReviewDecisionIcon(value: string): RestructureNotePillIcon {
   return value.trim().toLowerCase() === "rework" ? "rework" : "check";
+}
+
+function isDialogueReviewPassed(message: AgentChatMessageSnapshot) {
+  return message.dialogueRoboticReview?.decision?.trim().toLowerCase() === "pass";
 }
 
 function RestructureTimelineItemGroup({

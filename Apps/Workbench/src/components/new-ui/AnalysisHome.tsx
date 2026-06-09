@@ -10,11 +10,13 @@ import {
   rerunAnalysisWorkflowStage,
   startAnalysisUpload,
 } from "./analysisBackend";
+import type { AnalysisWorkflowMode } from "./analysisBackend";
 import { listAnalysisHistorySamples, resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
 import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
 import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 
 type AnalysisHomeProps = {
+  mode?: AnalysisWorkflowMode;
   onDetailStateChange?: (state: AnalysisDetailSidebarState) => void;
   openRequest?: { requestId: number; sampleVideoId: string; artifactId?: string | null; title?: string | null } | null;
   onOpenRequestResolved?: (result: { requestId: number; ok: boolean; message?: string | null }) => void;
@@ -24,7 +26,7 @@ type AnalysisHomeProps = {
 const ANALYSIS_DETAIL_HEAVY_MOUNT_DELAY_MS = 240;
 const ANALYSIS_PLAYER_QUEUE_REFRESH_MS = 3200;
 
-export function AnalysisHome({ onDetailStateChange, openRequest = null, onOpenRequestResolved, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
+export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, openRequest = null, onOpenRequestResolved, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
   const lastTimelineSelectionClearRequestRef = useRef(timelineSelectionClearRequest);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const pollTimerRef = useRef<number | null>(null);
@@ -43,6 +45,10 @@ export function AnalysisHome({ onDetailStateChange, openRequest = null, onOpenRe
   const [isUploading, setIsUploading] = useState(false);
   const [detailHeavyReady, setDetailHeavyReady] = useState(false);
   const [detailTimelineReady, setDetailTimelineReady] = useState(false);
+  const isMaterialMode = mode === "materialRecognition";
+  const uploadTitle = isMaterialMode ? "拖拽视频做素材识别" : "拖拽样例做结构分析";
+  const uploadSubtitle = isMaterialMode ? "生成素材能力包" : "拆出脚本 / 节奏 / 包装";
+  const uploadAriaLabel = isMaterialMode ? "上传视频开始素材识别" : "上传视频开始结构分析";
   const workflowStageKeySignature = detailItem?.workflowRun?.stages?.map((stage) => stage.key).join("|") ?? "";
   const detailArtifactSignature = [
     detailItem?.artifact?.sampleVideo?.artifactId,
@@ -162,7 +168,7 @@ export function AnalysisHome({ onDetailStateChange, openRequest = null, onOpenRe
     setRerunningStageKey(null);
     setView("detail");
     try {
-      const { item, media } = await startAnalysisUpload(file);
+      const { item, media } = await startAnalysisUpload(file, mode);
       if (token !== operationTokenRef.current) return;
       setDetailItem(item);
       setDetailMedia(media);
@@ -173,7 +179,7 @@ export function AnalysisHome({ onDetailStateChange, openRequest = null, onOpenRe
     } finally {
       if (token === operationTokenRef.current) setIsUploading(false);
     }
-  }, [stopPolling]);
+  }, [mode, stopPolling]);
 
   const handleUploadDrop = useCallback((event: DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -336,7 +342,7 @@ export function AnalysisHome({ onDetailStateChange, openRequest = null, onOpenRe
         <button
           className="new-ui-analysis-upload-frame"
           type="button"
-          aria-label="上传视频开始分析"
+          aria-label={uploadAriaLabel}
           disabled={isUploading}
           onClick={openUploadDetail}
           onDragOver={(event) => event.preventDefault()}
@@ -352,15 +358,15 @@ export function AnalysisHome({ onDetailStateChange, openRequest = null, onOpenRe
             </svg>
           </span>
           <span className="new-ui-analysis-upload-copy">
-            <span className="new-ui-analysis-upload-primary">{isUploading ? "正在启动分析" : "拖拽视频到此处"}</span>
-            <span className="new-ui-analysis-upload-secondary">{isUploading ? "正在创建分析任务" : "或点击选择文件"}</span>
+            <span className="new-ui-analysis-upload-primary">{isUploading ? (isMaterialMode ? "正在启动识别" : "正在启动分析") : uploadTitle}</span>
+            <span className="new-ui-analysis-upload-secondary">{isUploading ? "正在创建任务" : uploadSubtitle}</span>
           </span>
           <span className="new-ui-analysis-upload-limit-group" aria-hidden="true">
             <span className="new-ui-analysis-upload-limit">支持并行</span>
             <span className="new-ui-analysis-upload-limit">单文件最大 2G</span>
           </span>
         </button>
-        <AnalysisHistory refreshKey={historyRefreshKey} onOpenItem={openHistoryDetail} />
+        <AnalysisHistory mode={mode} refreshKey={historyRefreshKey} onOpenItem={openHistoryDetail} />
       </section>
       <AnalysisDetailPage
         hidden={view !== "detail"}
@@ -511,9 +517,7 @@ function AnalysisDetailPage({
 }
 
 function resolveTimelineModeHint(media: AnalysisHistoryMedia | null): "material" | "structure" | null {
-  if (media?.badgeLabel === "素材识别") return "material";
-  if (media?.badgeLabel === "结构分析") return "structure";
-  return null;
+  return media?.analysisKind ?? null;
 }
 
 type PlayerQueueItem = {
@@ -633,7 +637,7 @@ function resolveQueueThumbnailRatio(media: AnalysisHistoryMedia | null): PlayerQ
 function resolveQueueBadgeLabel(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, status: PlayerQueueItem["status"]): PlayerQueueItem["badgeLabel"] {
   if (status === "done") return "已完成";
   if (status === "waiting") return "排队中";
-  if (media?.badgeLabel === "素材识别" || item?.workflowRun?.workflowKey === "material-recognition") return "识别中";
+  if (media?.analysisKind === "material" || item?.workflowRun?.workflowKey === "material-recognition") return "识别中";
   return "分析中";
 }
 

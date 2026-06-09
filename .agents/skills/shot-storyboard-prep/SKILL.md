@@ -68,6 +68,7 @@ python .agents/skills/shot-storyboard-prep/scripts/prepare_storyboard.py --input
 - Shot 表可解析。
 - 若 `shot-design.final.md` 包含 `## 封面生图提示词`，prepare 必须解析为 `manifest.cover`，并生成独立 `storyboard-cover` 生图 group；封面不写入普通 `manifest.shots[]`。
 - 存在并识别 `素材来源/处理策略`。
+- `overlayPackaging` 只能保留画面可见覆盖层和剪辑执行规格；prepare 必须剥离 `包装说明` 中的“目的：”“服务功能：”“证明功能：”等内部说明，以及“商品记忆点”“购买理由”“商品锚定”等内部结构词标签。
 - `generatedShotCount` 与 manifest 对齐。
 - 只有 `self_designed_by_shot_design` 进入 prompt。
 - pad 只出现在 prompt/manifest 的 storyboard group，不进入最终 PDF。

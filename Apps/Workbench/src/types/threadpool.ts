@@ -108,7 +108,7 @@ export type AgentChatMessageSnapshot = {
   role: "user" | "assistant" | "system";
   text: string;
   status?: "running" | "completed" | "failed" | "canceled";
-  userInputOrigin?: "manual_replacement" | "auto_dialogue_rework" | string | null;
+  userInputOrigin?: "manual_replacement" | "auto_dialogue_rework" | "auto_advance" | string | null;
   slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
   dialogueRoboticReview?: AgentChatDialogueRoboticReview | null;
   createdAt?: string | null;

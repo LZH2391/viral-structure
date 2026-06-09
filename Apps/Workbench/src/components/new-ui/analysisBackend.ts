@@ -1,5 +1,6 @@
 import {
   checkFullAnalysisUploadCache,
+  checkMaterialRecognitionUploadCache,
   getLatestFullAnalysisRunForSample,
   getLatestMaterialRecognitionRunForSample,
   getProcessingJob,
@@ -7,6 +8,7 @@ import {
   getWorkflowRun,
   startAnalysisRole,
   startFullAnalysisRun,
+  startMaterialRecognitionRun,
   startShotBoundaryAnalysis,
 } from "../../api/client";
 import {
@@ -34,18 +36,21 @@ export type AnalysisStartResult = AnalysisBackendLoadResult & {
 };
 
 const DEFAULT_FRAME_SAMPLE_RATE = 10;
+export type AnalysisWorkflowMode = "structureAnalysis" | "materialRecognition";
 
-export async function startAnalysisUpload(file: File): Promise<AnalysisStartResult> {
-  const cache = await checkFullAnalysisUploadCache(file, { frameSampleRateFps: DEFAULT_FRAME_SAMPLE_RATE }).catch(() => null);
+export async function startAnalysisUpload(file: File, mode: AnalysisWorkflowMode): Promise<AnalysisStartResult> {
+  const cacheCheck = mode === "materialRecognition" ? checkMaterialRecognitionUploadCache : checkFullAnalysisUploadCache;
+  const cache = await cacheCheck(file, { frameSampleRateFps: DEFAULT_FRAME_SAMPLE_RATE }).catch(() => null);
   if (cache?.cacheHit) {
     return loadAnalysisDetailItem(analysisHistoryItemFromCachedItem(cache.cachedItem, file.name));
   }
-  const workflowRun = await startFullAnalysisRun(file, {
+  const startRun = mode === "materialRecognition" ? startMaterialRecognitionRun : startFullAnalysisRun;
+  const workflowRun = await startRun(file, {
     frameSampleRateFps: DEFAULT_FRAME_SAMPLE_RATE,
     enableAudioSeparation: true,
     enableSubtitleRecognition: true,
     enableAudioFeatureAnalysis: true,
-    enableFunctionSlotAtomization: true,
+    ...(mode === "structureAnalysis" ? { enableFunctionSlotAtomization: true } : {}),
     cacheDecision: "ask",
   });
   const startedItem = analysisHistoryItemFromWorkflowRun(workflowRun, file.name);

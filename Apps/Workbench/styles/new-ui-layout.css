@@ -875,6 +875,139 @@
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transform-origin: center;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.new-ui-subnav-icon-alt,
+.new-ui-subnav-icon-detail,
+.new-ui-subnav-icon-main {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    stroke-width 180ms ease;
+}
+
+.new-ui-subnav-icon-alt {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.new-ui-sidebar-subnav-item.has-icon:hover .new-ui-sidebar-subnav-icon svg,
+.new-ui-sidebar-subnav-item.has-icon:focus-visible .new-ui-sidebar-subnav-icon svg,
+.new-ui-sidebar-subnav-item.has-icon.is-active .new-ui-sidebar-subnav-icon svg {
+  transform: translateY(-1px) scale(1.05);
+}
+
+.new-ui-sidebar-subnav-item.has-icon:active .new-ui-subnav-icon-detail {
+  opacity: 0.58;
+}
+
+.new-ui-sidebar-subnav-item.has-icon:active .new-ui-subnav-icon-main {
+  stroke-width: 2.15;
+}
+
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"]:hover .new-ui-subnav-icon-structure-row,
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"]:focus-visible .new-ui-subnav-icon-structure-row,
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"].is-active .new-ui-subnav-icon-structure-row {
+  transform: scaleX(0.94);
+}
+
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"]:hover .new-ui-subnav-icon-structure-knob-a,
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"]:focus-visible .new-ui-subnav-icon-structure-knob-a,
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"].is-active .new-ui-subnav-icon-structure-knob-a {
+  transform: translateX(2px);
+}
+
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"]:hover .new-ui-subnav-icon-structure-knob-b,
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"]:focus-visible .new-ui-subnav-icon-structure-knob-b,
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"].is-active .new-ui-subnav-icon-structure-knob-b {
+  transform: translateX(-2px);
+}
+
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"]:hover .new-ui-subnav-icon-structure-knob-c,
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"]:focus-visible .new-ui-subnav-icon-structure-knob-c,
+.new-ui-sidebar-subnav-item[data-child="structureAnalysis"].is-active .new-ui-subnav-icon-structure-knob-c {
+  transform: translateX(1.5px);
+}
+
+.new-ui-sidebar-subnav-item[data-child="materialRecognition"]:hover .new-ui-subnav-icon-scan-corner,
+.new-ui-sidebar-subnav-item[data-child="materialRecognition"]:focus-visible .new-ui-subnav-icon-scan-corner,
+.new-ui-sidebar-subnav-item[data-child="materialRecognition"].is-active .new-ui-subnav-icon-scan-corner {
+  transform: scale(1.08);
+}
+
+.new-ui-sidebar-subnav-item[data-child="materialRecognition"]:hover .new-ui-subnav-icon-scan-line,
+.new-ui-sidebar-subnav-item[data-child="materialRecognition"]:focus-visible .new-ui-subnav-icon-scan-line,
+.new-ui-sidebar-subnav-item[data-child="materialRecognition"].is-active .new-ui-subnav-icon-scan-line {
+  transform: translateY(2px) scaleX(0.86);
+}
+
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"]:hover .new-ui-subnav-icon-graph-node,
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"]:focus-visible .new-ui-subnav-icon-graph-node,
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"].is-active .new-ui-subnav-icon-graph-node {
+  transform: scale(1.12);
+}
+
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"]:hover .new-ui-subnav-icon-graph-node-large,
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"]:focus-visible .new-ui-subnav-icon-graph-node-large,
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"].is-active .new-ui-subnav-icon-graph-node-large {
+  transform: scale(0.86);
+}
+
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"]:hover .new-ui-subnav-icon-graph-link,
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"]:focus-visible .new-ui-subnav-icon-graph-link,
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"].is-active .new-ui-subnav-icon-graph-link {
+  opacity: 1;
+  transform: scale(1.04);
+}
+
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"]:hover .new-ui-subnav-icon-graph-link-alt,
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"]:focus-visible .new-ui-subnav-icon-graph-link-alt,
+.new-ui-sidebar-subnav-item[data-child="sampleStructure"].is-active .new-ui-subnav-icon-graph-link-alt {
+  opacity: 1;
+  transform: scale(1.04);
+}
+
+.new-ui-sidebar-subnav-item[data-child="semanticGovernance"]:hover .new-ui-subnav-icon-tag-body,
+.new-ui-sidebar-subnav-item[data-child="semanticGovernance"]:focus-visible .new-ui-subnav-icon-tag-body,
+.new-ui-sidebar-subnav-item[data-child="semanticGovernance"].is-active .new-ui-subnav-icon-tag-body {
+  transform: rotate(-4deg) scale(1.04);
+}
+
+.new-ui-sidebar-subnav-item[data-child="semanticGovernance"]:hover .new-ui-subnav-icon-tag-shadow,
+.new-ui-sidebar-subnav-item[data-child="semanticGovernance"]:focus-visible .new-ui-subnav-icon-tag-shadow,
+.new-ui-sidebar-subnav-item[data-child="semanticGovernance"].is-active .new-ui-subnav-icon-tag-shadow {
+  transform: translate(1px, -1px) scale(0.9);
+  opacity: 0.52;
+}
+
+.new-ui-sidebar-subnav-item[data-child="semanticGovernance"]:hover .new-ui-subnav-icon-tag-dot,
+.new-ui-sidebar-subnav-item[data-child="semanticGovernance"]:focus-visible .new-ui-subnav-icon-tag-dot,
+.new-ui-sidebar-subnav-item[data-child="semanticGovernance"].is-active .new-ui-subnav-icon-tag-dot {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+.new-ui-sidebar-subnav-item[data-child="planTrace"]:hover .new-ui-subnav-icon-trace-line,
+.new-ui-sidebar-subnav-item[data-child="planTrace"]:focus-visible .new-ui-subnav-icon-trace-line,
+.new-ui-sidebar-subnav-item[data-child="planTrace"].is-active .new-ui-subnav-icon-trace-line {
+  transform: translateY(-1px) scaleY(1.08);
+}
+
+.new-ui-sidebar-subnav-item[data-child="planTrace"]:hover .new-ui-subnav-icon-trace-dot,
+.new-ui-sidebar-subnav-item[data-child="planTrace"]:focus-visible .new-ui-subnav-icon-trace-dot,
+.new-ui-sidebar-subnav-item[data-child="planTrace"].is-active .new-ui-subnav-icon-trace-dot {
+  transform: scale(1.18);
+}
+
+.new-ui-sidebar-subnav-item[data-child="planTrace"]:hover .new-ui-subnav-icon-trace-end,
+.new-ui-sidebar-subnav-item[data-child="planTrace"]:focus-visible .new-ui-subnav-icon-trace-end,
+.new-ui-sidebar-subnav-item[data-child="planTrace"].is-active .new-ui-subnav-icon-trace-end {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .new-ui-sidebar-subnav-item.has-archive {

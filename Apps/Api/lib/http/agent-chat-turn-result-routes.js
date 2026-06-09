@@ -11,6 +11,7 @@ const {
   runAgentChatStage,
   safePreview,
 } = require("./agent-chat-route-core");
+const { maybeCompleteAutomaticAdvance } = require("./agent-chat-auto-advance-routes");
 const { maybeSubmitAutomaticDialogueRework } = require("./agent-chat-dialogue-routes");
 const {
   DEFAULT_TURN_TIMEOUT_SECONDS,
@@ -116,6 +117,14 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
           sourceTurnId: payload.turnId,
         });
       }
+      if (conversationId && payload.autoDialogueRoboticReview?.status === "processed" && payload.autoDialogueRoboticReview.decision === "pass") {
+        payload.autoAdvanceConfirmation = await maybeCompleteAutomaticAdvance({
+          handlers,
+          conversationId,
+          payload,
+          traceContext,
+        });
+      }
       const markedActiveTurn = await handlers.activeTurnRuntime?.markCollectResult?.({
         turnId: payload.turnId,
         result: payload,
@@ -135,6 +144,9 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
         payload.conversationRevision = maxRevision(payload.conversationRevision, payload.autoDialogueRework.conversationRevision);
         payload.latestTurnId = payload.autoDialogueRework.latestTurnId ?? payload.autoDialogueRework.turnId ?? payload.latestTurnId;
         payload.threadStopped = Boolean(payload.autoDialogueRework.threadStopped);
+      }
+      if (payload.autoAdvanceConfirmation?.ok) {
+        payload.conversationRevision = maxRevision(payload.conversationRevision, payload.autoAdvanceConfirmation.conversationRevision);
       }
       payload.retryable = true;
       payload.activeTurnStatus = normalizeTurnStatus(payload.status);
@@ -157,6 +169,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       autoDisplayStatus: result.autoDisplayTransform?.status ?? null,
       autoDialogueReviewStatus: result.autoDialogueRoboticReview?.status ?? null,
       autoDialogueReworkStatus: result.autoDialogueRework?.status ?? null,
+      autoAdvanceConfirmationStatus: result.autoAdvanceConfirmation?.status ?? null,
       titleStatus: result.titleGeneration?.status ?? null,
     }),
     successStatus: 200,

@@ -6,6 +6,10 @@ const {
   handleAgentChatConversationSystemMessage,
 } = require("./agent-chat-conversation-routes");
 const {
+  handleAgentChatConversationAutoAdvance,
+  maybeCompleteAutomaticAdvance,
+} = require("./agent-chat-auto-advance-routes");
+const {
   handleAgentChatConversationDialogueReview,
   handleAgentChatConversationDialogueRework,
 } = require("./agent-chat-dialogue-routes");
@@ -30,6 +34,7 @@ const {
 
 module.exports = {
   handleAgentChatConversationArchive,
+  handleAgentChatConversationAutoAdvance,
   handleAgentChatConversationConfirm,
   handleAgentChatConversationDialogueReview,
   handleAgentChatConversationDialogueRework,
@@ -46,4 +51,5 @@ module.exports = {
   handleAgentChatTurnSubmit,
   handleAgentChatTurnStop,
   handleAgentChatTurnTimeline,
+  maybeCompleteAutomaticAdvance,
 };

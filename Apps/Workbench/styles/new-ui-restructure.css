@@ -615,6 +615,50 @@
   white-space: nowrap;
 }
 
+button.new-ui-restructure-note-pill {
+  appearance: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 120ms ease;
+}
+
+button.new-ui-restructure-note-pill.is-action {
+  min-height: 44px;
+  margin-left: 2px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border-color: color-mix(in srgb, var(--new-ui-text) 34%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-surface-raised) 84%, transparent);
+  color: var(--new-ui-text);
+  font-size: var(--new-ui-font-size-sm);
+  letter-spacing: 0;
+}
+
+button.new-ui-restructure-note-pill.is-action:hover,
+button.new-ui-restructure-note-pill.is-action:focus-visible {
+  border-color: color-mix(in srgb, var(--new-ui-text) 52%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-text) 7%, var(--new-ui-surface-raised));
+  color: var(--new-ui-text);
+}
+
+button.new-ui-restructure-note-pill.is-action:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--new-ui-text) 34%, transparent);
+  outline-offset: 2px;
+}
+
+button.new-ui-restructure-note-pill.is-action:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button.new-ui-restructure-note-pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
 .new-ui-restructure-note-pill svg {
   width: 15px;
   height: 15px;
@@ -718,7 +762,7 @@
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
-  padding-right: 168px;
+  padding-right: 380px;
 }
 
 .new-ui-restructure-tool-button {
@@ -766,6 +810,73 @@
 .new-ui-restructure-send-button.is-stop {
   background: color-mix(in srgb, var(--danger) 18%, var(--new-ui-restructure-send-bg));
   color: color-mix(in srgb, var(--new-ui-text) 88%, var(--danger));
+}
+
+.new-ui-restructure-auto-advance-toggle {
+  position: absolute;
+  right: 182px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 38px;
+  min-width: 150px;
+  padding: 0 16px 0 14px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-text) 22%, var(--new-ui-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--new-ui-bg) 28%, transparent);
+  color: color-mix(in srgb, var(--new-ui-text) 68%, var(--new-ui-text-muted));
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 525;
+}
+
+.new-ui-restructure-auto-advance-toggle:hover,
+.new-ui-restructure-auto-advance-toggle:focus-visible {
+  border-color: color-mix(in srgb, var(--new-ui-text) 38%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-text) 6%, var(--new-ui-bg));
+  color: var(--new-ui-text);
+  outline: 0;
+}
+
+.new-ui-restructure-auto-advance-toggle:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.new-ui-restructure-auto-advance-toggle.is-on {
+  border-color: color-mix(in srgb, var(--new-ui-green-400) 42%, var(--new-ui-border));
+  color: color-mix(in srgb, var(--new-ui-green-400) 64%, var(--new-ui-text));
+}
+
+.new-ui-restructure-auto-advance-switch {
+  position: relative;
+  width: 36px;
+  height: 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--new-ui-text-muted) 34%, transparent);
+  transition: background 160ms ease;
+}
+
+.new-ui-restructure-auto-advance-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--new-ui-text);
+  opacity: 0.92;
+  transition: transform 160ms ease;
+}
+
+.new-ui-restructure-auto-advance-toggle.is-on .new-ui-restructure-auto-advance-switch {
+  background: color-mix(in srgb, var(--new-ui-green-400) 70%, var(--new-ui-text));
+}
+
+.new-ui-restructure-auto-advance-toggle.is-on .new-ui-restructure-auto-advance-switch i {
+  transform: translateX(14px);
 }
 
 .new-ui-restructure-context-usage {

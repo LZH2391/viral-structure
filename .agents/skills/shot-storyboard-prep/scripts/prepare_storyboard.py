@@ -31,6 +31,22 @@ PLACEHOLDER_DURATION_VALUES = {
     "待后置估算",
     "待后置回填",
 }
+INTERNAL_OVERLAY_LABEL_TERMS = {
+    "动作命名",
+    "低门槛判断",
+    "结果落点",
+    "视线引导",
+    "证据标注",
+    "主张钉子",
+    "场景归类",
+    "商品记忆",
+    "商品记忆点",
+    "购买理由",
+    "商品锚定",
+    "对象锚定",
+}
+INTERNAL_OVERLAY_PREFIX_RE = re.compile(r"^(?:目的|服务功能|证明功能)\s*[:：]")
+OVERLAY_VISUAL_CLAUSE_RE = re.compile(r"(?:字幕|标签|标题|胶囊|图卡|小卡|CTA|目的)")
 
 
 def main() -> None:
@@ -147,7 +163,7 @@ def extract_cover_prompt(text: str, aspect: dict[str, str | None]) -> dict[str, 
         "subjectAndScene": table.get("主体与场景", ""),
         "visualFocus": table.get("情绪与视觉重点", ""),
         "imagePrompt": table.get("生图提示词", ""),
-        "overlayPackaging": table.get("包装文字建议", ""),
+        "overlayPackaging": clean_overlay_packaging(table.get("包装文字建议", "")),
         "avoid": table.get("避免项", ""),
         "warnings": [],
     }
@@ -356,7 +372,7 @@ def build_storyboard_plan(rows: list[dict[str, str]], aspect: dict[str, str | No
             "rhythmRange": row.get("节奏区间", ""),
             "packagingBlock": row.get("包装块", ""),
             "imagePrompt": row.get("分镜画面", ""),
-            "overlayPackaging": row.get("包装说明", ""),
+            "overlayPackaging": clean_overlay_packaging(row.get("包装说明", "")),
             "dialogue": row.get("台词/字幕（若有）", ""),
             "duration": row.get("预计时长", ""),
             "syncPoint": row.get("必须同步点", ""),
@@ -408,6 +424,27 @@ def parse_strategy(value: str) -> dict[str, Any]:
     }
 
 
+def normalize_text(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip())
+
+
+def clean_overlay_packaging(value: str) -> str:
+    text = normalize_text(value)
+    if not text:
+        return ""
+    clauses = [clause.strip() for clause in re.split(r"[；;]", text) if clause.strip()]
+    if not clauses:
+        return text
+    visible_clauses = []
+    for clause in clauses:
+        if INTERNAL_OVERLAY_PREFIX_RE.search(clause):
+            continue
+        if OVERLAY_VISUAL_CLAUSE_RE.search(clause) and any(term in clause for term in INTERNAL_OVERLAY_LABEL_TERMS):
+            continue
+        visible_clauses.append(clause)
+    return "；".join(visible_clauses).strip() or "无"
+
+
 def parse_slot_key(value: str) -> str:
     text = str(value or "").strip()
     match = re.search(r"`([^`]*SUB_[^`]*)`", text)
@@ -432,7 +469,7 @@ def build_storyboard_groups(rows: list[dict[str, str]], group_size: int) -> list
                     "cellIndex": cell_index + 1,
                     "isPad": str(row.get("shot", "")).startswith("storyboard_blank_pad_"),
                     "imagePrompt": row.get("分镜画面", ""),
-                    "overlayPackaging": row.get("包装说明", ""),
+                    "overlayPackaging": clean_overlay_packaging(row.get("包装说明", "")),
                 }
                 for cell_index, row in enumerate(group_rows)
             ],

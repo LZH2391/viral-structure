@@ -83,9 +83,9 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
   };
 
   return (
-    <section className="new-ui-analysis-workflow" aria-label={materialWorkflow ? "素材识别总览" : "完整分析总览"}>
+    <section className="new-ui-analysis-workflow" aria-label={materialWorkflow ? "素材识别总览" : "结构分析总览"}>
       <div className="new-ui-analysis-workflow-flow">
-        <h2 className="new-ui-analysis-workflow-title">{materialWorkflow ? "识别流程" : "分析流程"}</h2>
+        <h2 className="new-ui-analysis-workflow-title">{materialWorkflow ? "素材识别流程" : "结构分析流程"}</h2>
         <ol className="new-ui-analysis-workflow-list">
           {materialWorkflow ? (
             <>

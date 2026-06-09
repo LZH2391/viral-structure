@@ -130,6 +130,20 @@ export type AgentChatTurnResponse = {
     error?: string | null;
     message?: string | null;
   } | null;
+  autoAdvanceConfirmation?: {
+    ok: boolean;
+    status?: string | null;
+    confirmationId?: string | null;
+    conversationRevision?: number | null;
+    storyboardArtifact?: AgentChatArtifactRef | null;
+    traceId?: string | null;
+    runId?: string | null;
+    stageId?: string | null;
+    error?: string | null;
+    message?: string | null;
+    retryable?: boolean | null;
+    debugSnapshotUri?: string | null;
+  } | null;
 };
 
 export type AgentChatCompactResponse = {
@@ -734,6 +748,31 @@ export async function listAgentChatConversations(payload: { role?: string | null
   const query = buildQuery({ role: payload.role, status: payload.status ?? "active", limit: payload.limit, offset: payload.offset });
   return readJsonResponse<{ ok: boolean; conversations: AgentChatConversation[]; total?: number | null; limit?: number | null; offset?: number | null; hasMore?: boolean; nextOffset?: number | null; traceId: string; runId: string; stageId: string }>(
     await fetch(`${API_BASE_URL}/api/agent-chat/conversations${query}`, { cache: "no-store" }),
+  );
+}
+
+export async function startAgentChatAutoAdvance(
+  conversationId: string,
+  payload: {
+    threadId?: string | null;
+    sourceTurnId?: string | null;
+    restructureFinalPath?: string | null;
+    parentArtifactId?: string | null;
+    expectedRevision?: number | null;
+    workspaceRoot?: string | null;
+    skillPath?: string | null;
+    source?: "direct" | "threadpool-role";
+    role?: string | null;
+    leaseId?: string | null;
+    userInstruction?: string | null;
+  } = {},
+) {
+  return readJsonResponse<AgentChatTurnResponse>(
+    await fetch(`${API_BASE_URL}/api/agent-chat/conversations/${encodeURIComponent(conversationId)}/auto-advance`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
   );
 }
 

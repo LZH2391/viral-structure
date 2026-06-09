@@ -36,6 +36,8 @@ test("shot storyboard prep routes only self-designed shots into prompts and down
   assert.doesNotMatch(prompt, /### new_shot_01/);
   assert.doesNotMatch(prompt, /### new_shot_04/);
   assert.match(prompt, /### storyboard_blank_pad_04/);
+  assert.doesNotMatch(prompt, /商品记忆点/);
+  assert.doesNotMatch(prompt, /目的：购买理由和商品锚定/);
 
   const manifest = await readJson(manifestPath);
   assert.equal(manifest.cover.coverId, "cover_image");
@@ -43,6 +45,7 @@ test("shot storyboard prep routes only self-designed shots into prompts and down
   assert.equal(manifest.storyboardGroups[0].isCover, true);
   assert.equal(manifest.shots.find((shot) => shot.shotId === "new_shot_01").shouldGenerate, false);
   assert.equal(manifest.shots.find((shot) => shot.shotId === "new_shot_02").slotKey, "SUB_demo");
+  assert.equal(manifest.shots.find((shot) => shot.shotId === "new_shot_02").overlayPackaging, "包装二");
   assert.equal(manifest.storyboardGroups[1].shots.length, 4);
   assert.equal(manifest.storyboardGroups[1].shots[3].isPad, true);
 
@@ -97,7 +100,7 @@ function sampleShotDesign() {
 | shot | slotSubtype 对齐 | 素材来源/处理策略 | 脚本段落 | 节奏区间 | 包装块 | 分镜画面 | 包装说明 | 台词/字幕（若有） | 预计时长 | 必须同步点 | 证明功能 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | new_shot_01 | \`SUB_demo\` hook | \`existing_material: shot_1\` | P1 | R1 | PK1 | 素材画面一 | 沿用素材 | 原字幕一 | 1.0s | 同步一 | 证明一 |
-| new_shot_02 | \`SUB_demo\` fragment 1 | \`self_designed_by_shot_design: 自设计镜头\` | P1 | R1 | PK1 | 自设计画面二 | 包装二 | 字幕二 | 1.0s | 同步二 | 证明二 |
+| new_shot_02 | \`SUB_demo\` fragment 1 | \`self_designed_by_shot_design: 自设计镜头\` | P1 | R1 | PK1 | 自设计画面二 | 包装二；右侧小标签“商品记忆点”；目的：购买理由和商品锚定 | 字幕二 | 1.0s | 同步二 | 证明二 |
 | new_shot_03 | \`SUB_demo\` fragment 2 | \`self_designed_by_shot_design: 自设计镜头\` | P1 | R1 | PK1 | 自设计画面三 | 包装三 | 字幕三 | 1.0s | 同步三 | 证明三 |
 | new_shot_04 | \`SUB_demo\` payoff | \`existing_material_packaging_caption: shot_1\` | P1 | R1 | PK1 | 素材画面四 | 包装补强四 | 后期字幕四 | 1.0s | 同步四 | 证明四 |
 | new_shot_05 | \`SUB_demo\` close | \`self_designed_by_shot_design: 自设计镜头\` | P1 | R1 | PK1 | 自设计画面五 | 包装五 | 字幕五 | 1.0s | 同步五 | 证明五 |

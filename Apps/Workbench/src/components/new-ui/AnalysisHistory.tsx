@@ -5,19 +5,23 @@ import {
   shouldShowAnalysisHistoryItem,
   type AnalysisHistoryItem,
 } from "./analysisHistoryData";
+import type { AnalysisWorkflowMode } from "./analysisBackend";
 
 type AnalysisHistoryProps = {
+  mode?: AnalysisWorkflowMode;
   refreshKey?: number;
   onOpenItem: (item: AnalysisHistoryItem) => void;
 };
 
-export const AnalysisHistory = memo(function AnalysisHistory({ refreshKey = 0, onOpenItem }: AnalysisHistoryProps) {
+export const AnalysisHistory = memo(function AnalysisHistory({ mode = "structureAnalysis", refreshKey = 0, onOpenItem }: AnalysisHistoryProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const resizeCommitTimerRef = useRef<number | null>(null);
   const [items, setItems] = useState<AnalysisHistoryItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [historyWidth, setHistoryWidth] = useState<number | null>(null);
-  const visibleItems = useMemo(() => items.filter(shouldShowAnalysisHistoryItem), [items]);
+  const visibleItems = useMemo(() => (
+    items.filter((item) => shouldShowAnalysisHistoryItem(item) && matchesHistoryMode(item, mode))
+  ), [items, mode]);
   const dominoLayout = useMemo(() => buildDominoLayout(visibleItems, historyWidth), [visibleItems, historyWidth]);
 
   useLayoutEffect(() => {
@@ -73,9 +77,9 @@ export const AnalysisHistory = memo(function AnalysisHistory({ refreshKey = 0, o
   }, [refreshKey]);
 
   return (
-    <section ref={sectionRef} className="new-ui-analysis-history" aria-label="历史结果">
+    <section ref={sectionRef} className="new-ui-analysis-history" aria-label={mode === "materialRecognition" ? "素材识别历史结果" : "结构分析历史结果"}>
       <div className="new-ui-analysis-history-header">
-        <h2 className="new-ui-analysis-history-title">历史结果</h2>
+        <h2 className="new-ui-analysis-history-title">{mode === "materialRecognition" ? "素材识别历史" : "结构分析历史"}</h2>
       </div>
       {status === "loading" ? <div className="new-ui-analysis-history-state">加载中</div> : null}
       {status === "error" ? <div className="new-ui-analysis-history-state">暂时无法读取历史结果</div> : null}
@@ -97,6 +101,15 @@ export const AnalysisHistory = memo(function AnalysisHistory({ refreshKey = 0, o
     </section>
   );
 });
+
+function matchesHistoryMode(item: AnalysisHistoryItem, mode: AnalysisWorkflowMode) {
+  const workflowKey = item.workflowRun?.workflowKey ?? item.workflowKey ?? null;
+  const structure = Boolean(item.hasFunctionSlotAtomization) || workflowKey === "full-analysis";
+  const material = !structure && (workflowKey === "material-recognition" || Boolean(item.hasUserMaterialPack));
+  if (mode === "materialRecognition") return material;
+  if (structure) return true;
+  return !material;
+}
 
 type DominoPlacement = {
   item: AnalysisHistoryItem;
@@ -383,9 +396,8 @@ function dominoCellKey(x: number, y: number) {
   return `${x}:${y}`;
 }
 
-function badgeClass(label: "素材识别" | "结构分析" | "分析中" | "未完成") {
-  if (label === "素材识别") return "material";
-  if (label === "结构分析") return "structure";
+function badgeClass(label: "已完成" | "分析中" | "未完成") {
+  if (label === "已完成") return "complete";
   if (label === "未完成") return "incomplete";
   return "pending";
 }

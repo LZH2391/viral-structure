@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { archiveAgentChatConversation, collectAgentChatTurn, compactAgentChatThread, listAgentChatConversations, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
+import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, listAgentChatConversations, registerFunctionSlotConfirmedPlanTrace, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft } from "../../types";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../../utils/restructurePath";
@@ -14,6 +14,7 @@ import { buildReplacementDraftSummary, SlotAtomView } from "../agent-chat/SlotAt
 import { NewUiRestructureWorkspace, type NewUiTurnTimelineTarget } from "./NewUiRestructureWorkspace";
 
 type NewUiSectionId = "analysis" | "library" | "restructure";
+type NewUiAnalysisChildId = "structureAnalysis" | "materialRecognition";
 type NewUiLibraryChildId = "sampleStructure" | "semanticGovernance" | "planTrace";
 
 type NewUiSection = {
@@ -30,7 +31,14 @@ type NewUiNavChild = {
 };
 
 const NEW_UI_SECTIONS: NewUiSection[] = [
-  { id: "analysis", label: "分析" },
+  {
+    id: "analysis",
+    label: "分析",
+    children: [
+      { id: "structureAnalysis", label: "结构分析" },
+      { id: "materialRecognition", label: "素材识别" },
+    ],
+  },
   {
     id: "library",
     label: "库",
@@ -111,6 +119,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const runningRestructureTurnsRef = useRef<Record<string, RunningRestructureTurn>>({});
   const restructureTurnPollTimersRef = useRef<Record<string, number>>({});
   const restructureSubmissionBusyRef = useRef(false);
+  const autoAdvanceSubmittedKeysRef = useRef<Set<string>>(new Set());
   const compactedRestructureUsageKeysRef = useRef<Set<string>>(new Set());
   const activeSectionRef = useRef<NewUiSectionId>("analysis");
   const activeRestructureConversationIdRef = useRef<string | null>(null);
@@ -120,6 +129,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
   const [rightCollapsed, setRightCollapsed] = useState(true);
   const [activeSection, setActiveSection] = useState<NewUiSectionId>("analysis");
+  const [activeAnalysisChild, setActiveAnalysisChild] = useState<NewUiAnalysisChildId>("structureAnalysis");
   const [activeLibraryChild, setActiveLibraryChild] = useState<NewUiLibraryChildId>("sampleStructure");
   const [activeRestructureConversationId, setActiveRestructureConversationId] = useState<string | null>(null);
   const [draftingRestructureConversation, setDraftingRestructureConversation] = useState(false);
@@ -133,6 +143,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [sendingRestructureMessage, setSendingRestructureMessage] = useState(false);
   const [compactingRestructureContext, setCompactingRestructureContext] = useState(false);
   const [stoppingRestructureTurn, setStoppingRestructureTurn] = useState(false);
+  const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
+  const [autoAdvanceBusy, setAutoAdvanceBusy] = useState(false);
+  const [openingPlanTraceMessageId, setOpeningPlanTraceMessageId] = useState<string | null>(null);
+  const [confirmingPlanMessageId, setConfirmingPlanMessageId] = useState<string | null>(null);
   const [selectedRestructureContextUsage, setSelectedRestructureContextUsage] = useState<AgentTurnTimeline["activity"]["tokenUsage"] | null>(null);
   const [optimisticRestructureGeneration, setOptimisticRestructureGeneration] = useState<OptimisticRestructureGeneration | null>(null);
   const [restructureConversationErrors, setRestructureConversationErrors] = useState<Record<string, string>>(() => readStoredRestructureConversationErrors());
@@ -201,6 +215,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     sendingRestructureMessage
     || compactingRestructureContext
     || stoppingRestructureTurn
+    || autoAdvanceBusy
+    || openingPlanTraceMessageId
+    || confirmingPlanMessageId
     || selectedRunningRestructureTurn
     || selectedOptimisticRestructureGeneration?.target.running
     || selectedOptimisticRestructureGeneration?.target.pending
@@ -591,11 +608,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
 
   const returnToAnalysisFromGraph = useCallback(() => {
     startPaneTransitionGuard();
+    setActiveAnalysisChild("structureAnalysis");
     setActiveSection("analysis");
   }, [startPaneTransitionGuard]);
 
   const openSourceAnalysisFromGraph = useCallback((target: { sampleVideoId: string; artifactId: string; title: string }) => {
     startPaneTransitionGuard();
+    setActiveAnalysisChild("structureAnalysis");
     return new Promise<{ ok: boolean; message?: string | null }>((resolve) => {
       const requestId = Date.now();
       analysisOpenRequestResolvers.set(requestId, resolve);
@@ -611,7 +630,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleAnalysisOpenRequestResolved = useCallback((result: { requestId: number; ok: boolean; message?: string | null }) => {
     const resolve = analysisOpenRequestResolvers.get(result.requestId);
     analysisOpenRequestResolvers.delete(result.requestId);
-    if (result.ok) setActiveSection("analysis");
+    if (result.ok) {
+      setActiveAnalysisChild("structureAnalysis");
+      setActiveSection("analysis");
+    }
     resolve?.({ ok: result.ok, message: result.message });
     setAnalysisOpenRequest((current) => current?.requestId === result.requestId ? null : current);
   }, []);
@@ -623,6 +645,11 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       beginRestructureDraft();
     }
   }, [beginRestructureDraft]);
+
+  const handleSidebarAnalysisChildChange = useCallback((child: NewUiAnalysisChildId) => {
+    setStructureGraphReturn(null);
+    setActiveAnalysisChild(child);
+  }, []);
 
   const handleSidebarLibraryChildChange = useCallback((child: NewUiLibraryChildId) => {
     setStructureGraphReturn(null);
@@ -837,6 +864,164 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       setStoppingRestructureTurn(false);
     }
   }, [clearRestructureConversationError, clearRunningRestructureTurn, markRestructureConversationError, refreshRestructureConversations, selectedRestructureConversation, selectedRestructureTurnTarget, selectedRunningRestructureTurn?.turnId, stoppingRestructureTurn]);
+
+  const handleOpenPlanTraceFromRestructureMessage = useCallback(async (message: AgentChatMessageSnapshot) => {
+    const conversation = selectedRestructureConversation;
+    if (!conversation?.conversationId || openingPlanTraceMessageId) return;
+    const displayJsonPath = message.slotAtomDisplay?.displayJsonPath ?? selectedSlotAtomDisplay?.displayJsonPath ?? null;
+    const sourceRestructurePath = resolveCurrentRestructureFinalPath(conversation, message.turnId ?? selectedRestructureTurnTarget?.turnId ?? null);
+    if (!displayJsonPath || !sourceRestructurePath) {
+      markRestructureConversationError(conversation.conversationId, new Error("当前方案缺少可登记的溯源图输入"));
+      return;
+    }
+    setOpeningPlanTraceMessageId(message.id);
+    try {
+      const result = await registerFunctionSlotConfirmedPlanTrace({
+        restructureFinalPath: sourceRestructurePath,
+        displayJsonPath,
+        sourceTurnId: message.turnId ?? selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null,
+        parentArtifactId: message.turnId ?? selectedRestructureTurnTarget?.turnId ?? null,
+        confirmationId: conversation.confirmedPlan?.confirmationId ?? undefined,
+      });
+      if (!result.ok) throw new Error(result.message ?? "登记溯源图失败");
+      clearRestructureConversationError(conversation.conversationId);
+      window.dispatchEvent(new CustomEvent("function-slot-plan-trace-updated"));
+      setStructureGraphReturn(null);
+      setActiveSection("library");
+      setActiveLibraryChild("planTrace");
+    } catch (error) {
+      markRestructureConversationError(conversation.conversationId, error);
+    } finally {
+      setOpeningPlanTraceMessageId(null);
+    }
+  }, [clearRestructureConversationError, markRestructureConversationError, openingPlanTraceMessageId, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId, selectedSlotAtomDisplay?.displayJsonPath]);
+
+  const handleConfirmPlanFromRestructureMessage = useCallback(async (message: AgentChatMessageSnapshot) => {
+    const conversation = selectedRestructureConversation;
+    if (!conversation?.conversationId || confirmingPlanMessageId) return;
+    const currentTurnId = message.turnId ?? selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null;
+    const sourceRestructurePath = resolveCurrentRestructureFinalPath(conversation, currentTurnId);
+    const sourceShotDesignPath = resolveCurrentShotDesignFinalPath(conversation, currentTurnId, message);
+    if (!sourceRestructurePath) {
+      markRestructureConversationError(conversation.conversationId, new Error("未找到当前方案的 restructure.final.md 路径"));
+      return;
+    }
+    setConfirmingPlanMessageId(message.id);
+    const confirmationId = buildConfirmationId(currentTurnId);
+    try {
+      const confirmWithRevision = async (
+        payload: NonNullable<Parameters<typeof confirmAgentChatConversation>[1]>,
+        expectedRevision: number | null,
+      ) => {
+        try {
+          return await confirmAgentChatConversation(conversation.conversationId, { ...payload, expectedRevision });
+        } catch (error) {
+          if (!isConversationConflictError(error)) throw error;
+          const conversations = await refreshRestructureConversations(conversation.conversationId);
+          const synced = conversations.find((item) => item.conversationId === conversation.conversationId);
+          return await confirmAgentChatConversation(conversation.conversationId, {
+            ...payload,
+            expectedRevision: normalizeConversationRevision(synced?.revision),
+          });
+        }
+      };
+      const gate = await confirmWithRevision(
+        {
+          turnId: currentTurnId,
+          confirmationId,
+          sourceRestructurePath,
+          sourceShotDesignPath,
+          note: "用户已确认当前重组方案，准备触发 Shot Storyboard Prep 流水线。",
+        },
+        normalizeConversationRevision(conversation.revision),
+      );
+      const storyboardResult = await autoRunShotStoryboardPrep({
+        sampleVideoId: "function-slot-workflow",
+        restructureFinalPath: sourceRestructurePath,
+        shotDesignFinalPath: sourceShotDesignPath,
+        restructureArtifactId: currentTurnId,
+        parentArtifactId: currentTurnId,
+        confirmationId,
+        conversationId: conversation.conversationId,
+        runImageGeneration: true,
+      });
+      await confirmWithRevision(
+        {
+          turnId: currentTurnId,
+          confirmationId,
+          sourceRestructurePath,
+          sourceShotDesignPath,
+          note: "已确认当前方案，已触发 Shot Storyboard Prep 流水线。",
+          storyboardArtifact: {
+            artifactId: storyboardResult.artifactId,
+            traceId: storyboardResult.traceId,
+            runId: storyboardResult.runId,
+            stageId: storyboardResult.stageId,
+            status: storyboardResult.status,
+          },
+        },
+        normalizeConversationRevision(gate?.conversation.revision),
+      );
+      clearRestructureConversationError(conversation.conversationId);
+      await refreshRestructureConversations(conversation.conversationId);
+    } catch (error) {
+      markRestructureConversationError(conversation.conversationId, error);
+    } finally {
+      setConfirmingPlanMessageId(null);
+    }
+  }, [clearRestructureConversationError, confirmingPlanMessageId, markRestructureConversationError, refreshRestructureConversations, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId]);
+
+  const handleAutoAdvanceFromCurrentSlot = useCallback(async (submissionKey?: string | null) => {
+    const conversation = selectedRestructureConversation;
+    if (!conversation?.conversationId || !conversation.threadId || autoAdvanceBusy) return;
+    const sourceRestructurePath = selectedRestructureFinalPath;
+    if (!sourceRestructurePath) {
+      markRestructureConversationError(conversation.conversationId, new Error("未找到可自动推进的 restructure.final.md"));
+      return;
+    }
+    setAutoAdvanceBusy(true);
+    try {
+      const submitted = await startAgentChatAutoAdvance(conversation.conversationId, {
+        threadId: conversation.threadId,
+        sourceTurnId: selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null,
+        restructureFinalPath: sourceRestructurePath,
+        parentArtifactId: selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null,
+        expectedRevision: normalizeConversationRevision(conversation.revision),
+        workspaceRoot: conversation.workspaceRoot ?? null,
+        skillPath: conversation.skillPath ?? null,
+        source: conversation.source === "direct" ? "direct" : "threadpool-role",
+        role: conversation.role ?? "function-slot-restructure",
+        leaseId: conversation.leaseId ?? null,
+      });
+      if (submissionKey) autoAdvanceSubmittedKeysRef.current.add(submissionKey);
+      scheduleRestructureTurnPoll({
+        conversationId: submitted.conversationId ?? conversation.conversationId,
+        role: submitted.role ?? conversation.role ?? "function-slot-restructure",
+        threadId: submitted.threadId ?? conversation.threadId,
+        turnId: submitted.turnId,
+        workspaceRoot: submitted.workspaceRoot ?? conversation.workspaceRoot ?? null,
+      });
+      clearRestructureConversationError(conversation.conversationId);
+      await refreshRestructureConversations(conversation.conversationId).catch(() => undefined);
+    } catch (error) {
+      markRestructureConversationError(conversation.conversationId, error);
+      if (submissionKey) autoAdvanceSubmittedKeysRef.current.delete(submissionKey);
+    } finally {
+      setAutoAdvanceBusy(false);
+    }
+  }, [autoAdvanceBusy, clearRestructureConversationError, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectedRestructureConversation, selectedRestructureFinalPath, selectedRestructureTurnTarget?.turnId]);
+
+  useEffect(() => {
+    if (!autoAdvanceEnabled || autoAdvanceBusy || selectedRestructureActionLocked) return;
+    if (activeSection !== "restructure") return;
+    const conversation = selectedRestructureConversation;
+    const display = selectedSlotAtomDisplay;
+    if (!conversation?.conversationId || !display?.displayJsonPath || display.status !== "available") return;
+    const key = buildAutoAdvanceSubmissionKey(conversation, display);
+    if (autoAdvanceSubmittedKeysRef.current.has(key)) return;
+    autoAdvanceSubmittedKeysRef.current.add(key);
+    void handleAutoAdvanceFromCurrentSlot(key);
+  }, [activeSection, autoAdvanceBusy, autoAdvanceEnabled, handleAutoAdvanceFromCurrentSlot, selectedRestructureActionLocked, selectedRestructureConversation, selectedSlotAtomDisplay]);
 
   useEffect(() => {
     restructureConversations.forEach((conversation) => {
@@ -1142,6 +1327,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         <PaneHeader collapsed={leftCollapsed} onToggle={toggleLeftCollapsed} side="left" />
         <div className="new-ui-pane-body">
             <SidebarNav
+              activeAnalysisChild={activeAnalysisChild}
               activeLibraryChild={activeLibraryChild}
               activeRestructureConversationId={activeRestructureConversationId}
               activeSection={activeSection}
@@ -1153,6 +1339,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               onArchiveRestructureConversation={(conversationId) => void handleArchiveRestructureConversation(conversationId)}
             loadingMoreRestructureConversations={loadingMoreRestructureConversations}
             onLibraryChildChange={handleSidebarLibraryChildChange}
+            onAnalysisChildChange={handleSidebarAnalysisChildChange}
             onLoadMoreRestructureConversations={() => void handleLoadMoreRestructureConversations()}
             onNewRestructureConversation={() => void handleNewRestructureConversation()}
             onRestructureConversationChange={handleSidebarRestructureConversationChange}
@@ -1174,12 +1361,14 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       />
       <main
         className="new-ui-center"
-        aria-label={`${resolveSectionLabel(activeSection, activeLibraryChild)}工作区`}
+        aria-label={`${resolveSectionLabel(activeSection, activeAnalysisChild, activeLibraryChild)}工作区`}
         data-active-library-child={activeSection === "library" ? activeLibraryChild : undefined}
         data-active-section={activeSection}
       >
         <div className="new-ui-center-section" hidden={activeSection !== "analysis"} aria-hidden={activeSection !== "analysis"}>
           <AnalysisHome
+            key={activeAnalysisChild}
+            mode={activeAnalysisChild}
             onDetailStateChange={handleAnalysisDetailStateChange}
             openRequest={analysisOpenRequest}
             onOpenRequestResolved={handleAnalysisOpenRequestResolved}
@@ -1217,12 +1406,19 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               onNewConversation={() => void handleNewRestructureConversation()}
               onSendMessage={handleSendRestructureMessage}
               onStopTurn={handleStopRestructureTurn}
+              onOpenPlanTrace={handleOpenPlanTraceFromRestructureMessage}
+              onConfirmPlan={handleConfirmPlanFromRestructureMessage}
+              onAutoAdvanceToggle={setAutoAdvanceEnabled}
               activeTurnTarget={selectedRestructureTurnTarget}
               pendingAssistantMessage={selectedOptimisticRestructureGeneration?.message ?? null}
               pendingUserMessage={selectedOptimisticRestructureGeneration?.userMessage ?? null}
               sendErrorMessage={selectedRestructureConversationError}
               sendingMessage={selectedRestructureActionLocked}
+              autoAdvanceEnabled={autoAdvanceEnabled}
+              autoAdvanceBusy={autoAdvanceBusy}
               stoppingTurn={stoppingRestructureTurn}
+              openingPlanTraceMessageId={openingPlanTraceMessageId}
+              confirmingPlanMessageId={confirmingPlanMessageId}
             />
           ) : null}
         </div>
@@ -1407,6 +1603,7 @@ function writeStoredLayoutPreference(preference: NewUiThreePanePreference) {
 }
 
 type SidebarNavProps = {
+  activeAnalysisChild: NewUiAnalysisChildId;
   activeLibraryChild: NewUiLibraryChildId;
   activeRestructureConversationId: string | null;
   activeSection: NewUiSectionId;
@@ -1417,6 +1614,7 @@ type SidebarNavProps = {
   onArchiveConfirmLeave: (conversationId: string) => void;
   onArchiveRestructureConversation: (conversationId: string) => void;
   loadingMoreRestructureConversations: boolean;
+  onAnalysisChildChange: (child: NewUiAnalysisChildId) => void;
   onLibraryChildChange: (child: NewUiLibraryChildId) => void;
   onLoadMoreRestructureConversations: () => void;
   onNewRestructureConversation: () => void;
@@ -1426,9 +1624,10 @@ type SidebarNavProps = {
   runningRestructureConversationIds: Record<string, boolean>;
 };
 
-const DEFAULT_EXPANDED_SIDEBAR_SECTIONS: NewUiSectionId[] = ["library", "restructure"];
+const DEFAULT_EXPANDED_SIDEBAR_SECTIONS: NewUiSectionId[] = ["analysis", "library", "restructure"];
 
 function SidebarNav({
+  activeAnalysisChild,
   activeLibraryChild,
   activeRestructureConversationId,
   activeSection,
@@ -1439,6 +1638,7 @@ function SidebarNav({
   onArchiveConfirmLeave,
   onArchiveRestructureConversation,
   loadingMoreRestructureConversations,
+  onAnalysisChildChange,
   onLibraryChildChange,
   onLoadMoreRestructureConversations,
   onNewRestructureConversation,
@@ -1538,7 +1738,9 @@ function SidebarNav({
             <div className="new-ui-sidebar-subnav" style={subnavStyle} aria-label={`${section.label}子类`}>
               {section.children?.map((child) => {
                 const isChildActive = isActive && (
-                  section.id === "library"
+                  section.id === "analysis"
+                    ? activeAnalysisChild === child.id
+                    : section.id === "library"
                     ? activeLibraryChild === child.id
                     : activeRestructureConversationId === child.id
                 );
@@ -1589,14 +1791,18 @@ function SidebarNav({
                     className={`new-ui-sidebar-subnav-item has-icon ${isChildActive ? "is-active" : ""}`.trim()}
                     type="button"
                     aria-current={isChildActive ? "page" : undefined}
+                    data-child={child.id}
                     data-tooltip={child.label}
                     onClick={() => {
                       onSectionChange(section.id);
+                      if (section.id === "analysis") onAnalysisChildChange(child.id as NewUiAnalysisChildId);
                       if (section.id === "library") onLibraryChildChange(child.id as NewUiLibraryChildId);
                     }}
                   >
                     <span className="new-ui-sidebar-subnav-icon" aria-hidden="true">
-                      <LibraryChildIcon child={child.id as NewUiLibraryChildId} />
+                      {section.id === "analysis"
+                        ? <AnalysisChildIcon child={child.id as NewUiAnalysisChildId} />
+                        : <LibraryChildIcon child={child.id as NewUiLibraryChildId} />}
                     </span>
                     <span className="new-ui-sidebar-subnav-label">{child.label}</span>
                   </button>
@@ -1621,8 +1827,11 @@ function SidebarNav({
   );
 }
 
-function resolveSectionLabel(section: NewUiSectionId, libraryChild: NewUiLibraryChildId) {
+function resolveSectionLabel(section: NewUiSectionId, analysisChild: NewUiAnalysisChildId, libraryChild: NewUiLibraryChildId) {
   const active = NEW_UI_SECTIONS.find((item) => item.id === section);
+  if (section === "analysis") {
+    return active?.children?.find((child) => child.id === analysisChild)?.label ?? active?.label ?? "分析";
+  }
   if (section === "library") {
     return active?.children?.find((child) => child.id === libraryChild)?.label ?? active?.label ?? "库";
   }
@@ -1729,6 +1938,58 @@ function resolveCurrentRestructureFinalPath(conversation: AgentChatConversation 
   return normalizeRestructureFinalPath(conversation?.confirmedPlan?.sourceRestructurePath);
 }
 
+function resolveCurrentShotDesignFinalPath(
+  conversation: AgentChatConversation | null,
+  currentTurnId: string | null,
+  sourceMessage?: AgentChatMessageSnapshot | null,
+) {
+  if (sourceMessage?.dialogueRoboticReview?.shotDesignFinalPath) {
+    return normalizeShotDesignFinalPath(sourceMessage.dialogueRoboticReview.shotDesignFinalPath);
+  }
+  const messages = conversation?.messages ?? [];
+  const reversed = [...messages].reverse();
+  const currentAssistantPath = normalizeShotDesignFinalPath(extractShotDesignFinalPath(
+    reversed.find((message) => message.role === "assistant" && message.turnId === currentTurnId)?.text,
+  ));
+  if (currentAssistantPath) return currentAssistantPath;
+  for (const message of reversed) {
+    if (message.dialogueRoboticReview?.shotDesignFinalPath) return normalizeShotDesignFinalPath(message.dialogueRoboticReview.shotDesignFinalPath);
+    if (message.role !== "assistant") continue;
+    const path = normalizeShotDesignFinalPath(extractShotDesignFinalPath(message.text));
+    if (path) return path;
+  }
+  return normalizeShotDesignFinalPath(conversation?.confirmedPlan?.sourceShotDesignPath);
+}
+
+function buildAutoAdvanceSubmissionKey(conversation: AgentChatConversation, display: AgentChatSlotAtomDisplay) {
+  return [
+    conversation.conversationId,
+    display.displayJsonPath ?? "display",
+    display.fileFingerprint?.sha256 ?? display.fileFingerprint?.mtimeMs ?? "fingerprint",
+    display.slotCount ?? 0,
+    display.atomBindingCount ?? 0,
+  ].join(":");
+}
+
+function extractShotDesignFinalPath(text?: string | null) {
+  const value = String(text ?? "");
+  const saved = value.match(/保存路径[：:]\s*`([^`]+shot-design\.final\.md)`/i);
+  if (saved?.[1]) return saved[1];
+  const artifactPath = value.match(/(Artifacts[\\/]+FunctionSlotRestructure[^\n`]*?shot-design\.final\.md)/i);
+  if (artifactPath?.[1]) return artifactPath[1];
+  const absolutePath = value.match(/([A-Za-z]:[\\/][^\n`)]*?shot-design\.final\.md)/i);
+  return absolutePath?.[1] ?? null;
+}
+
+function normalizeShotDesignFinalPath(pathText?: string | null) {
+  const text = String(pathText ?? "").trim();
+  if (!text) return null;
+  const normalized = text.replace(/\\/g, "/").replace(/^\/*[A-Za-z]:\//, "");
+  const marker = "Artifacts/FunctionSlotRestructure/";
+  const index = normalized.indexOf(marker);
+  return index >= 0 ? normalized.slice(index) : normalized;
+}
+
 function conversationHasTerminalAssistantTurn(conversation: AgentChatConversation | null | undefined, turnId: string | null | undefined) {
   if (!conversation || !turnId) return false;
   return (conversation.messages ?? []).some((message) => (
@@ -1741,6 +2002,19 @@ function conversationHasTerminalAssistantTurn(conversation: AgentChatConversatio
 function normalizeConversationRevision(value: unknown) {
   const revision = typeof value === "number" ? value : Number(value);
   return Number.isFinite(revision) && revision > 0 ? Math.floor(revision) : null;
+}
+
+function buildConfirmationId(turnId: string | null) {
+  const suffix = String(turnId ?? "turn").replace(/[^A-Za-z0-9_.-]+/g, "").slice(-8) || "turn";
+  return `confirm_${suffix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isConversationConflictError(error: unknown) {
+  const apiError = error as { statusCode?: unknown; code?: unknown } | null;
+  if (!apiError || typeof apiError !== "object") return false;
+  return apiError.statusCode === 409
+    || String(apiError.code ?? "").includes("conversation_revision_conflict")
+    || String(apiError.code ?? "").includes("conversation_archived");
 }
 
 function buildContextUsageKey(threadId: string, usage: NonNullable<AgentTurnTimeline["activity"]["tokenUsage"]>) {
@@ -1769,6 +2043,10 @@ function resolveAutoDialogueReworkRunningTurn(
 
 type SectionIconProps = {
   section: NewUiSectionId;
+};
+
+type AnalysisChildIconProps = {
+  child: NewUiAnalysisChildId;
 };
 
 type LibraryChildIconProps = {
@@ -1821,13 +2099,38 @@ function SectionIcon({ section }: SectionIconProps) {
   );
 }
 
+function AnalysisChildIcon({ child }: AnalysisChildIconProps) {
+  if (child === "materialRecognition") {
+    return (
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path className="new-ui-subnav-icon-main new-ui-subnav-icon-scan-corner" d="M5 8V5h3" />
+        <path className="new-ui-subnav-icon-main new-ui-subnav-icon-scan-corner" d="M16 5h3v3" />
+        <path className="new-ui-subnav-icon-main new-ui-subnav-icon-scan-corner" d="M19 16v3h-3" />
+        <path className="new-ui-subnav-icon-main new-ui-subnav-icon-scan-corner" d="M8 19H5v-3" />
+        <path className="new-ui-subnav-icon-detail new-ui-subnav-icon-scan-line" d="M7.5 12h9" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" focusable="false">
+      <path className="new-ui-subnav-icon-main new-ui-subnav-icon-structure-row" d="M4 7h16" />
+      <path className="new-ui-subnav-icon-main new-ui-subnav-icon-structure-row" d="M4 12h16" />
+      <path className="new-ui-subnav-icon-main new-ui-subnav-icon-structure-row" d="M4 17h16" />
+      <path className="new-ui-subnav-icon-detail new-ui-subnav-icon-structure-knob-a" d="M8 5.8v2.4" />
+      <path className="new-ui-subnav-icon-detail new-ui-subnav-icon-structure-knob-b" d="M13.5 10.8v2.4" />
+      <path className="new-ui-subnav-icon-detail new-ui-subnav-icon-structure-knob-c" d="M17 15.8v2.4" />
+    </svg>
+  );
+}
+
 function LibraryChildIcon({ child }: LibraryChildIconProps) {
   if (child === "semanticGovernance") {
     return (
       <svg viewBox="0 0 24 24" focusable="false">
-        <path d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2" />
-        <path d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" />
-        <path d="M7 10h-.01" />
+        <path className="new-ui-subnav-icon-main new-ui-subnav-icon-tag-body" d="M3 8v4.172a2 2 0 0 0 .586 1.414l5.71 5.71a2.41 2.41 0 0 0 3.408 0l3.592 -3.592a2.41 2.41 0 0 0 0 -3.408l-5.71 -5.71a2 2 0 0 0 -1.414 -.586h-4.172a2 2 0 0 0 -2 2" />
+        <path className="new-ui-subnav-icon-detail new-ui-subnav-icon-tag-shadow" d="M18 19l1.592 -1.592a4.82 4.82 0 0 0 0 -6.816l-4.592 -4.592" />
+        <path className="new-ui-subnav-icon-alt new-ui-subnav-icon-tag-dot" d="M7 10h-.01" />
       </svg>
     );
   }
@@ -1835,24 +2138,24 @@ function LibraryChildIcon({ child }: LibraryChildIconProps) {
   if (child === "planTrace") {
     return (
       <svg viewBox="0 0 24 24" focusable="false">
-        <path d="M4 16l6 -7l5 5l5 -6" />
-        <path d="M14 14a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-        <path d="M9 9a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-        <path d="M3 16a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
-        <path d="M19 8a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+        <path className="new-ui-subnav-icon-main new-ui-subnav-icon-trace-line" d="M4 16l6 -7l5 5l5 -6" />
+        <path className="new-ui-subnav-icon-detail new-ui-subnav-icon-trace-dot" d="M14 14a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+        <path className="new-ui-subnav-icon-detail new-ui-subnav-icon-trace-dot" d="M9 9a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+        <path className="new-ui-subnav-icon-alt new-ui-subnav-icon-trace-end" d="M3 16a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+        <path className="new-ui-subnav-icon-alt new-ui-subnav-icon-trace-end" d="M19 8a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
       </svg>
     );
   }
 
   return (
     <svg viewBox="0 0 24 24" focusable="false">
-      <path d="M3 7a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-      <path d="M14 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-      <path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
-      <path d="M3 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
-      <path d="M9 17l5 -1.5" />
-      <path d="M6.5 8.5l7.81 5.37" />
-      <path d="M7 7l8 -1" />
+      <path className="new-ui-subnav-icon-main new-ui-subnav-icon-graph-node" d="M3 7a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+      <path className="new-ui-subnav-icon-main new-ui-subnav-icon-graph-node" d="M14 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+      <path className="new-ui-subnav-icon-detail new-ui-subnav-icon-graph-node-large" d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+      <path className="new-ui-subnav-icon-detail new-ui-subnav-icon-graph-node-large" d="M3 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+      <path className="new-ui-subnav-icon-main new-ui-subnav-icon-graph-link" d="M9 17l5 -1.5" />
+      <path className="new-ui-subnav-icon-main new-ui-subnav-icon-graph-link" d="M6.5 8.5l7.81 5.37" />
+      <path className="new-ui-subnav-icon-alt new-ui-subnav-icon-graph-link-alt" d="M7 7l8 -1" />
     </svg>
   );
 }

@@ -19,7 +19,8 @@ export type AnalysisHistoryMedia = {
   ratioLabel: "16:9" | "9:16";
   durationLabel: string;
   relativeDateLabel: string;
-  badgeLabel: "素材识别" | "结构分析" | "分析中" | "未完成";
+  badgeLabel: "已完成" | "分析中" | "未完成";
+  analysisKind: "material" | "structure" | null;
 };
 
 export async function listAnalysisHistorySamples(): Promise<AnalysisHistoryItem[]> {
@@ -75,6 +76,7 @@ export function resolveAnalysisHistoryMedia(item: AnalysisHistoryItem): Analysis
   const videoUri = artifact?.sampleVideo.normalized.uri ?? artifact?.sampleVideo.original.uri ?? item.videoUri;
   const ratioLabel = orientation === "portrait" ? "9:16" : "16:9";
   const badgeLabel = resolveHistoryBadge(item);
+  const analysisKind = resolveAnalysisKind(item);
 
   return {
     title,
@@ -85,6 +87,7 @@ export function resolveAnalysisHistoryMedia(item: AnalysisHistoryItem): Analysis
     durationLabel: formatDuration(duration),
     relativeDateLabel: formatRelativeDate(item.updatedAt ?? item.createdAt),
     badgeLabel,
+    analysisKind,
   };
 }
 
@@ -123,12 +126,19 @@ export function normalizeMediaTitle(value: string) {
     .trim();
 }
 
-function resolveHistoryBadge(item: AnalysisHistoryItem): "素材识别" | "结构分析" | "分析中" | "未完成" {
-  if (item.hasFunctionSlotAtomization) return "结构分析";
-  if (item.hasUserMaterialPack) return "素材识别";
+function resolveHistoryBadge(item: AnalysisHistoryItem): "已完成" | "分析中" | "未完成" {
+  if (item.hasFunctionSlotAtomization || item.hasUserMaterialPack) return "已完成";
   if (isHistoryItemRunning(item)) return "分析中";
   if (item.isIncomplete) return "未完成";
   return "未完成";
+}
+
+function resolveAnalysisKind(item: AnalysisHistoryItem): "material" | "structure" | null {
+  if (item.hasFunctionSlotAtomization) return "structure";
+  if (item.hasUserMaterialPack) return "material";
+  if (item.workflowRun?.workflowKey === "material-recognition" || item.workflowKey === "material-recognition") return "material";
+  if (item.workflowRun?.workflowKey === "full-analysis" || item.workflowKey === "full-analysis") return "structure";
+  return null;
 }
 
 function resolveLoadedWorkflowKey(item: AnalysisHistoryItem, artifact: SampleArtifact) {

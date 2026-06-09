@@ -405,7 +405,7 @@ export function resolveWorkflowStages(item: AnalysisHistoryItem | null): Workflo
   return [
     {
       key: "upload",
-      label: "上传素材",
+      label: "上传样例",
       moduleLabel: "sample-ingest",
       dependencyLabel: "起点",
       status: statusForStage("upload", { done: uploadDone, dependenciesDone: true, running: sampleRunning, workflowStages }),

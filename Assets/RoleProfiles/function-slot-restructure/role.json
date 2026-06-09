@@ -7,6 +7,10 @@
     "readyText": "已就绪"
   },
   "turnTemplates": {
+    "autoShotDesign": {
+      "template": "prompts/auto-shot-design.v1.md",
+      "version": "auto-shot-design.v1"
+    },
     "manualReplacement": {
       "template": "prompts/manual-replacement.v1.md",
       "version": "manual-replacement.v1"

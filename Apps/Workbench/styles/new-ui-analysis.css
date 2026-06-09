@@ -1558,6 +1558,11 @@
   color: var(--new-ui-analysis-history-badge-token-text);
 }
 
+.new-ui-analysis-history-badge-complete {
+  background: var(--new-ui-analysis-structure-badge-bg);
+  color: var(--new-ui-analysis-history-badge-token-text);
+}
+
 .new-ui-analysis-history-badge-incomplete {
   background: var(--new-ui-analysis-incomplete-badge-bg);
   color: var(--new-ui-analysis-history-badge-token-text);
