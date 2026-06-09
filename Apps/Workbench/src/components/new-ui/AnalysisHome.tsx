@@ -8,7 +8,6 @@ import {
   isAnalysisItemRunning,
   loadRerunnableWorkflowStageKeys,
   rerunAnalysisWorkflowStage,
-  startAnalysisUpload,
 } from "./analysisBackend";
 import type { AnalysisWorkflowMode } from "./analysisBackend";
 import { listAnalysisHistorySamples, resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
@@ -185,7 +184,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     };
   }, [mode, view]);
 
-  const startAnalysisBatch = useCallback(async (files: File[]) => {
+  const startAnalysisBatch = useCallback(async (files: File[], options: { openFirstWhenReady?: boolean } = {}) => {
     const token = operationTokenRef.current + 1;
     operationTokenRef.current = token;
     stopPolling();
@@ -212,7 +211,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
       if (token !== operationTokenRef.current) return;
       setHistoryRefreshKey((value) => value + 1);
       const firstItem = batch.items.find((item) => item.sampleVideoId) ?? null;
-      if (firstItem?.sampleVideoId) {
+      if (options.openFirstWhenReady && firstItem?.sampleVideoId) {
         const historyItem = resolveBatchQueueHistoryItem(firstItem, batch, null, normalizePlayerQueueStatus(firstItem.status));
         if (historyItem) {
           openHistoryDetail(historyItem);
@@ -231,41 +230,8 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   const handleUploadFiles = useCallback(async (files: FileList | File[]) => {
     const videoFiles = Array.from(files).filter((item) => item.type.startsWith("video/") || /\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(item.name));
     if (!videoFiles.length) return;
-    if (videoFiles.length > 1) {
-      await startAnalysisBatch(videoFiles);
-      return;
-    }
-    const file = videoFiles[0];
-    if (!file) return;
-    const token = operationTokenRef.current + 1;
-    operationTokenRef.current = token;
-    stopPolling();
-    detailLoadKeyRef.current = null;
-    detailPollingKeyRef.current = null;
-    setIsUploading(true);
-    setDetailHeavyReady(false);
-    setDetailTimelineReady(false);
-    setDetailTransitionKey((value) => value + 1);
-    setDetailTitle(file.name.replace(/\.(mp4|mov|m4v|webm|mkv|avi)$/i, ""));
-    setDetailMedia(null);
-    setDetailItem(null);
-    setSelectedTimelineSegment(null);
-    setRerunnableStageKeys([]);
-    setRerunningStageKey(null);
-    setView("detail");
-    try {
-      const { item, media } = await startAnalysisUpload(file, mode);
-      if (token !== operationTokenRef.current) return;
-      setDetailItem(item);
-      setDetailMedia(media);
-      setDetailTitle(media.title);
-      setHistoryRefreshKey((value) => value + 1);
-    } catch {
-      if (token !== operationTokenRef.current) return;
-    } finally {
-      if (token === operationTokenRef.current) setIsUploading(false);
-    }
-  }, [mode, startAnalysisBatch, stopPolling]);
+    await startAnalysisBatch(videoFiles, { openFirstWhenReady: videoFiles.length === 1 });
+  }, [startAnalysisBatch]);
 
   const handleUploadDrop = useCallback((event: DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -817,7 +783,6 @@ function resolveBatchQueueTitle(queueItem: FullAnalysisBatchItem, artifact: Samp
 
 function resolveBatchQueueHistoryItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null, status: PlayerQueueItem["status"]): AnalysisHistoryItem | null {
   if (!queueItem.sampleVideoId) return null;
-  const materialWorkflow = batch.workflowKey === "material-recognition";
   return {
     sampleVideoId: queueItem.sampleVideoId,
     workflowRunId: queueItem.workflowRunId ?? null,
@@ -836,7 +801,7 @@ function resolveBatchQueueHistoryItem(queueItem: FullAnalysisBatchItem, batch: F
     coverUri: artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null,
     videoUri: artifact?.sampleVideo.normalized.uri ?? artifact?.sampleVideo.original.uri ?? null,
     hasFunctionSlotAtomization: Boolean(artifact?.functionSlotAtomizationAnalysis),
-    hasUserMaterialPack: materialWorkflow || Boolean(artifact?.userMaterialPack),
+    hasUserMaterialPack: Boolean(artifact?.userMaterialPack),
     isIncomplete: status !== "done" && status !== "running" && status !== "waiting",
     isRunning: status === "running" || status === "waiting",
     artifact,
