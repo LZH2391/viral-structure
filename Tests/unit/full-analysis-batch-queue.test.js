@@ -75,6 +75,88 @@ test("full analysis batch queue dispatches next item when one run completes", as
   assert.equal(current.items[2].status, "running");
 });
 
+test("full analysis batch queue syncs cache-completed workflow during dispatch", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
+  const runs = new Map();
+  const workflowService = {
+    start: async () => {
+      const run = { workflowRunId: "workflow_cache", status: "running", sampleVideoId: "sample_cached", currentStageKeys: ["upload"], stages: [{ key: "upload", label: "上传", status: "processed" }] };
+      runs.set(run.workflowRunId, run);
+      return run;
+    },
+    advance: async (workflowRunId) => {
+      const run = runs.get(workflowRunId);
+      runs.set(workflowRunId, { ...run, status: "processed", currentStageKeys: [], stages: [{ key: "upload", label: "上传", status: "processed" }] });
+    },
+    get: (workflowRunId) => runs.get(workflowRunId) ?? null,
+  };
+  const queue = createFullAnalysisBatchQueue({ workflowService, runtimeRoot: root });
+  const batch = queue.createBatch({
+    workspaceId: "default-workspace",
+    files: [createFile("cached.mp4")],
+    fields: {},
+  });
+
+  await queue.advance(batch.batchRunId);
+  const current = queue.getBatch(batch.batchRunId);
+
+  assert.equal(current.items[0].status, "processed");
+  assert.equal(current.items[0].sampleVideoId, "sample_cached");
+  assert.equal(current.items[0].currentStageLabel, null);
+  assert.equal(current.status, "processed");
+});
+
+test("full analysis batch queue hides terminal batches from active queue after grace window", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
+  const workflowService = {
+    start: async () => ({ workflowRunId: "workflow_done", status: "processed", sampleVideoId: "sample_done", currentStageKeys: [], stages: [] }),
+    advance: async () => undefined,
+    get: () => ({ workflowRunId: "workflow_done", status: "processed", sampleVideoId: "sample_done", currentStageKeys: [], stages: [] }),
+  };
+  const queue = createFullAnalysisBatchQueue({
+    workflowService,
+    runtimeRoot: root,
+    terminalActiveGraceMs: 0,
+  });
+  const batch = queue.createBatch({
+    workspaceId: "default-workspace",
+    files: [createFile("done.mp4")],
+    fields: {},
+  });
+  await queue.advance(batch.batchRunId);
+
+  assert.equal(queue.getBatch(batch.batchRunId).status, "processed");
+  assert.equal(queue.getLatestActiveBatch(), null);
+});
+
+test("full analysis batch queue prunes old terminal batches from persisted queue", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
+  let startCount = 0;
+  const workflowService = {
+    start: async () => {
+      startCount += 1;
+      return { workflowRunId: `workflow_${startCount}`, status: "processed", sampleVideoId: `sample_${startCount}`, currentStageKeys: [], stages: [] };
+    },
+    advance: async () => undefined,
+    get: (workflowRunId) => ({ workflowRunId, status: "processed", sampleVideoId: workflowRunId.replace("workflow_", "sample_"), currentStageKeys: [], stages: [] }),
+  };
+  const queueFile = path.join(root, "WorkflowRuns", "full-analysis-queue.json");
+  const queue = createFullAnalysisBatchQueue({
+    workflowService,
+    runtimeRoot: root,
+    filePath: queueFile,
+    terminalRetentionLimit: 1,
+  });
+  const first = queue.createBatch({ workspaceId: "default-workspace", files: [createFile("a.mp4")], fields: {} });
+  await queue.advance(first.batchRunId);
+  const second = queue.createBatch({ workspaceId: "default-workspace", files: [createFile("b.mp4")], fields: {} });
+  await queue.advance(second.batchRunId);
+
+  const raw = JSON.parse(fs.readFileSync(queueFile, "utf8"));
+  assert.equal(raw.batches.length, 1);
+  assert.equal(raw.batches[0].batchRunId, second.batchRunId);
+});
+
 test("full analysis batch queue treats cache waiting as active for dispatch limit", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-"));
   const runs = new Map();

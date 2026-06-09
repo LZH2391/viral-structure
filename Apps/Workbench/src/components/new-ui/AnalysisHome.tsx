@@ -837,7 +837,7 @@ async function loadLatestVideoProcessingQueue(mode: AnalysisWorkflowMode = "stru
 }
 
 function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): AnalysisHomeQueueItem {
-  const status = normalizePlayerQueueStatus(queueItem.status ?? artifact?.status);
+  const status = resolveBatchQueueStatus(queueItem, batch, artifact);
   return {
     key: queueItem.queueItemId,
     status,
@@ -852,6 +852,12 @@ function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnal
     workflowKey: batch.workflowKey,
     retryable: Boolean(queueItem.retryable),
   };
+}
+
+function resolveBatchQueueStatus(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): AnalysisHomeQueueItem["status"] {
+  if (batch.workflowKey === "material-recognition" && artifact?.userMaterialPack) return "done";
+  if (batch.workflowKey !== "material-recognition" && artifact?.functionSlotAtomizationAnalysis) return "done";
+  return normalizePlayerQueueStatus(queueItem.status ?? artifact?.status);
 }
 
 function resolveBatchQueueTitle(queueItem: FullAnalysisBatchItem, artifact: SampleArtifact | null) {

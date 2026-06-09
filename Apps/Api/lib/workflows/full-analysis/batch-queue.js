@@ -3,6 +3,9 @@ const path = require("path");
 const { randomUUID } = require("crypto");
 
 const DEFAULT_MAX_CONCURRENT_RUNS = 2;
+const DEFAULT_TERMINAL_ACTIVE_GRACE_MS = 3000;
+const DEFAULT_TERMINAL_RETENTION_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_TERMINAL_RETENTION_LIMIT = 20;
 const TERMINAL_WORKFLOW_STATUSES = new Set(["processed", "partial_failed", "failed", "canceled"]);
 const CACHE_WAITING_STATUS = "cache_waiting";
 
@@ -19,6 +22,9 @@ function createFullAnalysisBatchQueue({
   buildOptions = (fields) => ({
     enableFunctionSlotAtomization: fields.enableFunctionSlotAtomization !== "false",
   }),
+  terminalActiveGraceMs = DEFAULT_TERMINAL_ACTIVE_GRACE_MS,
+  terminalRetentionMs = DEFAULT_TERMINAL_RETENTION_MS,
+  terminalRetentionLimit = DEFAULT_TERMINAL_RETENTION_LIMIT,
   logger = null,
 } = {}) {
   const state = loadQueueState(filePath);
@@ -28,6 +34,10 @@ function createFullAnalysisBatchQueue({
   const advanceWaiters = [];
   for (const batch of state.batches.filter((item) => !isBatchTerminal(item))) {
     scheduleAdvance(batch.batchRunId, 0);
+  }
+
+  function saveQueueState() {
+    persistQueueState(filePath, state, { terminalRetentionMs, terminalRetentionLimit });
   }
 
   function createBatch({ workspaceId, files, fields = {} }) {
@@ -71,7 +81,7 @@ function createFullAnalysisBatchQueue({
       items,
     };
     state.batches.push(batch);
-    persistQueueState(filePath, state);
+    saveQueueState();
     scheduleAdvance(batchRunId, 0);
     return publicBatch(batch);
   }
@@ -91,7 +101,7 @@ function createFullAnalysisBatchQueue({
   }
 
   function getLatestActiveBatch() {
-    const batch = [...state.batches].filter((item) => !isBatchTerminal(item)).sort((a, b) => batchTime(b) - batchTime(a))[0];
+    const batch = [...state.batches].filter((item) => isBatchActiveVisible(item, terminalActiveGraceMs)).sort((a, b) => batchTime(b) - batchTime(a))[0];
     if (!batch) return null;
     scheduleAdvance(batch.batchRunId, 0);
     return publicBatch(batch);
@@ -116,7 +126,7 @@ function createFullAnalysisBatchQueue({
     batch.status = "queued";
     batch.completedAt = null;
     batch.updatedAt = now;
-    persistQueueState(filePath, state);
+    saveQueueState();
     scheduleAdvance(batchRunId, 0);
     return publicBatch(batch);
   }
@@ -142,7 +152,7 @@ function createFullAnalysisBatchQueue({
     item.completedAt = now;
     item.updatedAt = now;
     updateBatchStatus(batch);
-    persistQueueState(filePath, state);
+    saveQueueState();
     scheduleAdvance(batchRunId, 0);
     return publicBatch(batch);
   }
@@ -167,7 +177,7 @@ function createFullAnalysisBatchQueue({
           updateBatchStatus(batch);
           if (!isBatchTerminal(batch)) scheduleAdvance(batch.batchRunId, 2000);
         }
-        persistQueueState(filePath, state);
+        saveQueueState();
         targetBatchRunId = nextPendingBatchRunId(pendingAdvances);
       } while (targetBatchRunId !== undefined);
       return batchRunId ? publicBatch(findBatch(batchRunId)) : null;
@@ -183,16 +193,7 @@ function createFullAnalysisBatchQueue({
       await workflowService.advance?.(item.workflowRunId).catch(() => undefined);
       const run = workflowService.get?.(item.workflowRunId);
       if (!run) continue;
-      item.sampleVideoId = run.sampleVideoId ?? item.sampleVideoId ?? null;
-      item.currentStageKeys = run.currentStageKeys ?? [];
-      item.currentStageLabel = currentStageLabel(run);
-      item.errorSummary = run.errorSummary ?? null;
-      item.status = normalizeItemStatusFromRun(run.status);
-      item.updatedAt = new Date().toISOString();
-      if (isItemTerminal(item) && !item.completedAt) {
-        item.completedAt = item.updatedAt;
-        if (item.status === "processed") cleanupQueuedFile(item);
-      }
+      syncItemFromRun(item, run);
     }
     assignQueuedPositions(batch);
   }
@@ -215,7 +216,7 @@ function createFullAnalysisBatchQueue({
     item.startedAt = item.startedAt ?? now;
     item.updatedAt = now;
     item.errorSummary = null;
-    persistQueueState(filePath, state);
+    saveQueueState();
     try {
       const file = readQueuedFile(item);
       const result = await workflowService.start({
@@ -227,12 +228,9 @@ function createFullAnalysisBatchQueue({
         },
       });
       assertWorkflowStarted(result);
-      item.workflowRunId = result.workflowRunId;
-      item.sampleVideoId = result.sampleVideoId ?? null;
-      item.currentStageKeys = result.currentStageKeys ?? [];
-      item.currentStageLabel = currentStageLabel(result);
-      item.status = normalizeItemStatusFromRun(result.status);
-      item.updatedAt = new Date().toISOString();
+      await workflowService.advance?.(result.workflowRunId).catch(() => undefined);
+      const latestRun = workflowService.get?.(result.workflowRunId) ?? result;
+      syncItemFromRun(item, latestRun);
       return isActiveItem(item);
     } catch (error) {
       item.status = "failed";
@@ -256,6 +254,20 @@ function createFullAnalysisBatchQueue({
     error.code = result?.error ?? result?.code ?? `${workflowKey.replace(/-/g, "_")}_batch_workflow_start_invalid`;
     error.retryable = true;
     throw error;
+  }
+
+  function syncItemFromRun(item, run) {
+    item.workflowRunId = run.workflowRunId ?? item.workflowRunId ?? null;
+    item.sampleVideoId = run.sampleVideoId ?? item.sampleVideoId ?? null;
+    item.currentStageKeys = run.currentStageKeys ?? [];
+    item.currentStageLabel = currentStageLabel(run);
+    item.errorSummary = run.errorSummary ?? null;
+    item.status = normalizeItemStatusFromRun(run.status);
+    item.updatedAt = new Date().toISOString();
+    if (isItemTerminal(item) && !item.completedAt) {
+      item.completedAt = item.updatedAt;
+      if (item.status === "processed") cleanupQueuedFile(item);
+    }
   }
 
   function batchFieldsForWorkflow(batch) {
@@ -338,10 +350,35 @@ function normalizeLoadedBatch(batch) {
   };
 }
 
-function persistQueueState(filePath, state) {
+function persistQueueState(filePath, state, options = {}) {
   if (!filePath) return;
+  pruneTerminalBatches(state, options);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify({ batches: state.batches }, null, 2), "utf8");
+}
+
+function pruneTerminalBatches(state, { terminalRetentionMs = DEFAULT_TERMINAL_RETENTION_MS, terminalRetentionLimit = DEFAULT_TERMINAL_RETENTION_LIMIT } = {}) {
+  const now = Date.now();
+  const retentionMs = Math.max(0, Number(terminalRetentionMs) || 0);
+  const retentionLimit = Math.max(0, Number(terminalRetentionLimit) || 0);
+  const active = [];
+  const terminal = [];
+  for (const batch of state.batches ?? []) {
+    if (isBatchTerminal(batch)) terminal.push(batch);
+    else active.push(batch);
+  }
+  const keptTerminal = terminal
+    .filter((batch) => {
+      const completedAt = Date.parse(batch.completedAt ?? batch.updatedAt ?? "");
+      return retentionMs <= 0 || (Number.isFinite(completedAt) && now - completedAt <= retentionMs);
+    })
+    .sort((a, b) => batchTime(b) - batchTime(a))
+    .slice(0, retentionLimit);
+  const keptIds = new Set(keptTerminal.map((batch) => batch.batchRunId));
+  for (const batch of terminal) {
+    if (!keptIds.has(batch.batchRunId)) cleanupBatchQueuedFiles(batch);
+  }
+  state.batches = [...active, ...keptTerminal].sort((a, b) => batchTime(a) - batchTime(b));
 }
 
 function persistQueuedFile(uploadRoot, batchRunId, queueItemId, file) {
@@ -367,6 +404,10 @@ function readQueuedFile(item) {
 function cleanupQueuedFile(item) {
   if (!item.filePath) return;
   fs.rmSync(item.filePath, { force: true });
+}
+
+function cleanupBatchQueuedFiles(batch) {
+  for (const item of batch?.items ?? []) cleanupQueuedFile(item);
 }
 
 function restoreQueuedFiles(state, uploadRoot) {
@@ -402,6 +443,15 @@ function isActiveItem(item) {
 
 function isBatchTerminal(batch) {
   return batch?.items?.length && batch.items.every((item) => isItemTerminal(item));
+}
+
+function isBatchActiveVisible(batch, terminalActiveGraceMs = DEFAULT_TERMINAL_ACTIVE_GRACE_MS) {
+  if (!isBatchTerminal(batch)) return true;
+  const graceMs = Math.max(0, Number(terminalActiveGraceMs) || 0);
+  if (graceMs <= 0) return false;
+  const completedAt = Date.parse(batch?.completedAt ?? "");
+  if (!Number.isFinite(completedAt)) return false;
+  return Date.now() - completedAt <= graceMs;
 }
 
 function nextPendingBatchRunId(pendingAdvances) {

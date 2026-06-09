@@ -774,6 +774,20 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         if (queueItem.sampleVideoId) {
           const item = materialAnalysisItemFromBatchQueueItem(queueItem, batch, fallbackTitle);
           const historyItem = materialHistoryItemFromBatchQueueItem(queueItem, batch, fallbackTitle);
+          const refreshedItem = await refreshAnalysisDetailItem(historyItem).then((result) => result.item).catch(() => null);
+          if (refreshedItem && materialPackReady(refreshedItem)) {
+            delete restructureMaterialPollTimersRef.current[timerKey];
+            const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle);
+            setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(
+              current.filter((option) => option.sampleVideoId !== pendingMaterialSampleId(batchRunId, queueItemId)),
+              option,
+            ));
+            if (!cancelledRestructureMaterialSamplesRef.current.has(queueItem.sampleVideoId)) {
+              setSelectedRestructureMaterialPack(option);
+            }
+            await refreshRestructureMaterialPackOptions().catch(() => undefined);
+            return;
+          }
           const pendingOption = materialPackPendingOptionFromAnalysisItem(item, fallbackTitle);
           setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(
             current.filter((option) => option.sampleVideoId !== pendingMaterialSampleId(batchRunId, queueItemId)),
@@ -789,7 +803,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             });
           }
           delete restructureMaterialPollTimersRef.current[timerKey];
-          pollRestructureMaterialPackUntilReady(historyItem, fallbackTitle);
+          pollRestructureMaterialPackUntilReady(refreshedItem ?? historyItem, fallbackTitle);
           return;
         }
         const pendingOption = materialPackPendingOptionFromBatchQueueItem(queueItem, batch, fallbackTitle);
@@ -852,7 +866,26 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         if (item.sampleVideoId) {
           const initialItem = materialHistoryItemFromBatchQueueItem(item, batch, videoFiles[index]?.name ?? item.filename);
           cancelledRestructureMaterialSamplesRef.current.delete(item.sampleVideoId);
-          pollRestructureMaterialPackUntilReady(initialItem, videoFiles[index]?.name ?? item.filename);
+          const fallbackTitle = videoFiles[index]?.name ?? item.filename;
+          void refreshAnalysisDetailItem(initialItem)
+            .then(({ item: refreshedItem }) => {
+              if (materialPackReady(refreshedItem)) {
+                const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle);
+                setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(
+                  current.filter((option) => option.sampleVideoId !== pendingMaterialSampleId(batch.batchRunId, item.queueItemId)),
+                  option,
+                ));
+                if (!cancelledRestructureMaterialSamplesRef.current.has(item.sampleVideoId ?? "")) {
+                  setSelectedRestructureMaterialPack(option);
+                }
+                return refreshRestructureMaterialPackOptions();
+              }
+              pollRestructureMaterialPackUntilReady(refreshedItem, fallbackTitle);
+              return undefined;
+            })
+            .catch(() => {
+              pollRestructureMaterialPackUntilReady(initialItem, fallbackTitle);
+            });
           return;
         }
         pollRestructureMaterialBatchItemUntilReady(batch.batchRunId, item.queueItemId, videoFiles[index]?.name ?? item.filename);
