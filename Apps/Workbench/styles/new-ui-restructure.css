@@ -726,6 +726,10 @@
   color: var(--new-ui-text);
 }
 
+.new-ui-slot-atom-version-bar {
+  padding: 0 14px 10px;
+}
+
 .new-ui-storyboard-segments {
   display: grid;
   gap: 10px;

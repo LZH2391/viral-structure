@@ -11,12 +11,14 @@ export function SlotAtomView({
   active = true,
   busy = false,
   sourceRestructureFinalPath = null,
+  sourceTurnId = null,
   onSubmitReplacement,
 }: {
   display: AgentChatSlotAtomDisplay | null;
   active?: boolean;
   busy?: boolean;
   sourceRestructureFinalPath?: string | null;
+  sourceTurnId?: string | null;
   onSubmitReplacement?: (draft: ReplacementDraft, summary: string) => Promise<void>;
 }) {
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -164,14 +166,18 @@ export function SlotAtomView({
     if (!display || !draft.length || !onSubmitReplacement || !display.displayJsonPath || !sourceRestructureFinalPath) return;
     const payload: ReplacementDraft = {
       sourceDisplayJsonPath: display.displayJsonPath,
-      sourceRestructureFinalPath,
+      sourceRestructureFinalPath: display.sourceRestructureFinalPath ?? sourceRestructureFinalPath,
+      rootRestructureFinalPath: display.rootRestructureFinalPath ?? null,
+      sourceTurnId,
+      versionId: display.versionId ?? null,
+      versionName: display.versionName ?? null,
       displayFingerprint: display.fileFingerprint ?? null,
       replacements: draft,
     };
     await onSubmitReplacement(payload, buildReplacementDraftSummary(draft));
     setDraft([]);
     setDrawer(null);
-  }, [display, draft, onSubmitReplacement, sourceRestructureFinalPath]);
+  }, [display, draft, onSubmitReplacement, sourceRestructureFinalPath, sourceTurnId]);
 
   if (!display || display.status === "empty" || (!slots.length && !atoms.length)) {
     return (

@@ -8,6 +8,7 @@ const {
   buildAgentRepairRequest,
   transformRestructureFinalFile,
 } = require("../../../../Infrastructure/FunctionSlotRestructureDisplay/markdown-transformer");
+const { resolveStoryboardPlanVersions } = require("./storyboard-version-resolver");
 const {
   buildRepairSnippet,
   buildSlotAtomDisplaySummary,
@@ -67,6 +68,29 @@ async function maybeAutoTransformRestructureResult({
   const repairRequestPath = path.join(path.dirname(restructureFinalPath), "restructure.display.repair-request.json");
   const previousFingerprint = findLatestDisplayFingerprint(conversation, safeRelative(rootDir, restructureFinalPath));
   const trigger = "file_changed";
+  const startedAt = Date.now();
+  const versionPlan = await resolveStoryboardPlanVersions({
+    rootDir,
+    restructureFinalPath: safeRelative(rootDir, restructureFinalPath),
+  });
+  if (versionPlan.mode === "multi_version" && versionPlan.versions.length > 1) {
+    return await autoTransformVersionedRestructureResult({
+      payload,
+      handlers,
+      traceContext,
+      conversationId,
+      rootDir,
+      logger,
+      stageTraceContext,
+      artifactId,
+      parentArtifactId,
+      sourceMode,
+      trigger,
+      rootRestructureFinalPath: restructureFinalPath,
+      versionPlan,
+      startedAt,
+    });
+  }
   const inputSummary = {
     conversationId,
     turnId: payload.turnId ?? null,
@@ -76,7 +100,6 @@ async function maybeAutoTransformRestructureResult({
     sourceMode,
     previousFingerprint,
   };
-  const startedAt = Date.now();
 
   await logger.writeStageLog({
     traceContext: stageTraceContext,
@@ -233,6 +256,186 @@ async function maybeAutoTransformRestructureResult({
       debugSnapshotUri: snapshot.uri,
     };
   }
+}
+
+async function autoTransformVersionedRestructureResult({
+  payload,
+  handlers,
+  conversationId,
+  rootDir,
+  logger,
+  stageTraceContext,
+  artifactId,
+  parentArtifactId,
+  sourceMode,
+  trigger,
+  rootRestructureFinalPath,
+  versionPlan,
+  startedAt,
+}) {
+  const inputSummary = {
+    conversationId,
+    turnId: payload.turnId ?? null,
+    finalMessageChars: String(payload.finalMessage ?? "").length,
+    restructureFinalPath: safeRelative(rootDir, rootRestructureFinalPath),
+    mode: "multi_version",
+    defaultVersionId: versionPlan.defaultVersionId ?? null,
+    versionCount: versionPlan.versions.length,
+    sourceMode,
+  };
+  await logger.writeStageLog({
+    traceContext: stageTraceContext,
+    stageName: AUTO_STAGE_NAME,
+    event: "stage.start",
+    artifactId,
+    parentArtifactId,
+    inputSummary,
+  });
+  try {
+    const slotAtomDisplays = [];
+    const repairTurns = [];
+    const missingSections = new Set();
+    let repairAttemptCount = 0;
+    for (const version of versionPlan.versions) {
+      const versionPath = resolveRestructureFinalPath({
+        rootDir,
+        finalMessage: "",
+        explicitPath: version.restructureFinalPath,
+        conversationId: null,
+        turnId: null,
+      });
+      const versionDisplayJsonPath = path.join(path.dirname(versionPath), "restructure.display.json");
+      const versionRepairRequestPath = path.join(path.dirname(versionPath), "restructure.display.repair-request.json");
+      const fileFingerprint = await readRestructureFinalFingerprint(versionPath, rootDir);
+      const transformResult = await transformWithRepair({
+        handlers,
+        rootDir,
+        restructureFinalPath: versionPath,
+        displayJsonPath: versionDisplayJsonPath,
+        repairRequestPath: versionRepairRequestPath,
+        artifactId,
+        parentArtifactId,
+        sourceTurnId: payload.turnId,
+        stageTraceContext,
+      });
+      repairAttemptCount += transformResult.repairAttemptCount;
+      transformResult.repairTurns.forEach((turn) => repairTurns.push({ ...turn, versionId: version.versionId ?? null }));
+      for (const section of transformResult.displayJson.missingSections ?? []) missingSections.add(section);
+      slotAtomDisplays.push({
+        ...buildSlotAtomDisplaySummary(transformResult.displayJson, {
+          displayJsonPath: safeRelative(rootDir, versionDisplayJsonPath),
+          fileFingerprint,
+        }),
+        versionId: version.versionId ?? null,
+        versionName: version.versionName ?? version.versionId ?? "默认方案",
+        rootRestructureFinalPath: safeRelative(rootDir, rootRestructureFinalPath),
+        sourceRestructureFinalPath: safeRelative(rootDir, versionPath),
+      });
+    }
+    const defaultDisplay = selectDefaultVersionDisplay(slotAtomDisplays, versionPlan.defaultVersionId);
+    const defaultDisplayWithVersions = defaultDisplay ? {
+      ...defaultDisplay,
+      mode: "multi_version",
+      defaultVersionId: versionPlan.defaultVersionId ?? null,
+      versionDisplays: slotAtomDisplays,
+    } : null;
+    const outputSummary = {
+      artifactId,
+      status: "processed",
+      transformStageName: TRANSFORM_STAGE_NAME,
+      restructureFinalPath: safeRelative(rootDir, rootRestructureFinalPath),
+      mode: "multi_version",
+      defaultVersionId: versionPlan.defaultVersionId ?? null,
+      versionCount: slotAtomDisplays.length,
+      missingSections: Array.from(missingSections),
+      repairAttemptCount,
+      sourceMode,
+      trigger,
+    };
+    await logger.writeStageLog({
+      traceContext: stageTraceContext,
+      stageName: AUTO_STAGE_NAME,
+      event: "stage.end",
+      artifactId,
+      parentArtifactId,
+      outputSummary,
+      durationMs: Date.now() - startedAt,
+    });
+    return {
+      ok: true,
+      status: "processed",
+      artifactId,
+      traceId: stageTraceContext.traceId,
+      runId: stageTraceContext.runId,
+      stageId: stageTraceContext.stageId,
+      stageName: AUTO_STAGE_NAME,
+      restructureFinalPath: safeRelative(rootDir, rootRestructureFinalPath),
+      displayJsonPath: defaultDisplay?.displayJsonPath ?? null,
+      mode: "multi_version",
+      defaultVersionId: versionPlan.defaultVersionId ?? null,
+      selectedVersionId: defaultDisplay?.versionId ?? null,
+      versions: versionPlan.versions,
+      missingSections: Array.from(missingSections),
+      repairAttemptCount,
+      repairTurns,
+      sourceMode,
+      trigger,
+      slotAtomDisplay: defaultDisplayWithVersions,
+      slotAtomDisplays,
+    };
+  } catch (error) {
+    const safeError = {
+      code: error?.code ?? "restructure_display_auto_transform_failed",
+      message: safePreview(error instanceof Error ? error.message : "多版本结构展示自动转换失败", 240),
+      retryable: true,
+    };
+    const snapshot = await logger.writeDebugSnapshot({
+      traceContext: stageTraceContext,
+      stageName: AUTO_STAGE_NAME,
+      artifactId,
+      parentArtifactId,
+      reason: safeError.code,
+      inputSummary,
+      outputSummary: null,
+      debugPayload: {
+        code: safeError.code,
+        message: safeError.message,
+        mode: "multi_version",
+        versionCount: versionPlan.versions.length,
+      },
+    });
+    await logger.writeStageLog({
+      traceContext: stageTraceContext,
+      stageName: AUTO_STAGE_NAME,
+      event: "stage.fail",
+      artifactId,
+      parentArtifactId,
+      errorSummary: { ...safeError, debugSnapshotUri: snapshot.uri },
+      durationMs: Date.now() - startedAt,
+    });
+    return {
+      ok: false,
+      status: "repair_required",
+      artifactId,
+      traceId: stageTraceContext.traceId,
+      runId: stageTraceContext.runId,
+      stageId: stageTraceContext.stageId,
+      stageName: AUTO_STAGE_NAME,
+      restructureFinalPath: safeRelative(rootDir, rootRestructureFinalPath),
+      mode: "multi_version",
+      defaultVersionId: versionPlan.defaultVersionId ?? null,
+      versions: versionPlan.versions,
+      error: safeError.code,
+      message: safeError.message,
+      debugSnapshotUri: snapshot.uri,
+    };
+  }
+}
+
+function selectDefaultVersionDisplay(displays, defaultVersionId) {
+  return displays.find((item) => item.versionId && item.versionId === defaultVersionId)
+    ?? displays[0]
+    ?? null;
 }
 
 async function transformWithRepair({

@@ -188,6 +188,7 @@ function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, file
     schemaVersion: "function_slot_restructure_slot_atom_display.v1",
     status: slots.length || atoms.length ? "available" : "empty",
     displayJsonPath,
+    sourceRestructureFinalPath: fileFingerprint?.path ?? null,
     slotCount: slots.length,
     atomBindingCount: atoms.length,
     selectedSlotSubtypeId: slots[0]?.slotSubtypeId ?? atoms[0]?.slotSubtypeId ?? null,

@@ -387,9 +387,18 @@ function normalizeStoryboardVersion(value) {
 
 function normalizeSlotAtomDisplay(value) {
   if (!value || typeof value !== "object") return null;
+  const versionDisplays = Array.isArray(value.versionDisplays)
+    ? value.versionDisplays.map((item) => normalizeSlotAtomDisplay({ ...item, versionDisplays: null })).filter(Boolean)
+    : [];
   return {
     schemaVersion: String(value.schemaVersion ?? "function_slot_restructure_slot_atom_display.v1"),
     status: value.status === "available" ? "available" : "empty",
+    mode: value.mode ? String(value.mode) : null,
+    versionId: normalizeIdText(value.versionId),
+    versionName: limitText(value.versionName),
+    defaultVersionId: normalizeIdText(value.defaultVersionId),
+    rootRestructureFinalPath: normalizePathText(value.rootRestructureFinalPath),
+    sourceRestructureFinalPath: normalizePathText(value.sourceRestructureFinalPath),
     displayJsonPath: normalizePathText(value.displayJsonPath),
     slotCount: normalizeCount(value.slotCount),
     atomBindingCount: normalizeCount(value.atomBindingCount),
@@ -397,6 +406,7 @@ function normalizeSlotAtomDisplay(value) {
     fileFingerprint: normalizeFileFingerprint(value.fileFingerprint),
     slots: Array.isArray(value.slots) ? value.slots.map(normalizeSlotSummary).filter(Boolean) : [],
     atoms: Array.isArray(value.atoms) ? value.atoms.map(normalizeAtomSummary).filter(Boolean) : [],
+    versionDisplays,
   };
 }
 

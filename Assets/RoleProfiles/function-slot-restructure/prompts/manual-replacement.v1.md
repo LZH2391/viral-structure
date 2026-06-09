@@ -3,8 +3,12 @@
 用户在前端 Slot/Atom 面板中从 FunctionSlotLibrary 手动选择了替换项。请基于替换后的结构重新评估并设计方案。
 
 源文件：
+- rootRestructureFinalPath: {{rootRestructureFinalPath}}
 - sourceRestructureFinalPath: {{sourceRestructureFinalPath}}
 - sourceDisplayJsonPath: {{sourceDisplayJsonPath}}
+- sourceTurnId: {{sourceTurnId}}
+- versionId: {{versionId}}
+- versionName: {{versionName}}
 - displayFingerprint: {{displayFingerprintJson}}
 
 替换摘要：
@@ -17,6 +21,7 @@
 {{userInstruction}}
 
 执行要求：
+- 如果 versionId/versionName 非空，本次调整对象是 sourceTurnId 对应多版本结果中的该版本；只调整 `sourceRestructureFinalPath` 指向的版本方案，不要修改根多版本索引，也不要影响其他 versions。
 - 先判断替换是否会破坏槽位链路、素材承接、binding rule、证明路径或节奏/包装同步。
 - 如果替换明显不合理，先清楚说明影响，并请求用户确认，不要直接重写 `restructure.final.md`。
 - 如果替换可以成立，基于替换后的 Slot/Atom 重新设计结构方案，并写回/更新 `sourceRestructureFinalPath` 指向的 `restructure.final.md`。

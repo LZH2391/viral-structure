@@ -280,6 +280,10 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
   const replacements = normalizeManualReplacements(body.replacements);
   const sourceRestructureFinalPath = normalizeWorkspaceRelativePath(body.sourceRestructureFinalPath, handlers.rootDir);
   const sourceDisplayJsonPath = normalizeWorkspaceRelativePath(body.sourceDisplayJsonPath, handlers.rootDir);
+  const rootRestructureFinalPath = normalizeOptionalWorkspaceRelativePath(body.rootRestructureFinalPath, handlers.rootDir);
+  const sourceTurnId = normalizeText(body.sourceTurnId);
+  const versionId = normalizeText(body.versionId);
+  const versionName = normalizeText(body.versionName);
   return runAgentChatStage(res, handlers, {
     stageName: "agentChat.manualReplacement.submit",
     inputSummary: {
@@ -288,6 +292,10 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
       replacementCount: replacements.length,
       sourceRestructureFinalPath,
       sourceDisplayJsonPath,
+      rootRestructureFinalPath,
+      sourceTurnId,
+      versionId,
+      versionName,
     },
     action: async ({ traceContext }) => {
       if (!conversationId) throw badRequestError("agent_chat_conversation_required", "manual replacement 需要 conversationId");
@@ -304,10 +312,14 @@ async function handleAgentChatManualReplacementSubmit(req, res, threadId, handle
         assertConversationReadyForNewTurn(conversation);
         const workspaceRoot = normalizeText(body.workspaceRoot) || conversation.workspaceRoot || handlers.rootDir;
         const roleProfile = await loadRoleProfileByRole("function-slot-restructure");
-        const replacementSummary = buildManualReplacementSummary(replacements);
+        const replacementSummary = buildManualReplacementSummary(replacements, { sourceTurnId, versionId, versionName });
         const prompt = renderTurnTemplate(roleProfile, "manualReplacement", {
           sourceRestructureFinalPath,
           sourceDisplayJsonPath,
+          rootRestructureFinalPath: rootRestructureFinalPath ?? "",
+          sourceTurnId: sourceTurnId ?? "",
+          versionId: versionId ?? "",
+          versionName: versionName ?? "",
           displayFingerprintJson: JSON.stringify(normalizeDisplayFingerprint(body.displayFingerprint), null, 2),
           replacementsJson: JSON.stringify(replacements, null, 2),
           replacementSummary,
@@ -436,8 +448,11 @@ function normalizeManualReplacements(value) {
   });
 }
 
-function buildManualReplacementSummary(replacements) {
+function buildManualReplacementSummary(replacements, context = {}) {
   const lines = ["用户手动替换 Slot/Atom："];
+  if (context.versionId || context.versionName || context.sourceTurnId) {
+    lines.push(`- 调整对象：${context.versionName || context.versionId || "默认方案"}${context.versionId ? ` (${context.versionId})` : ""}${context.sourceTurnId ? ` / turn ${context.sourceTurnId}` : ""}`);
+  }
   for (const item of replacements) {
     if (item.type === "slot") {
       lines.push(`- Slot ${item.slotOrder ?? ""} ${item.fromSlotLabel ?? item.fromSlotSubtypeId} -> ${item.toSlotLabel ?? item.toSlotSubtypeId}`);
@@ -465,6 +480,10 @@ function normalizeWorkspaceRelativePath(value, rootDir) {
   const resolved = (absolute ? path.resolve(text) : path.resolve(rootDir, text)).replaceAll("\\", "/");
   if (resolved !== root && !resolved.startsWith(`${root}/`)) throw badRequestError("agent_chat_manual_replacement_path_outside_workspace", "替换请求路径不能超出 workspace");
   return path.relative(rootDir, resolved).replaceAll("\\", "/");
+}
+
+function normalizeOptionalWorkspaceRelativePath(value, rootDir) {
+  return normalizeText(value) ? normalizeWorkspaceRelativePath(value, rootDir) : null;
 }
 
 function requiredText(value, fieldName) {

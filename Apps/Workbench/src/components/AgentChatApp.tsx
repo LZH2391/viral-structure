@@ -803,6 +803,10 @@ export function AgentChatApp({ embedded = false, active = true }: { embedded?: b
         skillPath: activeSession.skillPath ?? sessionMeta.skillPath,
         sourceRestructureFinalPath: replacementDraft.sourceRestructureFinalPath,
         sourceDisplayJsonPath: replacementDraft.sourceDisplayJsonPath,
+        rootRestructureFinalPath: replacementDraft.rootRestructureFinalPath,
+        sourceTurnId: replacementDraft.sourceTurnId,
+        versionId: replacementDraft.versionId,
+        versionName: replacementDraft.versionName,
         displayFingerprint: replacementDraft.displayFingerprint,
         replacements: replacementDraft.replacements,
       });
@@ -1298,6 +1302,7 @@ export function AgentChatApp({ embedded = false, active = true }: { embedded?: b
               display={activeSlotAtomDisplay}
               busy={busy}
               sourceRestructureFinalPath={currentRestructureFinalPath}
+              sourceTurnId={currentTurnId}
               onSubmitReplacement={handleManualReplacementSubmit}
             />
           )}

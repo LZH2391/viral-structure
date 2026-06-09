@@ -189,8 +189,12 @@ function defaultTemplateValues(role) {
   }
   if (role === "function-slot-restructure") {
     return {
+      rootRestructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
       sourceRestructureFinalPath: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md",
       sourceDisplayJsonPath: "Artifacts/FunctionSlotRestructure/demo/restructure.display.json",
+      sourceTurnId: "turn_slot",
+      versionId: "V1_click",
+      versionName: "高点击版",
       displayFingerprintJson: JSON.stringify({ path: "Artifacts/FunctionSlotRestructure/demo/restructure.final.md", sha256: "abc" }),
       replacementSummary: "Slot 1 低门槛价值锚点 -> 强痛点场景进入",
       replacementsJson: JSON.stringify([{ type: "slot", fromSlotLabel: "低门槛价值锚点", toSlotLabel: "强痛点场景进入" }]),

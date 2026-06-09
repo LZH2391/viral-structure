@@ -15,6 +15,8 @@ const {
   resolveShotSummary,
 } = require("./shared");
 
+const SHOT_END_DURATION_TOLERANCE_SECONDS = 0.1;
+
 function normalizeTimestampBoundaries(rawBoundaries) {
   if (!Array.isArray(rawBoundaries)) return [];
   return rawBoundaries.map((boundary) => ({
@@ -186,14 +188,16 @@ function validateShotCentricShots(rawShots, durationSeconds) {
           failingIndex: index,
         });
       }
-      if (safeDuration > 0 && shot.end !== roundNormalizedTime(safeDuration)) {
+      const normalizedDuration = roundNormalizedTime(safeDuration);
+      if (safeDuration > 0 && Math.abs(shot.end - normalizedDuration) > SHOT_END_DURATION_TOLERANCE_SECONDS) {
         return invalidValidation("shot_boundary_last_shot_end_invalid", "最后一镜 end 必须等于 durationSeconds", {
           rawBoundaryCount: Math.max(0, shots.length - 1),
           normalizedBoundaryCount: Math.max(0, shots.length - 1),
           validatorCode: "shot_boundary_last_shot_end_invalid",
           failingIndex: index,
           end: shot.end,
-          durationSeconds: roundNormalizedTime(safeDuration),
+          durationSeconds: normalizedDuration,
+          toleranceSeconds: SHOT_END_DURATION_TOLERANCE_SECONDS,
         });
       }
     } else {

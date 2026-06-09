@@ -2655,6 +2655,83 @@ test("agent chat collect auto transforms completed restructure final markdown", 
   }
 });
 
+test("agent chat collect auto transforms multi-version restructure displays", async () => {
+  const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-restructure-multi-"));
+  const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "multi-display-demo");
+  await fsPromises.mkdir(path.join(planDir, "versions", "V1_click"), { recursive: true });
+  await fsPromises.mkdir(path.join(planDir, "versions", "V2_conversion"), { recursive: true });
+  await fsPromises.writeFile(path.join(planDir, "restructure.final.md"), [
+    "# 多版本索引",
+    "",
+    "| versionId | versionName | path |",
+    "|---|---|---|",
+    "| `V1_click` | 高点击版 | [restructure.final.md](versions/V1_click/restructure.final.md) |",
+    "| `V2_conversion` | 高转化版 | [restructure.final.md](versions/V2_conversion/restructure.final.md) |",
+  ].join("\n"), "utf8");
+  await fsPromises.writeFile(path.join(planDir, "versions", "V1_click", "restructure.final.md"), sampleRestructureFinalMarkdown()
+    .replaceAll("auto-demo", "multi-display-demo/versions/V1_click")
+    .replaceAll("SUB_auto_demo", "SUB_click_demo"), "utf8");
+  await fsPromises.writeFile(path.join(planDir, "versions", "V2_conversion", "restructure.final.md"), sampleRestructureFinalMarkdown()
+    .replaceAll("auto-demo", "multi-display-demo/versions/V2_conversion")
+    .replaceAll("SUB_auto_demo", "SUB_conversion_demo"), "utf8");
+  const conversations = new Map();
+  conversations.set("conversation_restructure", {
+    conversationId: "conversation_restructure",
+    revision: 1,
+    source: "threadpool-role",
+    role: "function-slot-restructure",
+    status: "active",
+    threadId: "thread_restructure",
+    messages: [],
+  });
+  const server = createServer({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "/runtime/debug-snapshots/snapshot.json" }),
+    },
+    appServer: {
+      collectTurnResult: async () => ({
+        threadId: "thread_restructure",
+        turnId: "turn_1",
+        status: "completed",
+        finalMessage: "已生成并落盘：[restructure.final.md](/C:/ByteDanceFullStack/Artifacts/FunctionSlotRestructure/multi-display-demo/restructure.final.md)",
+      }),
+    },
+    agentConversationStore: {
+      get: async (conversationId) => conversations.get(conversationId) ?? null,
+      recordAssistantTurn: async ({ conversationId, turnId, text, status, slotAtomDisplay }) => {
+        const conversation = conversations.get(conversationId);
+        conversation.messages.push({ id: `assistant-${turnId}`, role: "assistant", text, status, slotAtomDisplay });
+        return conversation;
+      },
+    },
+    staticWorkbench: { handle: () => false },
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  server.unref();
+  try {
+    const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_restructure/turns/turn_1?conversationId=conversation_restructure");
+
+    assert.equal(collected.statusCode, 200);
+    assert.equal(collected.body.autoDisplayTransform.status, "processed");
+    assert.equal(collected.body.autoDisplayTransform.mode, "multi_version");
+    assert.equal(collected.body.autoDisplayTransform.defaultVersionId, "V2_conversion");
+    assert.equal(collected.body.autoDisplayTransform.slotAtomDisplays.length, 2);
+    assert.deepEqual(collected.body.autoDisplayTransform.slotAtomDisplays.map((item) => item.versionName), ["高点击版", "高转化版"]);
+    assert.equal(collected.body.autoDisplayTransform.slotAtomDisplays[0].slots[0].slotSubtypeId, "SUB_click_demo");
+    assert.equal(collected.body.autoDisplayTransform.slotAtomDisplays[1].slots[0].slotSubtypeId, "SUB_conversion_demo");
+    assert.equal(collected.body.autoDisplayTransform.slotAtomDisplay.versionId, "V2_conversion");
+    assert.equal(conversations.get("conversation_restructure").messages[0].slotAtomDisplay.versionDisplays.length, 2);
+    assert.equal(await exists(path.join(planDir, "versions", "V1_click", "restructure.display.json")), true);
+    assert.equal(await exists(path.join(planDir, "versions", "V2_conversion", "restructure.display.json")), true);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("agent chat collect auto reviews completed shot design dialogue in restructure conversation", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-shot-dialogue-"));
   const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "shot-demo");

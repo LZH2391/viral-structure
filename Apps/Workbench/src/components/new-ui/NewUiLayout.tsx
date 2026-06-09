@@ -131,6 +131,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const draftRestructureConversationIdRef = useRef(createRestructureDraftId());
   const restructureNavigationGenerationRef = useRef(0);
   const restructureMaterialPollTimersRef = useRef<Record<string, number>>({});
+  const restructureMaterialUploadSampleKeysRef = useRef<Record<string, string>>({});
   const cancelledRestructureMaterialSamplesRef = useRef(new Set<string>());
   const [leftCollapsed, setLeftCollapsed] = useState(() => readStoredBooleanPreference("leftCollapsed", false));
   const [rightCollapsed, setRightCollapsed] = useState(true);
@@ -157,6 +158,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [stoppingRestructureTurn, setStoppingRestructureTurn] = useState(false);
   const [autoAdvanceEnabled, setAutoAdvanceEnabled] = useState(false);
   const [autoAdvanceBusy, setAutoAdvanceBusy] = useState(false);
+  const [selectedSlotAtomVersionId, setSelectedSlotAtomVersionId] = useState<string | null>(null);
   const [openingPlanTraceMessageId, setOpeningPlanTraceMessageId] = useState<string | null>(null);
   const [confirmingPlanMessageId, setConfirmingPlanMessageId] = useState<string | null>(null);
   const [selectedRestructureContextUsage, setSelectedRestructureContextUsage] = useState<AgentTurnTimeline["activity"]["tokenUsage"] | null>(null);
@@ -240,17 +242,27 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     () => resolveActiveSlotAtomDisplay(selectedRestructureConversation, selectedRunningRestructureTurn?.turnId ?? selectedRestructureTurnTarget?.turnId ?? null),
     [selectedRestructureConversation, selectedRestructureTurnTarget?.turnId, selectedRunningRestructureTurn?.turnId],
   );
-  const selectedRestructureFinalPath = useMemo(
-    () => resolveCurrentRestructureFinalPath(selectedRestructureConversation, selectedRunningRestructureTurn?.turnId ?? selectedRestructureTurnTarget?.turnId ?? null),
-    [selectedRestructureConversation, selectedRestructureTurnTarget?.turnId, selectedRunningRestructureTurn?.turnId],
+  const selectedSlotAtomVersionDisplays = useMemo(
+    () => resolveSlotAtomVersionDisplays(selectedSlotAtomDisplay),
+    [selectedSlotAtomDisplay],
   );
-  const showAnalysisWorkflow = activeSection === "analysis" && analysisDetail.visible && Boolean(analysisDetail.item);
+  const activeSlotAtomDisplay = useMemo(
+    () => selectSlotAtomVersionDisplay(selectedSlotAtomVersionDisplays, selectedSlotAtomVersionId, selectedSlotAtomDisplay?.defaultVersionId ?? null),
+    [selectedSlotAtomDisplay?.defaultVersionId, selectedSlotAtomVersionDisplays, selectedSlotAtomVersionId],
+  );
+  const selectedRestructureFinalPath = useMemo(
+    () => activeSlotAtomDisplay?.sourceRestructureFinalPath
+      ?? resolveCurrentRestructureFinalPath(selectedRestructureConversation, selectedRunningRestructureTurn?.turnId ?? selectedRestructureTurnTarget?.turnId ?? null),
+    [activeSlotAtomDisplay?.sourceRestructureFinalPath, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId, selectedRunningRestructureTurn?.turnId],
+  );
+  const showAnalysisDetailPane = activeSection === "analysis" && analysisDetail.visible;
+  const showAnalysisWorkflow = showAnalysisDetailPane && Boolean(analysisDetail.item);
   const showAnalysisQueuePanel = activeSection === "analysis" && !analysisDetail.visible;
   const showLibraryGraphPanel = activeSection === "library";
   const showRestructureSlotAtomPanel = activeSection === "restructure";
-  const showRightPaneContent = showAnalysisWorkflow || showAnalysisQueuePanel || showLibraryGraphPanel || showRestructureSlotAtomPanel;
+  const showRightPaneContent = showAnalysisDetailPane || showAnalysisQueuePanel || showLibraryGraphPanel || showRestructureSlotAtomPanel;
   const analysisWorkflowRevealKey = showAnalysisWorkflow && analysisDetail.item
-    ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.item.workflowRunId ?? ""}:${analysisDetail.item.artifactId ?? ""}`
+    ? `${analysisDetail.item.sampleVideoId}:${analysisDetail.item.workflowRunId ?? ""}`
     : null;
   const layout = useResizableThreePaneLayout({
     containerRef: layoutRef,
@@ -341,6 +353,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   }, [draftingRestructureConversation]);
 
   useEffect(() => {
+    setSelectedRestructureMaterialPack((current) => replacePendingMaterialPackSelection(current, getReadyMaterialPackOptions(restructureMaterialPackOptions)));
+  }, [restructureMaterialPackOptions]);
+
+  useEffect(() => {
     draftRestructureConversationIdRef.current = draftRestructureConversationId;
   }, [draftRestructureConversationId]);
 
@@ -362,7 +378,6 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     if (!analysisWorkflowRevealKey) {
       lastAnalysisWorkflowRevealKeyRef.current = null;
       setAnalysisWorkflowMounted(false);
-      if (!showAnalysisQueuePanel && !showLibraryGraphPanel && !showRestructureSlotAtomPanel) setRightCollapsed(true);
       return;
     }
     if (lastAnalysisWorkflowRevealKeyRef.current === analysisWorkflowRevealKey) return;
@@ -705,16 +720,33 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           coverUrl: runtimeUrlSafe(item.coverUri),
           durationSeconds: item.durationSeconds ?? null,
           updatedAt: item.updatedAt ?? item.createdAt ?? null,
+          uploadKey: restructureMaterialUploadSampleKeysRef.current[item.sampleVideoId] ?? null,
         }));
       setRestructureMaterialPackOptions((current) => {
-        const pendingItems = current.filter((item) => item.pending);
-        return mergeMaterialPackOptions(pendingItems, materialItems);
+        const localUploadItems = current.filter((item) => normalizeMaterialUploadKey(item.uploadKey));
+        return mergeMaterialPackOptions(localUploadItems, materialItems);
       });
       setSelectedRestructureMaterialPack((current) => replacePendingMaterialPackSelection(current, materialItems));
     } finally {
       setLoadingRestructureMaterialPacks(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!selectedRestructureMaterialPack?.pending) return undefined;
+    let cancelled = false;
+    const refresh = () => {
+      void refreshRestructureMaterialPackOptions().catch(() => undefined);
+    };
+    refresh();
+    const timer = window.setInterval(() => {
+      if (!cancelled) refresh();
+    }, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [refreshRestructureMaterialPackOptions, selectedRestructureMaterialPack?.pending, selectedRestructureMaterialPack?.sampleVideoId, selectedRestructureMaterialPack?.title]);
 
   const refreshRestructureStructureOptions = useCallback(async () => {
     setLoadingRestructureStructures(true);
@@ -734,7 +766,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }
   }, []);
 
-  const pollRestructureMaterialPackUntilReady = useCallback((initialItem: AnalysisHistoryItem, fallbackTitle?: string | null) => {
+  const pollRestructureMaterialPackUntilReady = useCallback((initialItem: AnalysisHistoryItem, fallbackTitle?: string | null, uploadKey?: string | null) => {
     const sampleVideoId = initialItem.sampleVideoId;
     if (!sampleVideoId) return;
     const existingTimer = restructureMaterialPollTimersRef.current[sampleVideoId];
@@ -746,15 +778,15 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         const { item: refreshedItem } = await refreshAnalysisDetailItem(item);
         if (materialPackReady(refreshedItem)) {
           delete restructureMaterialPollTimersRef.current[sampleVideoId];
-          const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle);
+          const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle, uploadKey);
           setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, option));
-          if (!cancelledRestructureMaterialSamplesRef.current.has(sampleVideoId)) {
+          if (!isRestructureMaterialSelectionCancelled(option, cancelledRestructureMaterialSamplesRef.current)) {
             setSelectedRestructureMaterialPack(option);
           }
           await refreshRestructureMaterialPackOptions().catch(() => undefined);
           return;
         }
-        const nextOption = materialPackPendingOptionFromAnalysisItem(refreshedItem, fallbackTitle);
+        const nextOption = materialPackPendingOptionFromAnalysisItem(refreshedItem, fallbackTitle, uploadKey);
         setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, nextOption));
         if (attempt < 60) {
           restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(refreshedItem), 2000);
@@ -774,6 +806,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
 
   const pollRestructureMaterialBatchItemUntilReady = useCallback((batchRunId: string, queueItemId: string, fallbackTitle?: string | null) => {
     const timerKey = `${batchRunId}:${queueItemId}`;
+    const uploadKey = materialUploadKey(batchRunId, queueItemId);
     const existingTimer = restructureMaterialPollTimersRef.current[timerKey];
     if (existingTimer) window.clearTimeout(existingTimer);
     let attempt = 0;
@@ -787,41 +820,42 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           return;
         }
         if (queueItem.sampleVideoId) {
+          restructureMaterialUploadSampleKeysRef.current[queueItem.sampleVideoId] = uploadKey;
           const item = materialAnalysisItemFromBatchQueueItem(queueItem, batch, fallbackTitle);
           const historyItem = materialHistoryItemFromBatchQueueItem(queueItem, batch, fallbackTitle);
           const refreshedItem = await refreshAnalysisDetailItem(historyItem).then((result) => result.item).catch(() => null);
           if (refreshedItem && materialPackReady(refreshedItem)) {
             delete restructureMaterialPollTimersRef.current[timerKey];
-            const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle);
+            const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle, uploadKey);
             setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(
-              current.filter((option) => option.sampleVideoId !== pendingMaterialSampleId(batchRunId, queueItemId)),
+              current.filter((option) => !isSameMaterialUpload(option, uploadKey, pendingMaterialSampleId(batchRunId, queueItemId))),
               option,
             ));
-            if (!cancelledRestructureMaterialSamplesRef.current.has(queueItem.sampleVideoId)) {
+            if (!isRestructureMaterialSelectionCancelled(option, cancelledRestructureMaterialSamplesRef.current)) {
               setSelectedRestructureMaterialPack(option);
             }
             await refreshRestructureMaterialPackOptions().catch(() => undefined);
             return;
           }
-          const pendingOption = materialPackPendingOptionFromAnalysisItem(item, fallbackTitle);
+          const pendingOption = materialPackPendingOptionFromAnalysisItem(item, fallbackTitle, uploadKey);
           setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(
-            current.filter((option) => option.sampleVideoId !== pendingMaterialSampleId(batchRunId, queueItemId)),
+            current.filter((option) => !isSameMaterialUpload(option, uploadKey, pendingMaterialSampleId(batchRunId, queueItemId))),
             pendingOption,
           ));
-          if (!cancelledRestructureMaterialSamplesRef.current.has(queueItem.sampleVideoId)) {
+          if (!isRestructureMaterialSelectionCancelled(pendingOption, cancelledRestructureMaterialSamplesRef.current)) {
             setSelectedRestructureMaterialPack((current) => {
               if (!current) return pendingOption;
               if (!current.pending) return current;
-              return current.sampleVideoId === pendingMaterialSampleId(batchRunId, queueItemId) || current.sampleVideoId === queueItem.sampleVideoId
+              return isSameMaterialPackOptionIdentity(current, pendingOption)
                 ? pendingOption
                 : current;
             });
           }
           delete restructureMaterialPollTimersRef.current[timerKey];
-          pollRestructureMaterialPackUntilReady(refreshedItem ?? historyItem, fallbackTitle);
+          pollRestructureMaterialPackUntilReady(refreshedItem ?? historyItem, fallbackTitle, uploadKey);
           return;
         }
-        const pendingOption = materialPackPendingOptionFromBatchQueueItem(queueItem, batch, fallbackTitle);
+        const pendingOption = materialPackPendingOptionFromBatchQueueItem(queueItem, batch, fallbackTitle, uploadKey);
         setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, pendingOption));
         setSelectedRestructureMaterialPack((current) => current?.pending ? pendingOption : current ?? pendingOption);
         if (attempt < 60) {
@@ -847,13 +881,17 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleSelectedRestructureMaterialPackChange = useCallback((option: NewUiMaterialPackOption | null) => {
     if (
       selectedRestructureMaterialPack?.pending
-      && (!option || option.sampleVideoId !== selectedRestructureMaterialPack.sampleVideoId)
+      && (!option || !isSameMaterialPackOptionIdentity(option, selectedRestructureMaterialPack))
     ) {
       cancelledRestructureMaterialSamplesRef.current.add(selectedRestructureMaterialPack.sampleVideoId);
+      const uploadKey = normalizeMaterialUploadKey(selectedRestructureMaterialPack.uploadKey);
+      if (uploadKey) cancelledRestructureMaterialSamplesRef.current.add(uploadKey);
     }
     if (option?.sampleVideoId) {
       cancelledRestructureMaterialSamplesRef.current.delete(option.sampleVideoId);
     }
+    const uploadKey = normalizeMaterialUploadKey(option?.uploadKey);
+    if (uploadKey) cancelledRestructureMaterialSamplesRef.current.delete(uploadKey);
     setSelectedRestructureMaterialPack(option);
   }, [selectedRestructureMaterialPack]);
 
@@ -880,26 +918,29 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       batch.items.forEach((item, index) => {
         if (item.sampleVideoId) {
           const initialItem = materialHistoryItemFromBatchQueueItem(item, batch, videoFiles[index]?.name ?? item.filename);
+          const uploadKey = materialUploadKey(batch.batchRunId, item.queueItemId);
+          restructureMaterialUploadSampleKeysRef.current[item.sampleVideoId] = uploadKey;
           cancelledRestructureMaterialSamplesRef.current.delete(item.sampleVideoId);
+          cancelledRestructureMaterialSamplesRef.current.delete(uploadKey);
           const fallbackTitle = videoFiles[index]?.name ?? item.filename;
           void refreshAnalysisDetailItem(initialItem)
             .then(({ item: refreshedItem }) => {
               if (materialPackReady(refreshedItem)) {
-                const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle);
+                const option = materialPackOptionFromAnalysisItem(refreshedItem, fallbackTitle, uploadKey);
                 setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(
-                  current.filter((option) => option.sampleVideoId !== pendingMaterialSampleId(batch.batchRunId, item.queueItemId)),
+                  current.filter((option) => !isSameMaterialUpload(option, uploadKey, pendingMaterialSampleId(batch.batchRunId, item.queueItemId))),
                   option,
                 ));
-                if (!cancelledRestructureMaterialSamplesRef.current.has(item.sampleVideoId ?? "")) {
+                if (!isRestructureMaterialSelectionCancelled(option, cancelledRestructureMaterialSamplesRef.current)) {
                   setSelectedRestructureMaterialPack(option);
                 }
                 return refreshRestructureMaterialPackOptions();
               }
-              pollRestructureMaterialPackUntilReady(refreshedItem, fallbackTitle);
+              pollRestructureMaterialPackUntilReady(refreshedItem, fallbackTitle, uploadKey);
               return undefined;
             })
             .catch(() => {
-              pollRestructureMaterialPackUntilReady(initialItem, fallbackTitle);
+              pollRestructureMaterialPackUntilReady(initialItem, fallbackTitle, uploadKey);
             });
           return;
         }
@@ -1128,7 +1169,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleOpenPlanTraceFromRestructureMessage = useCallback(async (message: AgentChatMessageSnapshot) => {
     const conversation = selectedRestructureConversation;
     if (!conversation?.conversationId || openingPlanTraceMessageId) return;
-    const displayJsonPath = message.slotAtomDisplay?.displayJsonPath ?? selectedSlotAtomDisplay?.displayJsonPath ?? null;
+    const displayJsonPath = message.slotAtomDisplay?.displayJsonPath ?? activeSlotAtomDisplay?.displayJsonPath ?? null;
     const sourceRestructurePath = resolveCurrentRestructureFinalPath(conversation, message.turnId ?? selectedRestructureTurnTarget?.turnId ?? null);
     if (!displayJsonPath || !sourceRestructurePath) {
       markRestructureConversationError(conversation.conversationId, new Error("当前方案缺少可预览的溯源图输入"));
@@ -1156,7 +1197,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     } finally {
       setOpeningPlanTraceMessageId(null);
     }
-  }, [clearRestructureConversationError, markRestructureConversationError, openingPlanTraceMessageId, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId, selectedSlotAtomDisplay?.displayJsonPath]);
+  }, [activeSlotAtomDisplay?.displayJsonPath, clearRestructureConversationError, markRestructureConversationError, openingPlanTraceMessageId, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId]);
 
   const handleConfirmPlanFromRestructureMessage = useCallback(async (message: AgentChatMessageSnapshot) => {
     const conversation = selectedRestructureConversation;
@@ -1265,8 +1306,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         threadId: conversation.threadId,
         sourceTurnId: selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null,
         restructureFinalPath: sourceRestructurePath,
-        restructureFingerprint: selectedSlotAtomDisplay?.fileFingerprint ?? null,
-        displayFingerprint: selectedSlotAtomDisplay?.fileFingerprint ?? null,
+        restructureFingerprint: activeSlotAtomDisplay?.fileFingerprint ?? null,
+        displayFingerprint: activeSlotAtomDisplay?.fileFingerprint ?? null,
         parentArtifactId: selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null,
         expectedRevision: normalizeConversationRevision(conversation.revision),
         workspaceRoot: conversation.workspaceRoot ?? null,
@@ -1291,19 +1332,19 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     } finally {
       setAutoAdvanceBusy(false);
     }
-  }, [autoAdvanceBusy, clearRestructureConversationError, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectedRestructureConversation, selectedRestructureFinalPath, selectedRestructureTurnTarget?.turnId]);
+  }, [activeSlotAtomDisplay?.fileFingerprint, autoAdvanceBusy, clearRestructureConversationError, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectedRestructureConversation, selectedRestructureFinalPath, selectedRestructureTurnTarget?.turnId]);
 
   useEffect(() => {
     if (!autoAdvanceEnabled || autoAdvanceBusy || selectedRestructureActionLocked) return;
     if (activeSection !== "restructure") return;
     const conversation = selectedRestructureConversation;
-    const display = selectedSlotAtomDisplay;
+    const display = activeSlotAtomDisplay;
     if (!conversation?.conversationId || !display?.displayJsonPath || display.status !== "available") return;
     const key = buildAutoAdvanceSubmissionKey(conversation, display);
     if (autoAdvanceSubmittedKeysRef.current.has(key)) return;
     autoAdvanceSubmittedKeysRef.current.add(key);
     void handleAutoAdvanceFromCurrentSlot(key);
-  }, [activeSection, autoAdvanceBusy, autoAdvanceEnabled, handleAutoAdvanceFromCurrentSlot, selectedRestructureActionLocked, selectedRestructureConversation, selectedSlotAtomDisplay]);
+  }, [activeSection, activeSlotAtomDisplay, autoAdvanceBusy, autoAdvanceEnabled, handleAutoAdvanceFromCurrentSlot, selectedRestructureActionLocked, selectedRestructureConversation]);
 
   useEffect(() => {
     restructureConversations.forEach((conversation) => {
@@ -1505,6 +1546,10 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         skillPath: conversation.skillPath ?? null,
         sourceRestructureFinalPath: replacementDraft.sourceRestructureFinalPath,
         sourceDisplayJsonPath: replacementDraft.sourceDisplayJsonPath,
+        rootRestructureFinalPath: replacementDraft.rootRestructureFinalPath,
+        sourceTurnId: replacementDraft.sourceTurnId,
+        versionId: replacementDraft.versionId,
+        versionName: replacementDraft.versionName,
         displayFingerprint: replacementDraft.displayFingerprint,
         replacements: replacementDraft.replacements,
       });
@@ -1767,11 +1812,17 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               <div className="new-ui-restructure-slot-atom-header">
                 <h2>槽位/原子人工调整</h2>
               </div>
+              <SlotAtomVersionBar
+                displays={selectedSlotAtomVersionDisplays}
+                selectedVersionId={activeSlotAtomDisplay?.versionId ?? null}
+                onSelect={setSelectedSlotAtomVersionId}
+              />
               <SlotAtomView
-                display={selectedSlotAtomDisplay}
+                display={activeSlotAtomDisplay}
                 active={showRestructureSlotAtomPanel && !rightCollapsed}
                 busy={selectedRestructureActionLocked}
                 sourceRestructureFinalPath={selectedRestructureFinalPath}
+                sourceTurnId={selectedRestructureTurnTarget?.turnId ?? selectedRestructureConversation?.latestTurnId ?? null}
                 onSubmitReplacement={handleManualReplacementSubmit}
               />
             </section>
@@ -2346,7 +2397,7 @@ function materialPackReady(item: RestructureMaterialAnalysisItem) {
   return Boolean(pack?.type === "user-material-pack" && pack.schemaVersion === "user-material-pack.stable" && item.artifact?.userMaterialPackRef?.uri);
 }
 
-function materialPackOptionFromAnalysisItem(item: RestructureMaterialAnalysisItem, fallbackTitle?: string | null): NewUiMaterialPackOption {
+function materialPackOptionFromAnalysisItem(item: RestructureMaterialAnalysisItem, fallbackTitle?: string | null, uploadKey?: string | null): NewUiMaterialPackOption {
   const pack = item.artifact?.userMaterialPack ?? null;
   return {
     sampleVideoId: item.sampleVideoId,
@@ -2359,18 +2410,19 @@ function materialPackOptionFromAnalysisItem(item: RestructureMaterialAnalysisIte
     shotCardCount: Array.isArray(pack?.shotCards) ? pack.shotCards.length : null,
     materialGroupCount: Array.isArray(pack?.materialGroups) ? pack.materialGroups.length : null,
     proofCoverageCount: Array.isArray(pack?.proofCoverage) ? pack.proofCoverage.length : null,
+    uploadKey: uploadKey ?? null,
   };
 }
 
-function materialPackPendingOptionFromAnalysisItem(item: RestructureMaterialAnalysisItem, fallbackTitle?: string | null): NewUiMaterialPackOption {
+function materialPackPendingOptionFromAnalysisItem(item: RestructureMaterialAnalysisItem, fallbackTitle?: string | null, uploadKey?: string | null): NewUiMaterialPackOption {
   return {
-    ...materialPackOptionFromAnalysisItem(item, fallbackTitle),
+    ...materialPackOptionFromAnalysisItem(item, fallbackTitle, uploadKey),
     artifactId: item.artifactId ?? null,
     pending: true,
   };
 }
 
-function materialPackPendingOptionFromBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, fallbackTitle?: string | null): NewUiMaterialPackOption {
+function materialPackPendingOptionFromBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, fallbackTitle?: string | null, uploadKey?: string | null): NewUiMaterialPackOption {
   return {
     sampleVideoId: queueItem.sampleVideoId ?? pendingMaterialSampleId(batch.batchRunId, queueItem.queueItemId),
     artifactId: null,
@@ -2378,6 +2430,7 @@ function materialPackPendingOptionFromBatchQueueItem(queueItem: FullAnalysisBatc
     traceId: null,
     coverUrl: null,
     durationSeconds: null,
+    uploadKey: uploadKey ?? materialUploadKey(batch.batchRunId, queueItem.queueItemId),
     pending: true,
   };
 }
@@ -2386,12 +2439,15 @@ function pendingMaterialSampleId(batchRunId: string, queueItemId: string) {
   return `pending:${batchRunId}:${queueItemId}`;
 }
 
+function materialUploadKey(batchRunId: string, queueItemId: string) {
+  return `upload:${batchRunId}:${queueItemId}`;
+}
+
 export function upsertMaterialPackOption(options: NewUiMaterialPackOption[], next: NewUiMaterialPackOption) {
-  if (next.pending && options.some((item) => item.sampleVideoId === next.sampleVideoId && !item.pending)) return options;
-  const same = (item: NewUiMaterialPackOption) => item.sampleVideoId === next.sampleVideoId && (
-    item.pending || next.pending || (item.artifactId ?? null) === (next.artifactId ?? null)
-  );
-  return [next, ...options.filter((item) => !same(item))];
+  const same = (item: NewUiMaterialPackOption) => isSameMaterialPackOptionIdentity(item, next);
+  const existing = options.find(same) ?? null;
+  const preferred = existing ? preferMaterialPackOption(existing, next) : next;
+  return [preferred, ...options.filter((item) => !same(item))];
 }
 
 export function mergeMaterialPackOptions(primary: NewUiMaterialPackOption[], secondary: NewUiMaterialPackOption[]) {
@@ -2400,7 +2456,68 @@ export function mergeMaterialPackOptions(primary: NewUiMaterialPackOption[], sec
 
 export function replacePendingMaterialPackSelection(selected: NewUiMaterialPackOption | null, readyOptions: NewUiMaterialPackOption[]) {
   if (!selected?.pending) return selected;
-  return readyOptions.find((item) => item.sampleVideoId === selected.sampleVideoId && !item.pending) ?? selected;
+  const selectedUploadKey = normalizeMaterialUploadKey(selected.uploadKey);
+  return readyOptions.find((item) => (
+    isSameMaterialPackOptionIdentity(item, selected)
+    && !item.pending
+    && (!selectedUploadKey || Boolean(item.resultUri))
+  )) ?? selected;
+}
+
+function getReadyMaterialPackOptions(options: NewUiMaterialPackOption[]) {
+  return options.filter((item) => !item.pending);
+}
+
+function preferMaterialPackOption(current: NewUiMaterialPackOption, next: NewUiMaterialPackOption) {
+  const currentPriority = materialPackOptionPriority(current);
+  const nextPriority = materialPackOptionPriority(next);
+  if (nextPriority > currentPriority) return next;
+  if (currentPriority > nextPriority) return current;
+  return next;
+}
+
+function materialPackOptionPriority(option: NewUiMaterialPackOption) {
+  if (!option.pending && option.resultUri) return 4;
+  if (option.pending) return 3;
+  if (!option.pending) return 2;
+  return 1;
+}
+
+function isSameMaterialPackOptionIdentity(left: NewUiMaterialPackOption, right: NewUiMaterialPackOption) {
+  const leftUploadKey = normalizeMaterialUploadKey(left.uploadKey);
+  const rightUploadKey = normalizeMaterialUploadKey(right.uploadKey);
+  if (leftUploadKey && rightUploadKey && leftUploadKey === rightUploadKey) return true;
+  if (left.sampleVideoId === right.sampleVideoId) {
+    return left.pending || right.pending || (left.artifactId ?? null) === (right.artifactId ?? null);
+  }
+  if (left.pending || right.pending) {
+    const leftTitle = comparableMaterialPackTitle(left.title);
+    const rightTitle = comparableMaterialPackTitle(right.title);
+    if (leftTitle && rightTitle && leftTitle === rightTitle) return true;
+  }
+  return false;
+}
+
+function isSameMaterialUpload(option: NewUiMaterialPackOption, uploadKey: string, pendingSampleVideoId: string) {
+  return normalizeMaterialUploadKey(option.uploadKey) === uploadKey || option.sampleVideoId === pendingSampleVideoId;
+}
+
+function isRestructureMaterialSelectionCancelled(option: NewUiMaterialPackOption, cancelledKeys: Set<string>) {
+  const uploadKey = normalizeMaterialUploadKey(option.uploadKey);
+  return Boolean(cancelledKeys.has(option.sampleVideoId) || (uploadKey && cancelledKeys.has(uploadKey)));
+}
+
+function normalizeMaterialUploadKey(value?: string | null) {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
+function comparableMaterialPackTitle(value?: string | null) {
+  return stripMediaExtension(value)
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 function stripMediaExtension(value?: string | null) {
@@ -2493,6 +2610,20 @@ function resolveActiveSlotAtomDisplay(conversation: AgentChatConversation | null
   return null;
 }
 
+function resolveSlotAtomVersionDisplays(display: AgentChatSlotAtomDisplay | null): AgentChatSlotAtomDisplay[] {
+  const versions = display?.versionDisplays?.filter(Boolean) ?? [];
+  if (versions.length) return versions;
+  return display ? [display] : [];
+}
+
+function selectSlotAtomVersionDisplay(displays: AgentChatSlotAtomDisplay[], selectedVersionId: string | null, defaultVersionId: string | null): AgentChatSlotAtomDisplay | null {
+  if (!displays.length) return null;
+  return displays.find((display) => display.versionId && display.versionId === selectedVersionId)
+    ?? displays.find((display) => display.versionId && display.versionId === defaultVersionId)
+    ?? displays[0]
+    ?? null;
+}
+
 function resolveCurrentRestructureFinalPath(conversation: AgentChatConversation | null, currentTurnId: string | null) {
   const messages = conversation?.messages ?? [];
   const reversed = [...messages].reverse();
@@ -2506,6 +2637,39 @@ function resolveCurrentRestructureFinalPath(conversation: AgentChatConversation 
     if (path) return path;
   }
   return normalizeRestructureFinalPath(conversation?.confirmedPlan?.sourceRestructurePath);
+}
+
+function SlotAtomVersionBar({
+  displays,
+  selectedVersionId,
+  onSelect,
+}: {
+  displays: AgentChatSlotAtomDisplay[];
+  selectedVersionId: string | null;
+  onSelect: (versionId: string | null) => void;
+}) {
+  if (displays.length <= 1) return null;
+  return (
+    <div className="new-ui-storyboard-version-bar new-ui-slot-atom-version-bar" aria-label="槽位版本选择">
+      <span>版本</span>
+      {displays.map((display, index) => {
+        const versionId = display.versionId ?? null;
+        const label = display.versionName || display.versionId || `版本 ${index + 1}`;
+        const active = versionId === selectedVersionId || (!selectedVersionId && index === 0);
+        return (
+          <button
+            key={`${versionId ?? "version"}-${index}`}
+            className={active ? "is-active" : ""}
+            type="button"
+            title={label}
+            onClick={() => onSelect(versionId)}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function resolveCurrentShotDesignFinalPath(

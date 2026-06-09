@@ -1,5 +1,6 @@
 const { test, assert, fs, os, path, crypto, createJobStore, DEFAULT_PYTHON_RUNTIME_ROOT, createAppServerBridge, createShotBoundaryService, prepareInput, buildTurnInputs, renderAnalyzeTurnInputs, STAGES, buildProcessedAnalysis, normalizeTimestampBoundaries, buildShotsFromBoundaries, buildShotBoundaryCacheParams, buildRepairTurnInputs, renderRepairTurnInputs, renderSummaryTurnInputs, resolveAnalysisSampling, selectAnalysisFramesByTargetGrid, stripPromptFingerprint, splitPredecessorCacheParams, resolveSkillHash, createArtifactCacheParamBuilders, createArtifactIndex, loadRoleProfileByRole, summarizeThreadConversation, createThreadPoolProxy, sanitizeRoleStatus, DEFAULT_ALLOWED_ROLES, planContactSheets, createArtifact, createShotHarness, isTransformTurnPayload, createContactSheets, rootRuntime, escapeRegExp, delay, hashText, response, structuredErrorForTest, createTransformMessage, createInvalidTransformMessage, createShotMessage, createCachedShotAnalysis, createValidCachedShotAnalysis } = require("./threadpool-shot-boundary.helpers");
 const { validateTransformResult, validateVisualSummaryResult, applyVisualSummaryResult } = require("../../Apps/Api/lib/shot-boundary-review");
+const { validateShotCentricShots } = require("../../Apps/Api/lib/shot-boundary-analysis");
 
 test("shot boundary sampling selects target-grid nearest unique frames and rejects oversampling", () => {
   const artifact = createArtifact();
@@ -68,6 +69,20 @@ test("target-grid selection handles non-integer durations and target counts abov
   assert.equal(selected.length, 4);
   assert.deepEqual(selected.map((item) => item.sourceFrameIndex), [0, 1, 2, 3]);
   assert.deepEqual(selectAnalysisFramesByTargetGrid(frames, 1.1, 1).map((item) => item.sourceFrameIndex), [0, 3]);
+});
+
+test("shot-centric validation tolerates small final duration drift", () => {
+  const accepted = validateShotCentricShots([
+    { start: 0, end: 1.733333, endBoundary: null },
+  ], 1.734);
+  assert.equal(accepted.ok, true);
+
+  const rejected = validateShotCentricShots([
+    { start: 0, end: 1.733333, endBoundary: null },
+  ], 1.9);
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.summary.validatorCode, "shot_boundary_last_shot_end_invalid");
+  assert.equal(rejected.summary.toleranceSeconds, 0.1);
 });
 
 test("contact sheet grid items include sequential display labels without changing tracking ids", () => {

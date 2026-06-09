@@ -63,6 +63,7 @@ export type NewUiMaterialPackOption = AgentChatMaterialPackRef & {
   coverUrl?: string | null;
   durationSeconds?: number | null;
   updatedAt?: string | null;
+  uploadKey?: string | null;
   pending?: boolean;
   cancelled?: boolean;
 };
@@ -2093,8 +2094,14 @@ function createProcessPseudoStreamMessageKey(message: AgentChatMessageSnapshot, 
 }
 
 function createProcessPseudoStreamMessageBaseKey(message: AgentChatMessageSnapshot) {
+  const messageId = String(message.id ?? "").trim();
+  if (messageId) return `process-message:${messageId}`;
   const turnId = String(message.turnId ?? "").trim() || "no-turn";
   const kind = resolveProcessMessageKind(message) ?? "process";
+  const createdAt = String(message.createdAt ?? "").trim();
+  const updatedAt = String(message.updatedAt ?? "").trim();
+  const stableTimestamp = createdAt || updatedAt;
+  if (stableTimestamp) return `process:${turnId}:${kind}:${stableTimestamp}`;
   const detail = normalizeTimelineText(formatProcessMessageDetail(message)) ?? "";
   return `process:${turnId}:${kind}:${detail}`;
 }
@@ -2151,8 +2158,9 @@ function getTimelineStreamText(item: RestructureTimelineStreamableItem) {
 }
 
 function createTimelinePseudoStreamKey(item: RestructureTimelineStreamableItem) {
+  if (item.sourceKey) return item.sourceKey;
   const text = getTimelineStreamText(item);
-  return item.kind === "agent_message" ? `agent_message:${normalizeTimelineText(text) ?? ""}` : `${item.sourceKey}:${text}`;
+  return item.kind === "agent_message" ? `agent_message:${normalizeTimelineText(text) ?? ""}` : `${item.kind}:${normalizeTimelineText(text) ?? ""}`;
 }
 
 function createTimelineItemSourceKey(item: AgentTimelineItem) {

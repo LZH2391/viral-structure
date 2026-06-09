@@ -113,6 +113,7 @@ export type AgentChatTurnResponse = {
     error?: string | null;
     message?: string | null;
     slotAtomDisplay?: AgentChatSlotAtomDisplay | null;
+    slotAtomDisplays?: AgentChatSlotAtomDisplay[];
   } | null;
   autoDialogueRoboticReview?: AgentChatDialogueRoboticReview | null;
   autoMaterialGapMatrix?: AgentChatMaterialGapMatrix | null;
@@ -795,6 +796,10 @@ export async function submitAgentChatManualReplacement(
     source?: "direct" | "threadpool-role";
     sourceRestructureFinalPath: string;
     sourceDisplayJsonPath: string;
+    rootRestructureFinalPath?: string | null;
+    sourceTurnId?: string | null;
+    versionId?: string | null;
+    versionName?: string | null;
     displayFingerprint?: AgentChatSlotAtomDisplay["fileFingerprint"];
     replacements: Array<SlotReplacement | AtomReplacement>;
   },

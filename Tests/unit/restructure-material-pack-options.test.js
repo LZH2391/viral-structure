@@ -34,15 +34,15 @@ const {
 
 test("material pack option merge keeps completed result over pending placeholder", () => {
   const pending = {
-    sampleVideoId: "sample_missing_6",
+    sampleVideoId: "pending:batch_1:batch_item_1",
     artifactId: null,
-    title: "缺失6",
+    title: "缺失6 - 副本 - 副本",
     pending: true,
   };
   const ready = {
-    sampleVideoId: "sample_missing_6",
+    sampleVideoId: "sample_missing_6_copy_copy",
     artifactId: "artifact_user_material_pack",
-    title: "缺失6",
+    title: "缺失6_-_副本_-_副本",
     resultUri: "/runtime/user-material-pack.stable.json",
   };
 

@@ -313,6 +313,12 @@ export type AgentChatDialogueRoboticReview = {
 export type AgentChatSlotAtomDisplay = {
   schemaVersion?: string;
   status?: "available" | "empty" | string;
+  mode?: "single" | "multi_version" | string | null;
+  versionId?: string | null;
+  versionName?: string | null;
+  defaultVersionId?: string | null;
+  rootRestructureFinalPath?: string | null;
+  sourceRestructureFinalPath?: string | null;
   displayJsonPath?: string | null;
   slotCount?: number;
   atomBindingCount?: number;
@@ -325,6 +331,7 @@ export type AgentChatSlotAtomDisplay = {
   } | null;
   slots?: AgentChatSlotSummary[];
   atoms?: AgentChatAtomSummary[];
+  versionDisplays?: AgentChatSlotAtomDisplay[];
 };
 
 export type AgentChatSlotSummary = {
@@ -401,6 +408,10 @@ export type AtomReplacement = {
 export type ReplacementDraft = {
   sourceDisplayJsonPath?: string | null;
   sourceRestructureFinalPath?: string | null;
+  rootRestructureFinalPath?: string | null;
+  sourceTurnId?: string | null;
+  versionId?: string | null;
+  versionName?: string | null;
   displayFingerprint?: AgentChatSlotAtomDisplay["fileFingerprint"];
   replacements: Array<SlotReplacement | AtomReplacement>;
 };
