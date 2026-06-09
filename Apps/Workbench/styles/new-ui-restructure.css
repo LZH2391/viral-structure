@@ -88,13 +88,21 @@
 }
 
 .new-ui-restructure-draft {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 42px;
+  position: relative;
+  display: block;
   min-width: 0;
   min-height: 100%;
-  padding: 0 var(--new-ui-restructure-inline-padding) 12vh;
+  padding: 0 var(--new-ui-restructure-inline-padding) 8vh;
+}
+
+.new-ui-restructure-draft-stack {
+  position: absolute;
+  top: clamp(260px, 44vh, 430px);
+  left: 50%;
+  display: block;
+  width: min(calc(100% - (var(--new-ui-restructure-inline-padding) * 2)), var(--new-ui-restructure-content-width));
+  min-width: 0;
+  transform: translate(-50%, -50%);
 }
 
 .new-ui-restructure-draft h1 {
@@ -104,10 +112,12 @@
   font-weight: 600;
   letter-spacing: 0;
   line-height: 1.2;
+  text-align: center;
 }
 
 .new-ui-restructure-draft .new-ui-restructure-composer {
-  width: min(100%, var(--new-ui-restructure-content-width));
+  width: 100%;
+  margin-top: 42px;
   padding: 0;
 }
 
@@ -240,6 +250,13 @@
   gap: 8px;
   overflow: auto;
   padding: 26px var(--new-ui-restructure-inline-padding) 28px;
+}
+
+.new-ui-restructure-message-list.is-empty-thread {
+  align-content: center;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .new-ui-restructure-message {
@@ -1372,6 +1389,7 @@ button.new-ui-restructure-note-pill:disabled {
 }
 
 .new-ui-restructure-composer {
+  position: relative;
   display: grid;
   justify-items: center;
   gap: 6px;
@@ -1476,6 +1494,13 @@ button.new-ui-restructure-note-pill:disabled {
   width: min(100%, var(--new-ui-restructure-content-width));
   min-width: 0;
   padding: 0 64px 0 16px;
+}
+
+.new-ui-restructure-draft .new-ui-restructure-composer-attachments {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
 }
 
 .new-ui-restructure-attachment-chip {

@@ -16,6 +16,7 @@ const {
   normalizeDialogueRoboticReview,
   normalizeIdText,
   normalizeMaterialGapMatrix,
+  normalizeMaterialPackBinding,
   normalizeMaterialPackRef,
   normalizeMessage,
   normalizeMessageStatus,
@@ -95,6 +96,8 @@ function createAgentConversationStore({ store, filePath } = {}) {
         threadStopReason: null,
         lastResumeError: null,
         confirmedPlan: null,
+        defaultMaterialPackRef: null,
+        defaultMaterialPackBinding: null,
         messages: [],
       };
     } else {
@@ -388,6 +391,39 @@ function createAgentConversationStore({ store, filePath } = {}) {
     });
   }
 
+  async function bindDefaultMaterialPack({ conversationId, materialPackRef = null, binding = null, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId || !materialPackRef) return null;
+    const normalizedRef = normalizeMaterialPackRef(materialPackRef);
+    if (!normalizedRef) return null;
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      conversation.defaultMaterialPackRef = normalizedRef;
+      conversation.defaultMaterialPackBinding = normalizeMaterialPackBinding({
+        ...binding,
+        sampleVideoId: binding?.sampleVideoId ?? normalizedRef.sampleVideoId,
+        traceId: traceId ?? binding?.traceId ?? normalizedRef.traceId,
+        runId: runId ?? binding?.runId ?? null,
+        stageId: stageId ?? binding?.stageId ?? null,
+        boundAt: binding?.boundAt ?? new Date().toISOString(),
+      });
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+    }, { skipArchived: true });
+  }
+
+  async function clearDefaultMaterialPack({ conversationId, traceId = null, runId = null, stageId = null, expectedRevision = null }) {
+    if (!conversationId) return null;
+    return mutateConversation(conversationId, (conversation) => {
+      assertExpectedRevision(conversation, expectedRevision);
+      conversation.defaultMaterialPackRef = null;
+      conversation.defaultMaterialPackBinding = null;
+      conversation.traceId = traceId ?? conversation.traceId ?? null;
+      conversation.runId = runId ?? conversation.runId ?? null;
+      conversation.stageId = stageId ?? conversation.stageId ?? null;
+    }, { skipArchived: true });
+  }
+
   async function createStoryboardResultMessage({ conversationId, turnId = null, confirmationId = null, planRevisionKey = null, sourceRestructurePath = null, sourceShotDesignPath = null, storyboardArtifact = null, mode = null, defaultVersionId = null, versions = null, status = "storyboard_processing", traceId = null, runId = null, stageId = null, expectedRevision = null }) {
     if (!conversationId || !confirmationId) return null;
     const now = new Date().toISOString();
@@ -640,6 +676,8 @@ function createAgentConversationStore({ store, filePath } = {}) {
     updateTitle,
     stopThread,
     bindThread,
+    bindDefaultMaterialPack,
+    clearDefaultMaterialPack,
     recordSystemMessage,
     invalidate,
     confirmPlan,

@@ -404,7 +404,7 @@ export async function startFullAnalysisRun(file: File, options: { frameSampleRat
   return readJsonResponse<WorkflowRun>(response);
 }
 
-export async function startMaterialRecognitionRun(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "reuse" | "refresh" } = {}) {
+export async function startMaterialRecognitionRun(file: File, options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "reuse" | "refresh"; targetConversationId?: string | null; bindMaterialToConversation?: boolean } = {}) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("workspaceId", WORKSPACE_ID);
@@ -413,6 +413,8 @@ export async function startMaterialRecognitionRun(file: File, options: { frameSa
   formData.append("enableSubtitleRecognition", String(options.enableSubtitleRecognition ?? true));
   formData.append("enableAudioFeatureAnalysis", String(options.enableAudioFeatureAnalysis ?? true));
   formData.append("cacheDecision", options.cacheDecision ?? "ask");
+  if (options.targetConversationId) formData.append("targetConversationId", options.targetConversationId);
+  if (options.bindMaterialToConversation != null) formData.append("bindMaterialToConversation", String(options.bindMaterialToConversation));
   const response = await fetch(`${API_BASE_URL}/api/workflows/material-recognition/runs`, {
     method: "POST",
     body: formData,
@@ -438,7 +440,7 @@ export async function startFullAnalysisBatchRun(files: File[], options: { frameS
   return readJsonResponse<FullAnalysisBatchRun>(response);
 }
 
-export async function startMaterialRecognitionBatchRun(files: File[], options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "reuse" | "refresh"; maxConcurrentRuns?: number } = {}) {
+export async function startMaterialRecognitionBatchRun(files: File[], options: { frameSampleRateFps?: number; enableAudioSeparation?: boolean; enableSubtitleRecognition?: boolean; enableAudioFeatureAnalysis?: boolean; cacheDecision?: "ask" | "reuse" | "refresh"; maxConcurrentRuns?: number; targetConversationId?: string | null; bindMaterialToConversation?: boolean } = {}) {
   const formData = new FormData();
   for (const file of files) formData.append("files", file);
   formData.append("workspaceId", WORKSPACE_ID);
@@ -448,6 +450,8 @@ export async function startMaterialRecognitionBatchRun(files: File[], options: {
   formData.append("enableAudioFeatureAnalysis", String(options.enableAudioFeatureAnalysis ?? true));
   formData.append("cacheDecision", options.cacheDecision ?? "ask");
   formData.append("maxConcurrentRuns", String(options.maxConcurrentRuns ?? 2));
+  if (options.targetConversationId) formData.append("targetConversationId", options.targetConversationId);
+  if (options.bindMaterialToConversation != null) formData.append("bindMaterialToConversation", String(options.bindMaterialToConversation));
   const response = await fetch(`${API_BASE_URL}/api/workflows/material-recognition/batch-runs`, {
     method: "POST",
     body: formData,
@@ -937,7 +941,7 @@ export async function listAgentChatConversations(payload: { role?: string | null
 }
 
 export type AgentChatMaterialPackRef = {
-  sampleVideoId: string;
+  sampleVideoId?: string | null;
   artifactId?: string | null;
   title?: string | null;
   traceId?: string | null;

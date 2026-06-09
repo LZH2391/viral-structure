@@ -48,6 +48,8 @@ function normalizeConversation(value) {
     title: limitText(value.title) || buildTitle(value.role, value.createdAt),
     titleState: normalizeTitleState(value.titleState),
     confirmedPlan: normalizeConfirmedPlan(value.confirmedPlan),
+    defaultMaterialPackRef: normalizeMaterialPackRef(value.defaultMaterialPackRef),
+    defaultMaterialPackBinding: normalizeMaterialPackBinding(value.defaultMaterialPackBinding),
     messages: Array.isArray(value.messages) ? value.messages.map(normalizeMessage).filter(Boolean) : [],
   };
 }
@@ -279,6 +281,22 @@ function normalizeMaterialPackRef(value) {
     shotCardCount: normalizeCount(value.shotCardCount),
     materialGroupCount: normalizeCount(value.materialGroupCount),
     proofCoverageCount: normalizeCount(value.proofCoverageCount),
+  };
+}
+
+function normalizeMaterialPackBinding(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    source: value.source ? String(value.source).slice(0, 80) : null,
+    workflowKey: value.workflowKey ? String(value.workflowKey).slice(0, 80) : null,
+    workflowRunId: normalizeIdText(value.workflowRunId),
+    batchRunId: normalizeIdText(value.batchRunId),
+    queueItemId: normalizeIdText(value.queueItemId),
+    sampleVideoId: normalizeIdText(value.sampleVideoId),
+    traceId: normalizeIdText(value.traceId),
+    runId: normalizeIdText(value.runId),
+    stageId: normalizeIdText(value.stageId),
+    boundAt: value.boundAt ?? null,
   };
 }
 
@@ -538,6 +556,7 @@ module.exports = {
   normalizeFileFingerprint,
   normalizeIdText,
   normalizeMaterialGapMatrix,
+  normalizeMaterialPackBinding,
   normalizeMaterialPackRef,
   normalizeMessage,
   normalizeMessageStatus,

@@ -65,7 +65,7 @@ async function validateStoryboardPlanVersions({ rootDir, plan }) {
 
 async function collectVersionCandidates({ root, rootDirname, text }) {
   const byId = new Map();
-  const linkPattern = /\|\s*`?([A-Za-z0-9_.-]+)`?\s*\|\s*([^|]+?)\s*\|\s*\[?restructure\.final\.md\]?\(([^)]*versions\/([A-Za-z0-9_.-]+)\/restructure\.final\.md)\)/g;
+  const linkPattern = /\|\s*`?([A-Za-z0-9_.-]+)`?\s*\|\s*([^|]+?)\s*\|\s*\[[^\]]*restructure\.final\.md[^\]]*\]\(([^)]*versions\/([A-Za-z0-9_.-]+)\/restructure\.final\.md)\)/g;
   for (const match of text.matchAll(linkPattern)) {
     const versionId = normalizeVersionId(match[1]) || normalizeVersionId(match[4]);
     if (!versionId) continue;

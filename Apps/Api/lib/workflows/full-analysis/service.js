@@ -69,6 +69,7 @@ function createWorkflowService({
       workflowVersion,
       cacheDecision,
       options: buildOptions(fields),
+      context: buildWorkflowContext(fields),
       status: "running",
       traceId: traceContext.traceId,
       runId: traceContext.runId,
@@ -731,6 +732,23 @@ function createWorkflowService({
   }
 
   return { start, startFromSample, get, getLatest, getLatestBySampleVideoId, rerunStage, cancelRun, resumeRun, advance };
+}
+
+function buildWorkflowContext(fields = {}) {
+  const targetConversationId = normalizeContextText(fields.targetConversationId);
+  return {
+    targetConversationId,
+    bindMaterialToConversation: normalizeBooleanFlag(fields.bindMaterialToConversation) || Boolean(targetConversationId),
+  };
+}
+
+function normalizeContextText(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
+function normalizeBooleanFlag(value) {
+  return value === true || String(value ?? "").trim().toLowerCase() === "true";
 }
 
 module.exports = {

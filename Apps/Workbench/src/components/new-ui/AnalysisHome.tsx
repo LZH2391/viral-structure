@@ -531,14 +531,13 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   }, [selectTimelineSegment]);
 
   useEffect(() => {
-    const sidebarItem = detailTimelineReady ? detailItem : null;
     onDetailStateChange?.({
       visible: view === "detail",
       title: detailTitle,
-      item: sidebarItem,
+      item: detailItem,
       selectedTimelineSegment: detailTimelineReady ? selectedTimelineSegment : null,
-      rerunnableStageKeys: detailTimelineReady ? rerunnableStageKeys : [],
-      rerunningStageKey: detailTimelineReady ? rerunningStageKey : null,
+      rerunnableStageKeys,
+      rerunningStageKey,
       onWorkflowStageRerun: handleWorkflowStageRerun,
       workflowActionBusy,
       onWorkflowCancel: handleWorkflowCancel,

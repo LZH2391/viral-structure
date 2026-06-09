@@ -29,6 +29,12 @@ export type WorkflowRun = {
     enableFunctionSlotAtomization?: boolean;
     [key: string]: unknown;
   };
+  context?: {
+    targetConversationId?: string | null;
+    bindMaterialToConversation?: boolean;
+    materialPackBindingNotifiedAt?: string | null;
+    [key: string]: unknown;
+  };
   status: "running" | "cache_waiting" | "processed" | "failed" | "partial_failed" | string;
   traceId: string;
   runId: string;
@@ -59,6 +65,7 @@ export type FullAnalysisBatchItem = {
   retryable?: boolean;
   sourceFileAvailable?: boolean;
   lastFailure?: ErrorSummary | null;
+  completionNotifiedAt?: string | null;
   createdAt: string;
   startedAt?: string | null;
   completedAt?: string | null;

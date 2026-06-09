@@ -51,6 +51,7 @@ const { createFunctionSlotReplacementCandidateService } = require("./lib/functio
 const { createFunctionSlotAtomizationManualEditService } = require("./lib/function-slot-atomization/manual-edit-service");
 const { createRestructureDisplayOverlayService } = require("./lib/function-slot-workflow/display-overlay-service");
 const { createShotStoryboardAutoPipelineService } = require("./lib/agent-chat/shot-storyboard-auto-pipeline");
+const { bindConversationDefaultMaterialPack } = require("./lib/agent-chat/material-pack-binding");
 const { initializeServerRuntime: initializeServerRuntimeImpl } = require("./lib/server-runtime");
 const { createPlatformHandlers } = require("./lib/platform/factory");
 
@@ -108,6 +109,13 @@ const materialRecognitionBatchQueue = createFullAnalysisBatchQueue({
   stageName: "workflow.material_recognition.batch.dispatch",
   buildOptions: () => ({}),
   loadSampleArtifact: ({ sampleVideoId }) => loadCurrentSampleArtifact({ sampleVideoId, store, artifactIndex }),
+  onItemCompleted: (batch, item, context) => bindCompletedMaterialRecognitionItem({
+    agentConversationStore,
+    logger,
+    batch,
+    item,
+    context,
+  }),
   logger,
 });
 const staticWorkbench = createWorkbenchStaticHandler(rootDir);
@@ -268,6 +276,13 @@ function createServer(deps = {}) {
     stageName: "workflow.material_recognition.batch.dispatch",
     buildOptions: () => ({}),
     loadSampleArtifact: ({ sampleVideoId }) => (deps.loadCurrentSampleArtifact ?? loadCurrentSampleArtifact)({ sampleVideoId, store: activeStore, artifactIndex: activeArtifactIndex }),
+    onItemCompleted: (batch, item, context) => bindCompletedMaterialRecognitionItem({
+      agentConversationStore: activeAgentConversationStore,
+      logger: activeLogger,
+      batch,
+      item,
+      context,
+    }),
     logger: activeLogger,
   });
   const activePlatformHandlers = createPlatformHandlers({
@@ -539,6 +554,62 @@ function inferCacheKindFromJob(job) {
   const stage = String(job?.stage ?? "");
   if (stage.startsWith("shot.") || stage.startsWith("shot_boundary") || job?.cachePrompt?.cachedItem?.tags?.includes("切镜")) return "shot_boundary";
   return null;
+}
+
+async function bindCompletedMaterialRecognitionItem({ agentConversationStore, logger, batch, item, context }) {
+  const targetConversationId = normalizeServerText(context?.fields?.targetConversationId ?? batch?.fields?.targetConversationId);
+  const shouldBind = normalizeServerBoolean(context?.fields?.bindMaterialToConversation ?? batch?.fields?.bindMaterialToConversation) || Boolean(targetConversationId);
+  if (!targetConversationId || !shouldBind || !context?.artifact) return null;
+  return bindConversationDefaultMaterialPack({
+    handlers: { agentConversationStore },
+    conversationId: targetConversationId,
+    artifact: context.artifact,
+    binding: {
+      source: "material-recognition-batch",
+      workflowKey: context.workflowKey ?? batch?.workflowKey ?? "material-recognition",
+      workflowRunId: item?.workflowRunId ?? context.workflowRun?.workflowRunId ?? null,
+      batchRunId: batch?.batchRunId ?? item?.batchRunId ?? null,
+      queueItemId: item?.queueItemId ?? null,
+      traceId: context.workflowRun?.traceId ?? null,
+      runId: context.workflowRun?.runId ?? null,
+      stageId: context.workflowRun?.stageId ?? null,
+    },
+    traceContext: {
+      traceId: context.workflowRun?.traceId ?? batch?.batchRunId ?? "material-recognition-batch",
+      runId: context.workflowRun?.runId ?? batch?.batchRunId ?? "material-recognition-batch",
+      stageId: context.workflowRun?.stageId ?? item?.queueItemId ?? "material-recognition-batch-item",
+    },
+  }).catch(async (error) => {
+    await logger?.writeDebugSnapshot?.({
+      traceContext: {
+        traceId: context.workflowRun?.traceId ?? batch?.batchRunId ?? "material-recognition-batch",
+        runId: context.workflowRun?.runId ?? batch?.batchRunId ?? "material-recognition-batch",
+        stageId: context.workflowRun?.stageId ?? item?.queueItemId ?? "material-recognition-batch-item",
+      },
+      stageName: "agentChat.materialPack.bindDefault",
+      reason: error?.code ?? "material_pack_default_bind_failed",
+      inputSummary: {
+        conversationId: targetConversationId,
+        sampleVideoId: item?.sampleVideoId ?? context.artifact?.sampleVideoId ?? null,
+        workflowRunId: item?.workflowRunId ?? null,
+        batchRunId: batch?.batchRunId ?? null,
+        queueItemId: item?.queueItemId ?? null,
+      },
+      debugPayload: {
+        message: error instanceof Error ? error.message : "素材包默认绑定失败",
+      },
+    }).catch(() => undefined);
+    return null;
+  });
+}
+
+function normalizeServerText(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
+function normalizeServerBoolean(value) {
+  return value === true || String(value ?? "").trim().toLowerCase() === "true";
 }
 
 if (require.main === module) {

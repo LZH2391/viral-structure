@@ -127,8 +127,6 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
                 stage={aggregate}
                 isLast
                 selected={selectedWorkflowStageKey === aggregate.key}
-                graphAvailable={canOpenStructureGraph}
-                onOpenGraph={openStructureGraph}
                 onSelect={selectWorkflowStage}
               />
             </>

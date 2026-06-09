@@ -55,8 +55,9 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
       const payload = await withConversationLock(conversationId, async () => {
         const workspaceRoot = normalizeText(body.workspaceRoot) || handlers.rootDir;
         const expectedRevision = normalizeRevision(body.expectedRevision);
+        let conversation = null;
         if (conversationId) {
-          const conversation = await handlers.agentConversationStore?.assertActive?.(conversationId, { expectedRevision });
+          conversation = await handlers.agentConversationStore?.assertActive?.(conversationId, { expectedRevision });
           if (!conversation) {
             const error = new Error("未找到 Agent 会话");
             error.statusCode = 404;
@@ -68,6 +69,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
         }
         const context = await buildRestructureContext({
           body,
+          conversation,
           handlers,
           role: body.role,
           workspaceRoot,
@@ -97,7 +99,7 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
           runId: traceContext.runId,
           stageId: traceContext.stageId,
         };
-        const conversation = await handlers.agentConversationStore?.recordUserTurn?.({
+        const recordedConversation = await handlers.agentConversationStore?.recordUserTurn?.({
           conversationId: payload.conversationId,
           turnId: payload.turnId,
           text: message,
@@ -107,16 +109,16 @@ async function handleAgentChatTurnSubmit(req, res, threadId, handlers = {}) {
           userInputOrigin: context.userInputOrigin,
           materialPackRef: context.materialPackRef,
         });
-        if (conversation?.revision) payload.conversationRevision = conversation.revision;
+        if (recordedConversation?.revision) payload.conversationRevision = recordedConversation.revision;
         await registerAgentChatActiveTurn(handlers, {
           payload,
-          conversation,
+          conversation: recordedConversation,
           message,
           traceContext,
           stageName: "agentChat.turn.submit",
           sourceTurnId: null,
         });
-        attachAgentChatProjection(payload, conversation, payload.status);
+        attachAgentChatProjection(payload, recordedConversation, payload.status);
         return payload;
       });
       if (payload.conversationId) {
@@ -164,11 +166,12 @@ function summarizeTitleGeneration(value) {
   };
 }
 
-async function buildRestructureContext({ body, handlers, role, workspaceRoot }) {
+async function buildRestructureContext({ body, conversation = null, handlers, role, workspaceRoot }) {
   if (normalizeText(role) !== "function-slot-restructure") {
     return { agentMessage: null, userInputOrigin: null };
   }
-  const materialPackRef = normalizeMaterialPackRef(body.materialPackRef);
+  const explicitMaterialPackRef = normalizeMaterialPackRef(body.materialPackRef);
+  const materialPackRef = explicitMaterialPackRef ?? normalizeMaterialPackRef(conversation?.defaultMaterialPackRef);
   const structureRef = normalizeStructureRef(body.structureRef);
   if (!materialPackRef && !structureRef) {
     return { agentMessage: null, userInputOrigin: null };
@@ -189,7 +192,7 @@ async function buildRestructureContext({ body, handlers, role, workspaceRoot }) 
     userInputOrigin: materialPackRef && structureRef
       ? "material_and_structure_context"
       : materialPackRef
-        ? "material_context"
+        ? explicitMaterialPackRef ? "material_context" : "default_material_context"
         : "structure_context",
   };
 }

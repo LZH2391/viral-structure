@@ -29,6 +29,7 @@ function loadNewUiLayoutHelpers() {
 const {
   mergeMaterialPackOptions,
   replacePendingMaterialPackSelection,
+  resolveConversationDefaultMaterialPackSelection,
   upsertMaterialPackOption,
 } = loadNewUiLayoutHelpers();
 
@@ -56,4 +57,34 @@ test("material pack option merge keeps completed result over pending placeholder
   assert.equal(merged[0].artifactId, "artifact_user_material_pack");
   assert.equal(merged[0].pending, undefined);
   assert.equal(replacePendingMaterialPackSelection(pending, [ready]), ready);
+});
+
+test("conversation default material pack replaces pending upload selection", () => {
+  const pending = {
+    sampleVideoId: "pending:batch_7c2a:batch_item_3d3d",
+    artifactId: null,
+    title: "aba23",
+    uploadKey: "upload:batch_7c2a:batch_item_3d3d",
+    pending: true,
+  };
+  const conversation = {
+    conversationId: "conversation_a030",
+    defaultMaterialPackRef: {
+      sampleVideoId: "sample_e3f7",
+      artifactId: "artifact_f396",
+      title: "aba23.mp4",
+      resultUri: "/runtime/Artifacts/sample_e3f7/analysis-results/user_material_pack/artifact_f396.json",
+      shotCardCount: 4,
+      materialGroupCount: 2,
+      proofCoverageCount: 8,
+    },
+  };
+
+  const selected = resolveConversationDefaultMaterialPackSelection(pending, conversation, "conversation_a030", false);
+
+  assert.equal(selected.pending, undefined);
+  assert.equal(selected.sampleVideoId, "sample_e3f7");
+  assert.equal(selected.artifactId, "artifact_f396");
+  assert.equal(selected.resultUri, "/runtime/Artifacts/sample_e3f7/analysis-results/user_material_pack/artifact_f396.json");
+  assert.equal(selected.shotCardCount, 4);
 });

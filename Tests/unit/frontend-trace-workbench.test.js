@@ -661,3 +661,17 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
   assert.match(css, /\.agent-chat-atom-card/);
   assert.match(styles, /agent-chat\.css/);
 });
+
+test("new UI restructure process pseudo streaming is scoped to the active turn", () => {
+  const root = path.resolve(__dirname, "../..");
+  const restructure = read(root, "Apps/Workbench/src/components/new-ui/NewUiRestructureWorkspace.tsx");
+  const processHook = restructure.match(/function usePseudoStreamedProcessMessages[\s\S]*?function startPseudoStream/)?.[0] ?? "";
+
+  assert.match(restructure, /usePseudoStreamedProcessMessages\([\s\S]*activeTurnId: activeTurnTarget\?\.turnId/);
+  assert.match(restructure, /pendingAssistantTurnId: pendingAssistantMessage\?\.turnId/);
+  assert.match(processHook, /options: PseudoStreamMessageOptions/);
+  assert.match(processHook, /targetTurnIds = useMemo/);
+  assert.match(processHook, /targetMessageIds = useMemo/);
+  assert.match(processHook, /!targetRunning \|\| !isPseudoStreamTargetMessage\(item\.message, targetTurnIds, targetMessageIds\)/);
+  assert.doesNotMatch(processHook, /if \(!targetRunning\) \{[\s\S]*?return;\s*\}/);
+});

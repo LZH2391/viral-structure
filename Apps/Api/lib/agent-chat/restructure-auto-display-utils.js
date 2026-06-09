@@ -41,19 +41,36 @@ async function hydrateConversationSlotAtomDisplays(conversation, { rootDir } = {
 }
 
 async function hydrateSlotAtomDisplay(display, { rootDir } = {}) {
-  if (!shouldHydrateSlotAtomDisplay(display) || !rootDir) return display;
+  if (!display || typeof display !== "object" || !rootDir) return display;
+  const hydratedVersionDisplays = Array.isArray(display.versionDisplays)
+    ? (await Promise.all(display.versionDisplays.map((item) => hydrateSlotAtomDisplay(item, { rootDir })))).filter(Boolean)
+    : [];
+  if (!shouldHydrateSlotAtomDisplay(display)) {
+    return hydratedVersionDisplays.length ? { ...display, versionDisplays: hydratedVersionDisplays } : display;
+  }
   const displayJsonPath = resolveWorkspacePath(rootDir, display.displayJsonPath);
-  if (!displayJsonPath) return display;
+  if (!displayJsonPath) return hydratedVersionDisplays.length ? { ...display, versionDisplays: hydratedVersionDisplays } : display;
   try {
     const content = await fs.readFile(displayJsonPath, "utf8");
     const displayJson = JSON.parse(content);
+    const versionMeta = extractVersionMeta(displayJson);
     const summary = buildSlotAtomDisplaySummary(displayJson, {
       displayJsonPath: safeRelative(rootDir, displayJsonPath),
       fileFingerprint: display.fileFingerprint ?? null,
     });
-    return summary.status === "available" ? summary : display;
+    return summary.status === "available" ? {
+      ...display,
+      ...summary,
+      mode: display.mode ?? summary.mode ?? null,
+      versionId: versionMeta.versionId ?? display.versionId ?? summary.versionId ?? null,
+      versionName: versionMeta.versionName ?? display.versionName ?? summary.versionName ?? null,
+      defaultVersionId: display.defaultVersionId ?? summary.defaultVersionId ?? null,
+      rootRestructureFinalPath: display.rootRestructureFinalPath ?? summary.rootRestructureFinalPath ?? null,
+      sourceRestructureFinalPath: display.sourceRestructureFinalPath ?? summary.sourceRestructureFinalPath ?? null,
+      versionDisplays: hydratedVersionDisplays,
+    } : (hydratedVersionDisplays.length ? { ...display, versionDisplays: hydratedVersionDisplays } : display);
   } catch {
-    return display;
+    return hydratedVersionDisplays.length ? { ...display, versionDisplays: hydratedVersionDisplays } : display;
   }
 }
 
@@ -155,7 +172,8 @@ function isCompleted(status) {
 }
 
 function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, fileFingerprint = null } = {}) {
-  const slotRows = tableRowsAfterHeading(displayJson?.sections?.finalSlotChain, "槽位链");
+  let slotRows = tableRowsAfterHeading(displayJson?.sections?.finalSlotChain, "槽位链");
+  if (!slotRows.length) slotRows = firstTableRows(displayJson?.sections?.finalSlotChain);
   const atomRows = firstTableRows(displayJson?.sections?.atomLandingTable);
   const slots = slotRows.map((row, index) => {
     const slotSubtype = rowValue(row, ["slotSubtype", "槽位", "slot subtype"]);
@@ -167,7 +185,7 @@ function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, file
       slotSubtypeId: extractBacktickId(slotSubtype),
       archetype,
       archetypeId: extractBacktickId(archetype),
-      functionText: rowValue(row, ["链路功能", "功能"]),
+      functionText: rowValue(row, ["链路功能", "本方案任务", "任务", "功能"]),
       usage: rowValue(row, ["本方案用法", "用法"]),
       reason: rowValue(row, ["选择理由", "理由"]),
     };
@@ -235,6 +253,16 @@ function rowValueContains(row, needle) {
   const normalizedNeedle = normalizeKey(needle);
   const found = Object.entries(row ?? {}).find(([key]) => normalizeKey(key).includes(normalizedNeedle));
   return found ? String(found[1]) : "";
+}
+
+function extractVersionMeta(displayJson) {
+  const result = { versionId: null, versionName: null };
+  for (const item of displayJson?.sections?.goalAndAssumptions?.items ?? []) {
+    const text = String(item?.text ?? "").trim();
+    if (!result.versionId) result.versionId = /versionId[：:]\s*`?([A-Za-z0-9_.-]+)`?/i.exec(text)?.[1] ?? null;
+    if (!result.versionName) result.versionName = /versionName[：:]\s*([^`\n]+)/i.exec(text)?.[1]?.trim() ?? null;
+  }
+  return result;
 }
 
 function rowAtomLandingValue(row, atomKind) {

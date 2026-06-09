@@ -27,6 +27,7 @@ function createFullAnalysisBatchQueue({
   terminalRetentionLimit = DEFAULT_TERMINAL_RETENTION_LIMIT,
   loadSampleArtifact = null,
   onQueueChanged = null,
+  onItemCompleted = null,
   logger = null,
 } = {}) {
   const state = loadQueueState(filePath);
@@ -201,6 +202,7 @@ function createFullAnalysisBatchQueue({
       if (!run) continue;
       syncItemFromRun(item, run);
       await syncItemFromCompletedArtifact(batch, item);
+      await maybeNotifyItemCompleted(batch, item, run);
     }
     assignQueuedPositions(batch);
   }
@@ -231,6 +233,8 @@ function createFullAnalysisBatchQueue({
         file,
         fields: {
           ...batchFieldsForWorkflow(batch),
+          targetConversationId: batch.fields?.targetConversationId ?? undefined,
+          bindMaterialToConversation: batch.fields?.bindMaterialToConversation ?? undefined,
           maxConcurrentRuns: undefined,
         },
       });
@@ -239,6 +243,7 @@ function createFullAnalysisBatchQueue({
       const latestRun = workflowService.get?.(result.workflowRunId) ?? result;
       syncItemFromRun(item, latestRun);
       await syncItemFromCompletedArtifact(batch, item);
+      await maybeNotifyItemCompleted(batch, item, latestRun);
       return isActiveItem(item);
     } catch (error) {
       item.status = "failed";
@@ -293,6 +298,26 @@ function createFullAnalysisBatchQueue({
     cleanupQueuedFile(item);
   }
 
+  async function maybeNotifyItemCompleted(batch, item, run = null) {
+    if (typeof onItemCompleted !== "function" || item.completionNotifiedAt || item.status !== "processed") return;
+    let artifact = null;
+    if (loadSampleArtifact && item.sampleVideoId) {
+      artifact = await loadSampleArtifact({ sampleVideoId: item.sampleVideoId }).catch(() => null);
+    }
+    if (!hasWorkflowCompletionArtifact(batch.workflowKey, artifact)) return;
+    item.completionNotifiedAt = new Date().toISOString();
+    try {
+      await onItemCompleted(publicBatch(batch), publicBatchItem(item), {
+        artifact,
+        workflowRun: run,
+        fields: batch.fields ?? {},
+        workflowKey: batch.workflowKey,
+      });
+    } catch {
+      // Queue completion must remain independent from optional post-processing hooks.
+    }
+  }
+
   function batchFieldsForWorkflow(batch) {
     const fields = {
       workspaceId: batch.workspaceId,
@@ -301,6 +326,8 @@ function createFullAnalysisBatchQueue({
       enableSubtitleRecognition: batch.fields?.enableSubtitleRecognition ?? "true",
       enableAudioFeatureAnalysis: batch.fields?.enableAudioFeatureAnalysis ?? "true",
       cacheDecision: batch.fields?.cacheDecision ?? "ask",
+      targetConversationId: batch.fields?.targetConversationId ?? undefined,
+      bindMaterialToConversation: batch.fields?.bindMaterialToConversation ?? undefined,
     };
     if (batch.workflowKey === "full-analysis") {
       fields.enableFunctionSlotAtomization = batch.options?.enableFunctionSlotAtomization === false ? "false" : "true";
@@ -583,27 +610,32 @@ function publicBatch(batch) {
     updatedAt: batch.updatedAt,
     completedAt: batch.completedAt ?? null,
     restored: Boolean(batch.restored),
-    items: batch.items.map((item) => ({
-      queueItemId: item.queueItemId,
-      batchRunId: item.batchRunId,
-      workflowRunId: item.workflowRunId,
-      sampleVideoId: item.sampleVideoId,
-      filename: item.filename,
-      mimeType: item.mimeType,
-      size: item.size,
-      status: item.status,
-      position: item.position,
-      currentStageKeys: item.currentStageKeys ?? [],
-      currentStageLabel: item.currentStageLabel ?? null,
-      errorSummary: item.errorSummary ?? null,
-      retryable: isRetryableItem(item),
-      sourceFileAvailable: Boolean(item.filePath && fs.existsSync(item.filePath)),
-      lastFailure: item.status === "failed" || item.status === "partial_failed" ? item.errorSummary ?? null : null,
-      createdAt: item.createdAt,
-      startedAt: item.startedAt ?? null,
-      completedAt: item.completedAt ?? null,
-      updatedAt: item.updatedAt,
-    })),
+    items: batch.items.map(publicBatchItem),
+  };
+}
+
+function publicBatchItem(item) {
+  return {
+    queueItemId: item.queueItemId,
+    batchRunId: item.batchRunId,
+    workflowRunId: item.workflowRunId,
+    sampleVideoId: item.sampleVideoId,
+    filename: item.filename,
+    mimeType: item.mimeType,
+    size: item.size,
+    status: item.status,
+    position: item.position,
+    currentStageKeys: item.currentStageKeys ?? [],
+    currentStageLabel: item.currentStageLabel ?? null,
+    errorSummary: item.errorSummary ?? null,
+    retryable: isRetryableItem(item),
+    sourceFileAvailable: Boolean(item.filePath && fs.existsSync(item.filePath)),
+    lastFailure: item.status === "failed" || item.status === "partial_failed" ? item.errorSummary ?? null : null,
+    completionNotifiedAt: item.completionNotifiedAt ?? null,
+    createdAt: item.createdAt,
+    startedAt: item.startedAt ?? null,
+    completedAt: item.completedAt ?? null,
+    updatedAt: item.updatedAt,
   };
 }
 
@@ -616,6 +648,8 @@ function sanitizeWorkflowFields(fields = {}) {
     enableAudioFeatureAnalysis: fields.enableAudioFeatureAnalysis ?? "true",
     enableFunctionSlotAtomization: fields.enableFunctionSlotAtomization ?? "true",
     cacheDecision: fields.cacheDecision ?? "ask",
+    targetConversationId: fields.targetConversationId ?? null,
+    bindMaterialToConversation: fields.bindMaterialToConversation ?? null,
   };
 }
 

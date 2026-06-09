@@ -249,6 +249,13 @@ export function NewUiRestructureWorkspace({
     conversation?.conversationId ?? null,
     processMessages,
     Boolean(activeTurnTarget?.running),
+    {
+      activeTurnId: activeTurnTarget?.turnId ?? null,
+      pendingAssistantId: pendingAssistantMessage?.id ?? null,
+      pendingAssistantTurnId: pendingAssistantMessage?.turnId ?? null,
+      pendingSpecialUserId: pendingUserMessage?.userInputOrigin ? pendingUserMessage.id : null,
+      pendingSpecialUserTurnId: pendingUserMessage?.userInputOrigin ? pendingUserMessage.turnId ?? null : null,
+    },
   );
 
   useEffect(() => {
@@ -323,7 +330,7 @@ export function NewUiRestructureWorkspace({
       {selectedMaterialPack ? (
         <AttachmentChip
           label={selectedMaterialPack.pending ? "识别中" : "素材包"}
-          title={selectedMaterialPack.title || selectedMaterialPack.sampleVideoId}
+          title={selectedMaterialPack.title ?? selectedMaterialPack.sampleVideoId ?? selectedMaterialPack.resultUri ?? "素材包"}
           onOpen={onOpenMaterialPackDetail ? () => onOpenMaterialPackDetail(selectedMaterialPack) : undefined}
           onRemove={() => setSelectedMaterialPack(null)}
         />
@@ -511,9 +518,11 @@ export function NewUiRestructureWorkspace({
     return (
       <section className="new-ui-restructure-workspace is-draft" aria-label="新建重组对话">
         <main className="new-ui-restructure-draft">
-          {errorAlert}
-          <h1>给一个主题，或者直接告诉我你想做什么。</h1>
-          {composer}
+          <div className="new-ui-restructure-draft-stack">
+            {errorAlert}
+            <h1>给一个主题，或者直接告诉我你想做什么。</h1>
+            {composer}
+          </div>
         </main>
       </section>
     );
@@ -636,9 +645,10 @@ export function NewUiRestructureWorkspace({
               ) : null}
             </div>
           ) : (
-            <div className="new-ui-restructure-thread-empty">
-              <h2>还没有消息</h2>
-              <p>这个会话已创建，等待第一条重组 brief。</p>
+            <div className="new-ui-restructure-message-list is-empty-thread">
+              <div className="new-ui-restructure-thread-empty">
+                <h2>给一个主题，或者直接告诉我你想做什么。</h2>
+              </div>
             </div>
           )}
 
@@ -1929,7 +1939,12 @@ function usePseudoStreamedAssistantMessages(
   };
 }
 
-function usePseudoStreamedProcessMessages(conversationId: string | null, messages: AgentChatMessageSnapshot[], targetRunning: boolean) {
+function usePseudoStreamedProcessMessages(
+  conversationId: string | null,
+  messages: AgentChatMessageSnapshot[],
+  targetRunning: boolean,
+  options: PseudoStreamMessageOptions,
+) {
   const [streamingTextByKey, setStreamingTextByKey] = useState<Record<string, string>>({});
   const seenMessageKeysRef = useRef<Set<string>>(new Set());
   const queuedMessageKeysRef = useRef<Set<string>>(new Set());
@@ -1939,6 +1954,21 @@ function usePseudoStreamedProcessMessages(conversationId: string | null, message
   const streamTextByKeyRef = useRef<Record<string, string>>({});
   const previousConversationIdRef = useRef<string | null | undefined>(undefined);
   const baselineInitializedRef = useRef(false);
+  const targetTurnIds = useMemo(
+    () => new Set([
+      options.activeTurnId,
+      options.pendingAssistantTurnId,
+      options.pendingSpecialUserTurnId,
+    ].filter((value): value is string => Boolean(value))),
+    [options.activeTurnId, options.pendingAssistantTurnId, options.pendingSpecialUserTurnId],
+  );
+  const targetMessageIds = useMemo(
+    () => new Set([
+      options.pendingAssistantId,
+      options.pendingSpecialUserId,
+    ].filter((value): value is string => Boolean(value))),
+    [options.pendingAssistantId, options.pendingSpecialUserId],
+  );
   const streamableMessages = useMemo(() => createProcessPseudoStreamMessageItems(messages), [messages]);
   const processMessageKeyByObject = useMemo(() => {
     const keyByObject = new WeakMap<AgentChatMessageSnapshot, string>();
@@ -1972,16 +2002,13 @@ function usePseudoStreamedProcessMessages(conversationId: string | null, message
   }, [conversationId]);
 
   useEffect(() => {
-    if (!targetRunning) {
-      streamableMessages.forEach((item) => {
-        const key = item.key;
-        if (queuedMessageKeysRef.current.has(key) || activeKeyRef.current === key) return;
-        seenMessageKeysRef.current.add(key);
-      });
-      return;
-    }
     streamableMessages.forEach((item) => {
       const key = item.key;
+      if (!targetRunning || !isPseudoStreamTargetMessage(item.message, targetTurnIds, targetMessageIds)) {
+        if (queuedMessageKeysRef.current.has(key) || activeKeyRef.current === key) return;
+        seenMessageKeysRef.current.add(key);
+        return;
+      }
       if (seenMessageKeysRef.current.has(key) || queuedMessageKeysRef.current.has(key) || activeKeyRef.current === key) return;
       streamTextByKeyRef.current[key] = item.detail;
       queuedMessageKeysRef.current.add(key);
@@ -1996,7 +2023,7 @@ function usePseudoStreamedProcessMessages(conversationId: string | null, message
       streamTextByKeyRef,
       setStreamingTextByKey,
     });
-  }, [streamableMessages, targetRunning]);
+  }, [streamableMessages, targetMessageIds, targetRunning, targetTurnIds]);
 
   useEffect(() => {
     return () => {

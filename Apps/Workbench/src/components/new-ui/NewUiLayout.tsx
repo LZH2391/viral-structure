@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { createPortal } from "react-dom";
 import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getFunctionSlotLibraryItems, getMaterialRecognitionBatchRun, listAgentChatConversations, previewFunctionSlotPlanTraceGraph, runtimeUrl, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, startMaterialRecognitionBatchRun, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
-import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline, FullAnalysisBatchItem, FullAnalysisBatchRun, ReplacementDraft } from "../../types";
+import type { AgentChatConversation, AgentChatMaterialPackRef, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline, FullAnalysisBatchItem, FullAnalysisBatchRun, ReplacementDraft } from "../../types";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../../utils/restructurePath";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { AppErrorBoundary } from "../AppErrorBoundary";
@@ -197,6 +197,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const selectedRestructureConversation = useMemo(() => (
     restructureConversations.find((conversation) => conversation.conversationId === activeRestructureConversationId) ?? null
   ), [activeRestructureConversationId, restructureConversations]);
+  const selectedDefaultMaterialPack = selectedRestructureConversation?.defaultMaterialPackRef ?? null;
   const selectedRunningRestructureTurn = activeRestructureConversationId ? runningRestructureTurns[activeRestructureConversationId] ?? null : null;
   const selectedRestructureConversationError = activeRestructureConversationId ? restructureConversationErrors[activeRestructureConversationId] ?? null : null;
   const selectedOptimisticRestructureGeneration = useMemo(() => {
@@ -289,6 +290,19 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setDraftingRestructureConversation(false);
   }, []);
 
+  const applyRestructureConversationDefaultMaterialPack = useCallback((conversation: AgentChatConversation | null | undefined, force = false) => {
+    const option = materialPackOptionFromConversationDefault(conversation?.defaultMaterialPackRef);
+    if (!option) return false;
+    setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, option));
+    setSelectedRestructureMaterialPack((current) => resolveConversationDefaultMaterialPackSelection(
+      current,
+      conversation,
+      activeRestructureConversationIdRef.current,
+      force,
+    ));
+    return true;
+  }, []);
+
   const clearRestructureConversationError = useCallback((conversationId: string | null | undefined) => {
     if (!conversationId) return;
     setRestructureConversationErrors((current) => {
@@ -355,6 +369,18 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   useEffect(() => {
     setSelectedRestructureMaterialPack((current) => replacePendingMaterialPackSelection(current, getReadyMaterialPackOptions(restructureMaterialPackOptions)));
   }, [restructureMaterialPackOptions]);
+
+  useEffect(() => {
+    if (!selectedDefaultMaterialPack) return;
+    const option = materialPackOptionFromConversationDefault(selectedDefaultMaterialPack);
+    if (!option) return;
+    setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, option));
+    setSelectedRestructureMaterialPack(option);
+  }, [
+    selectedDefaultMaterialPack?.sampleVideoId,
+    selectedDefaultMaterialPack?.artifactId,
+    selectedDefaultMaterialPack?.resultUri,
+  ]);
 
   useEffect(() => {
     draftRestructureConversationIdRef.current = draftRestructureConversationId;
@@ -705,6 +731,32 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setActiveLibraryChild(child);
   }, []);
 
+  const refreshRestructureConversations = useCallback(async (preferredConversationId?: string | null) => {
+    const currentLoadedCount = Math.max(restructureConversations.length, RESTRUCTURE_CONVERSATION_PAGE_SIZE);
+    const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active", limit: currentLoadedCount, offset: 0 });
+    const conversations = payload.conversations ?? [];
+    setRestructureConversations(conversations);
+    clearLoadedRestructureConversationErrors(conversations);
+    setRestructureConversationsHasMore(Boolean(payload.hasMore));
+    const preferredExists = Boolean(preferredConversationId && conversations.some((conversation) => conversation.conversationId === preferredConversationId));
+    const currentActiveId = activeRestructureConversationIdRef.current;
+    const currentExists = Boolean(currentActiveId && conversations.some((conversation) => conversation.conversationId === currentActiveId));
+    const targetConversation = conversations.find((conversation) => conversation.conversationId === (preferredConversationId ?? currentActiveId)) ?? null;
+    applyRestructureConversationDefaultMaterialPack(targetConversation, Boolean(targetConversation && (targetConversation.conversationId === preferredConversationId || targetConversation.conversationId === currentActiveId)));
+    if (currentExists) return conversations;
+    if (preferredConversationId && currentActiveId === preferredConversationId) return conversations;
+    if (draftingRestructureConversationRef.current) {
+      activeRestructureConversationIdRef.current = null;
+      setActiveRestructureConversationId(null);
+      return conversations;
+    }
+    const nextActiveId = preferredExists ? preferredConversationId ?? null : conversations[0]?.conversationId ?? null;
+    activeRestructureConversationIdRef.current = nextActiveId;
+    setActiveRestructureConversationId(nextActiveId);
+    applyRestructureConversationDefaultMaterialPack(conversations.find((conversation) => conversation.conversationId === nextActiveId) ?? null, true);
+    return conversations;
+  }, [applyRestructureConversationDefaultMaterialPack, clearLoadedRestructureConversationErrors, restructureConversations.length]);
+
   const refreshRestructureMaterialPackOptions = useCallback(async () => {
     setLoadingRestructureMaterialPacks(true);
     try {
@@ -713,14 +765,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         .filter((item) => item.hasUserMaterialPack && !item.isRunning)
         .slice(0, 12)
         .map((item): NewUiMaterialPackOption => ({
-          sampleVideoId: item.sampleVideoId,
-          artifactId: item.artifactId ?? null,
-          title: stripMediaExtension(item.title ?? item.sampleVideoId),
-          traceId: item.traceId ?? null,
-          coverUrl: runtimeUrlSafe(item.coverUri),
-          durationSeconds: item.durationSeconds ?? null,
+          ...materialPackOptionFromAnalysisItem(item, item.title, restructureMaterialUploadSampleKeysRef.current[item.sampleVideoId] ?? null),
           updatedAt: item.updatedAt ?? item.createdAt ?? null,
-          uploadKey: restructureMaterialUploadSampleKeysRef.current[item.sampleVideoId] ?? null,
         }));
       setRestructureMaterialPackOptions((current) => {
         const localUploadItems = current.filter((item) => normalizeMaterialUploadKey(item.uploadKey));
@@ -737,6 +783,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     let cancelled = false;
     const refresh = () => {
       void refreshRestructureMaterialPackOptions().catch(() => undefined);
+      void refreshRestructureConversations(activeRestructureConversationIdRef.current).catch(() => undefined);
     };
     refresh();
     const timer = window.setInterval(() => {
@@ -746,7 +793,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [refreshRestructureMaterialPackOptions, selectedRestructureMaterialPack?.pending, selectedRestructureMaterialPack?.sampleVideoId, selectedRestructureMaterialPack?.title]);
+  }, [refreshRestructureConversations, refreshRestructureMaterialPackOptions, selectedRestructureMaterialPack?.pending, selectedRestructureMaterialPack?.sampleVideoId, selectedRestructureMaterialPack?.title]);
 
   const refreshRestructureStructureOptions = useCallback(async () => {
     setLoadingRestructureStructures(true);
@@ -766,7 +813,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }
   }, []);
 
-  const pollRestructureMaterialPackUntilReady = useCallback((initialItem: AnalysisHistoryItem, fallbackTitle?: string | null, uploadKey?: string | null) => {
+  const pollRestructureMaterialPackUntilReady = useCallback((initialItem: AnalysisHistoryItem, fallbackTitle?: string | null, uploadKey?: string | null, targetConversationId?: string | null) => {
     const sampleVideoId = initialItem.sampleVideoId;
     if (!sampleVideoId) return;
     const existingTimer = restructureMaterialPollTimersRef.current[sampleVideoId];
@@ -784,6 +831,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             setSelectedRestructureMaterialPack(option);
           }
           await refreshRestructureMaterialPackOptions().catch(() => undefined);
+          await refreshRestructureConversations(targetConversationId ?? activeRestructureConversationIdRef.current).catch(() => undefined);
           return;
         }
         const nextOption = materialPackPendingOptionFromAnalysisItem(refreshedItem, fallbackTitle, uploadKey);
@@ -802,9 +850,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       }
     };
     restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(initialItem), 1200);
-  }, [refreshRestructureMaterialPackOptions]);
+  }, [refreshRestructureConversations, refreshRestructureMaterialPackOptions]);
 
-  const pollRestructureMaterialBatchItemUntilReady = useCallback((batchRunId: string, queueItemId: string, fallbackTitle?: string | null) => {
+  const pollRestructureMaterialBatchItemUntilReady = useCallback((batchRunId: string, queueItemId: string, fallbackTitle?: string | null, targetConversationId?: string | null) => {
     const timerKey = `${batchRunId}:${queueItemId}`;
     const uploadKey = materialUploadKey(batchRunId, queueItemId);
     const existingTimer = restructureMaterialPollTimersRef.current[timerKey];
@@ -835,7 +883,16 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               setSelectedRestructureMaterialPack(option);
             }
             await refreshRestructureMaterialPackOptions().catch(() => undefined);
+            await refreshRestructureConversations(targetConversationId ?? activeRestructureConversationIdRef.current).catch(() => undefined);
             return;
+          }
+          if (String(queueItem.status ?? "").toLowerCase() === "processed") {
+            const conversations = await refreshRestructureConversations(targetConversationId ?? activeRestructureConversationIdRef.current).catch(() => []);
+            const targetConversation = conversations.find((conversation) => conversation.conversationId === (targetConversationId ?? activeRestructureConversationIdRef.current)) ?? null;
+            if (applyRestructureConversationDefaultMaterialPack(targetConversation, true)) {
+              delete restructureMaterialPollTimersRef.current[timerKey];
+              return;
+            }
           }
           const pendingOption = materialPackPendingOptionFromAnalysisItem(item, fallbackTitle, uploadKey);
           setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(
@@ -852,7 +909,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
             });
           }
           delete restructureMaterialPollTimersRef.current[timerKey];
-          pollRestructureMaterialPackUntilReady(refreshedItem ?? historyItem, fallbackTitle, uploadKey);
+          pollRestructureMaterialPackUntilReady(refreshedItem ?? historyItem, fallbackTitle, uploadKey, targetConversationId);
           return;
         }
         const pendingOption = materialPackPendingOptionFromBatchQueueItem(queueItem, batch, fallbackTitle, uploadKey);
@@ -872,7 +929,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       }
     };
     restructureMaterialPollTimersRef.current[timerKey] = window.setTimeout(() => void poll(), 800);
-  }, [pollRestructureMaterialPackUntilReady]);
+  }, [applyRestructureConversationDefaultMaterialPack, pollRestructureMaterialPackUntilReady, refreshRestructureConversations, refreshRestructureMaterialPackOptions]);
 
   const openMaterialRecognitionUploadFromRestructure = useCallback(() => {
     restructureMaterialUploadInputRef.current?.click();
@@ -883,7 +940,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       selectedRestructureMaterialPack?.pending
       && (!option || !isSameMaterialPackOptionIdentity(option, selectedRestructureMaterialPack))
     ) {
-      cancelledRestructureMaterialSamplesRef.current.add(selectedRestructureMaterialPack.sampleVideoId);
+      const sampleVideoId = selectedRestructureMaterialPack.sampleVideoId;
+      if (sampleVideoId) cancelledRestructureMaterialSamplesRef.current.add(sampleVideoId);
       const uploadKey = normalizeMaterialUploadKey(selectedRestructureMaterialPack.uploadKey);
       if (uploadKey) cancelledRestructureMaterialSamplesRef.current.add(uploadKey);
     }
@@ -903,6 +961,21 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setUploadingRestructureMaterial(true);
     setLoadingRestructureMaterialPacks(true);
     try {
+      let targetConversationId = selectedRestructureConversation?.conversationId ?? null;
+      if (!targetConversationId && draftingRestructureConversation) {
+        setCreatingRestructureConversation(true);
+        const startedSession = await startAgentChatThread({
+          source: "threadpool-role",
+          role: "function-slot-restructure",
+        });
+        targetConversationId = startedSession.conversationId ?? null;
+        if (targetConversationId) {
+          draftingRestructureConversationRef.current = false;
+          setDraftingRestructureConversation(false);
+          selectRestructureConversation(targetConversationId);
+          await refreshRestructureConversations(targetConversationId).catch(() => undefined);
+        }
+      }
       const batch = await startMaterialRecognitionBatchRun(videoFiles, {
         frameSampleRateFps: 10,
         enableAudioSeparation: true,
@@ -910,6 +983,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         enableAudioFeatureAnalysis: true,
         cacheDecision: "refresh",
         maxConcurrentRuns: 2,
+        targetConversationId,
+        bindMaterialToConversation: Boolean(targetConversationId),
       });
       const pendingOptions = batch.items.map((item, index) => materialPackPendingOptionFromBatchQueueItem(item, batch, videoFiles[index]?.name ?? item.filename));
       setRestructureMaterialPackOptions((current) => pendingOptions.reduce((items, item) => upsertMaterialPackOption(items, item), current));
@@ -934,17 +1009,20 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
                 if (!isRestructureMaterialSelectionCancelled(option, cancelledRestructureMaterialSamplesRef.current)) {
                   setSelectedRestructureMaterialPack(option);
                 }
-                return refreshRestructureMaterialPackOptions();
+                return Promise.all([
+                  refreshRestructureMaterialPackOptions(),
+                  refreshRestructureConversations(targetConversationId),
+                ]);
               }
-              pollRestructureMaterialPackUntilReady(refreshedItem, fallbackTitle, uploadKey);
+              pollRestructureMaterialPackUntilReady(refreshedItem, fallbackTitle, uploadKey, targetConversationId);
               return undefined;
             })
             .catch(() => {
-              pollRestructureMaterialPackUntilReady(initialItem, fallbackTitle, uploadKey);
+              pollRestructureMaterialPackUntilReady(initialItem, fallbackTitle, uploadKey, targetConversationId);
             });
           return;
         }
-        pollRestructureMaterialBatchItemUntilReady(batch.batchRunId, item.queueItemId, videoFiles[index]?.name ?? item.filename);
+        pollRestructureMaterialBatchItemUntilReady(batch.batchRunId, item.queueItemId, videoFiles[index]?.name ?? item.filename, targetConversationId);
       });
       if (!batch.items.length) {
         await refreshRestructureMaterialPackOptions().catch(() => undefined);
@@ -953,38 +1031,16 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       markRestructureConversationError(selectedRestructureConversation?.conversationId ?? null, error);
     } finally {
       setUploadingRestructureMaterial(false);
+      setCreatingRestructureConversation(false);
       setLoadingRestructureMaterialPacks(false);
     }
-  }, [markRestructureConversationError, pollRestructureMaterialBatchItemUntilReady, pollRestructureMaterialPackUntilReady, refreshRestructureMaterialPackOptions, selectedRestructureConversation?.conversationId, uploadingRestructureMaterial]);
+  }, [draftingRestructureConversation, markRestructureConversationError, pollRestructureMaterialBatchItemUntilReady, pollRestructureMaterialPackUntilReady, refreshRestructureConversations, refreshRestructureMaterialPackOptions, selectRestructureConversation, selectedRestructureConversation?.conversationId, uploadingRestructureMaterial]);
 
   const handleSidebarRestructureConversationChange = useCallback((conversationId: string) => {
     setStructureGraphReturn(null);
     setArchiveConfirmConversationId(null);
     selectRestructureConversation(conversationId);
   }, [selectRestructureConversation]);
-
-  const refreshRestructureConversations = useCallback(async (preferredConversationId?: string | null) => {
-    const currentLoadedCount = Math.max(restructureConversations.length, RESTRUCTURE_CONVERSATION_PAGE_SIZE);
-    const payload = await listAgentChatConversations({ role: "function-slot-restructure", status: "active", limit: currentLoadedCount, offset: 0 });
-    const conversations = payload.conversations ?? [];
-    setRestructureConversations(conversations);
-    clearLoadedRestructureConversationErrors(conversations);
-    setRestructureConversationsHasMore(Boolean(payload.hasMore));
-    const preferredExists = Boolean(preferredConversationId && conversations.some((conversation) => conversation.conversationId === preferredConversationId));
-    const currentActiveId = activeRestructureConversationIdRef.current;
-    const currentExists = Boolean(currentActiveId && conversations.some((conversation) => conversation.conversationId === currentActiveId));
-    if (currentExists) return conversations;
-    if (preferredConversationId && currentActiveId === preferredConversationId) return conversations;
-    if (draftingRestructureConversationRef.current) {
-      activeRestructureConversationIdRef.current = null;
-      setActiveRestructureConversationId(null);
-      return conversations;
-    }
-    const nextActiveId = preferredExists ? preferredConversationId ?? null : conversations[0]?.conversationId ?? null;
-    activeRestructureConversationIdRef.current = nextActiveId;
-    setActiveRestructureConversationId(nextActiveId);
-    return conversations;
-  }, [clearLoadedRestructureConversationErrors, restructureConversations.length]);
 
   const handleLoadMoreRestructureConversations = useCallback(async () => {
     if (loadingRestructureConversations || loadingMoreRestructureConversations || !restructureConversationsHasMore) return;
@@ -1861,7 +1917,11 @@ function ThemedTooltipLayer({ rootRef }: { rootRef: { current: HTMLElement | nul
       }
       const rect = anchor.getBoundingClientRect();
       const placement = rect.top < 44 ? "bottom" : "top";
-      const left = Math.min(Math.max(rect.left + rect.width / 2, 16), window.innerWidth - 16);
+      const maxTooltipWidth = Math.min(260, Math.max(0, window.innerWidth - 32));
+      const minLeft = 16 + maxTooltipWidth / 2;
+      const maxLeft = window.innerWidth - 16 - maxTooltipWidth / 2;
+      const centerLeft = rect.left + rect.width / 2;
+      const left = maxLeft >= minLeft ? Math.min(Math.max(centerLeft, minLeft), maxLeft) : window.innerWidth / 2;
       const top = placement === "top" ? rect.top - 10 : rect.bottom + 10;
       setTooltip({ text, left, top, placement, variables: readTooltipVariables(root) });
     };
@@ -2350,6 +2410,7 @@ type RestructureMaterialAnalysisItem = {
       proofCoverage?: unknown[];
     } | null;
     userMaterialPackRef?: { uri?: string | null } | null;
+    userMaterialPackHistory?: Array<{ resultUri?: string | null }> | null;
   } | null;
 };
 
@@ -2394,7 +2455,7 @@ function materialHistoryItemFromBatchQueueItem(queueItem: FullAnalysisBatchItem,
 
 function materialPackReady(item: RestructureMaterialAnalysisItem) {
   const pack = item.artifact?.userMaterialPack ?? null;
-  return Boolean(pack?.type === "user-material-pack" && pack.schemaVersion === "user-material-pack.stable" && item.artifact?.userMaterialPackRef?.uri);
+  return Boolean(pack?.type === "user-material-pack" && pack.schemaVersion === "user-material-pack.stable" && materialPackResultUri(item));
 }
 
 function materialPackOptionFromAnalysisItem(item: RestructureMaterialAnalysisItem, fallbackTitle?: string | null, uploadKey?: string | null): NewUiMaterialPackOption {
@@ -2404,7 +2465,7 @@ function materialPackOptionFromAnalysisItem(item: RestructureMaterialAnalysisIte
     artifactId: pack?.artifactId ?? item.artifactId ?? null,
     title: stripMediaExtension(item.title ?? fallbackTitle ?? item.sampleVideoId),
     traceId: item.traceId ?? null,
-    resultUri: item.artifact?.userMaterialPackRef?.uri ?? null,
+    resultUri: materialPackResultUri(item),
     coverUrl: runtimeUrlSafe(item.coverUri),
     durationSeconds: item.durationSeconds ?? null,
     shotCardCount: Array.isArray(pack?.shotCards) ? pack.shotCards.length : null,
@@ -2412,6 +2473,12 @@ function materialPackOptionFromAnalysisItem(item: RestructureMaterialAnalysisIte
     proofCoverageCount: Array.isArray(pack?.proofCoverage) ? pack.proofCoverage.length : null,
     uploadKey: uploadKey ?? null,
   };
+}
+
+function materialPackResultUri(item: RestructureMaterialAnalysisItem) {
+  return item.artifact?.userMaterialPackRef?.uri
+    ?? item.artifact?.userMaterialPackHistory?.find((entry) => entry.resultUri)?.resultUri
+    ?? null;
 }
 
 function materialPackPendingOptionFromAnalysisItem(item: RestructureMaterialAnalysisItem, fallbackTitle?: string | null, uploadKey?: string | null): NewUiMaterialPackOption {
@@ -2433,6 +2500,34 @@ function materialPackPendingOptionFromBatchQueueItem(queueItem: FullAnalysisBatc
     uploadKey: uploadKey ?? materialUploadKey(batch.batchRunId, queueItem.queueItemId),
     pending: true,
   };
+}
+
+function materialPackOptionFromConversationDefault(ref: AgentChatMaterialPackRef | null | undefined): NewUiMaterialPackOption | null {
+  if (!ref?.sampleVideoId && !ref?.resultUri) return null;
+  return {
+    sampleVideoId: ref.sampleVideoId || ref.resultUri || "default-material-pack",
+    artifactId: ref.artifactId ?? null,
+    title: ref.title ?? ref.sampleVideoId ?? "默认素材包",
+    traceId: ref.traceId ?? null,
+    resultUri: ref.resultUri ?? null,
+    coverUrl: null,
+    durationSeconds: null,
+    shotCardCount: ref.shotCardCount ?? null,
+    materialGroupCount: ref.materialGroupCount ?? null,
+    proofCoverageCount: ref.proofCoverageCount ?? null,
+  };
+}
+
+export function resolveConversationDefaultMaterialPackSelection(
+  current: NewUiMaterialPackOption | null,
+  conversation: Pick<AgentChatConversation, "conversationId" | "defaultMaterialPackRef"> | null | undefined,
+  activeConversationId: string | null | undefined,
+  force = false,
+) {
+  const option = materialPackOptionFromConversationDefault(conversation?.defaultMaterialPackRef);
+  if (!option) return current;
+  if (force || current?.pending || activeConversationId === conversation?.conversationId) return option;
+  return current ?? option;
 }
 
 function pendingMaterialSampleId(batchRunId: string, queueItemId: string) {
@@ -2504,7 +2599,8 @@ function isSameMaterialUpload(option: NewUiMaterialPackOption, uploadKey: string
 
 function isRestructureMaterialSelectionCancelled(option: NewUiMaterialPackOption, cancelledKeys: Set<string>) {
   const uploadKey = normalizeMaterialUploadKey(option.uploadKey);
-  return Boolean(cancelledKeys.has(option.sampleVideoId) || (uploadKey && cancelledKeys.has(uploadKey)));
+  const sampleVideoId = option.sampleVideoId;
+  return Boolean((sampleVideoId && cancelledKeys.has(sampleVideoId)) || (uploadKey && cancelledKeys.has(uploadKey)));
 }
 
 function normalizeMaterialUploadKey(value?: string | null) {

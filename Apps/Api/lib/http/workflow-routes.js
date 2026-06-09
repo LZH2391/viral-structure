@@ -1,4 +1,5 @@
 const { hashBuffer } = require("../../../../Infrastructure/ArtifactIndex/artifact-index");
+const { bindConversationDefaultMaterialPack } = require("../agent-chat/material-pack-binding");
 const { parseMultipartUpload, parseMultipartUploads } = require("./multipart");
 const { sendJson, notFound } = require("./utils");
 
@@ -151,6 +152,7 @@ async function handleLatestFullAnalysisRun(res, handlers = {}) {
   }
   const run = latest?.workflowRunId ? (workflow.get(latest.workflowRunId) ?? latest) : null;
   if (!run) return notFound(res);
+  await maybeBindMaterialRecognitionRun(run, handlers);
   return sendJson(res, 200, run);
 }
 
@@ -162,6 +164,7 @@ async function handleLatestFullAnalysisRunForSample(res, sampleVideoId, handlers
   }
   const run = latest?.workflowRunId ? (workflow.get(latest.workflowRunId) ?? latest) : null;
   if (!run) return notFound(res);
+  await maybeBindMaterialRecognitionRun(run, handlers);
   return sendJson(res, 200, run);
 }
 
@@ -194,6 +197,7 @@ async function handleWorkflowRun(res, workflowRunId, handlers = {}) {
   }
   const run = workflow.get(workflowRunId);
   if (!run) return notFound(res);
+  await maybeBindMaterialRecognitionRun(run, handlers);
   return sendJson(res, 200, run);
 }
 
@@ -236,6 +240,46 @@ async function readJsonBody(req) {
   const text = Buffer.concat(chunks).toString("utf8").trim();
   if (!text) return {};
   return JSON.parse(text);
+}
+
+async function maybeBindMaterialRecognitionRun(run, handlers = {}) {
+  const targetConversationId = normalizeRouteText(run?.context?.targetConversationId);
+  if (run?.workflowKey !== "material-recognition" || !targetConversationId || run.context?.materialPackBindingNotifiedAt) return null;
+  if (!["processed", "partial_failed"].includes(String(run.status ?? "")) || !run.sampleVideoId) return null;
+  const artifact = await handlers.artifactIndex?.loadItem?.(run.sampleVideoId).catch(() => null);
+  if (!artifact?.userMaterialPack) return null;
+  const conversation = await bindConversationDefaultMaterialPack({
+    handlers,
+    conversationId: targetConversationId,
+    artifact,
+    binding: {
+      source: "material-recognition-run",
+      workflowKey: run.workflowKey,
+      workflowRunId: run.workflowRunId,
+      traceId: run.traceId ?? null,
+      runId: run.runId ?? null,
+      stageId: run.stageId ?? null,
+    },
+    traceContext: {
+      traceId: run.traceId ?? "material-recognition-run",
+      runId: run.runId ?? run.workflowRunId,
+      stageId: run.stageId ?? run.workflowRunId,
+    },
+  }).catch(() => null);
+  if (conversation) {
+    handlers.workflowRunStore?.updateRun?.(run.workflowRunId, (current) => ({
+      context: {
+        ...(current.context ?? {}),
+        materialPackBindingNotifiedAt: new Date().toISOString(),
+      },
+    }));
+  }
+  return conversation;
+}
+
+function normalizeRouteText(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
 }
 
 

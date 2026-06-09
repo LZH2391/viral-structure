@@ -240,6 +240,19 @@ export type AgentChatConversation = {
     runId?: string | null;
     stageId?: string | null;
   } | null;
+  defaultMaterialPackRef?: AgentChatMaterialPackRef | null;
+  defaultMaterialPackBinding?: {
+    source?: string | null;
+    workflowKey?: string | null;
+    workflowRunId?: string | null;
+    batchRunId?: string | null;
+    queueItemId?: string | null;
+    sampleVideoId?: string | null;
+    traceId?: string | null;
+    runId?: string | null;
+    stageId?: string | null;
+    boundAt?: string | null;
+  } | null;
   messages?: AgentChatMessageSnapshot[];
 };
 
