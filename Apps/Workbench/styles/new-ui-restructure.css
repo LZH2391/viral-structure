@@ -97,7 +97,7 @@
 
 .new-ui-restructure-draft-stack {
   position: absolute;
-  top: clamp(260px, 44vh, 430px);
+  top: 50%;
   left: 50%;
   display: block;
   width: min(calc(100% - (var(--new-ui-restructure-inline-padding) * 2)), var(--new-ui-restructure-content-width));
@@ -118,7 +118,7 @@
 .new-ui-restructure-draft .new-ui-restructure-composer {
   width: 100%;
   margin-top: 42px;
-  padding: 0;
+  padding: 38px 0 0;
 }
 
 .new-ui-restructure-draft .new-ui-restructure-message-list {
@@ -1499,7 +1499,7 @@ button.new-ui-restructure-note-pill:disabled {
 .new-ui-restructure-draft .new-ui-restructure-composer-attachments {
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 8px);
+  top: 0;
   transform: translateX(-50%);
 }
 
