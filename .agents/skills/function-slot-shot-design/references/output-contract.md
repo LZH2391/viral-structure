@@ -10,6 +10,14 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 若输入来自 `restructure.final.md`，在同一个重组目录下写入 `shot-design.final.md`。不要修改上游 `restructure.final.md`，也不要新建 `Artifacts/FunctionSlotShotDesign/<briefSlug-or-runId>`。
 
+若输入来自多版本重组 manifest，默认对 manifest 中列出的所有版本文件逐一生成 Shot 设计，版本数量以 manifest 实际列出的 `versionProfiles` / 版本文件为准，不固定为 4 个。每个版本输出到：
+
+```text
+Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/versions/<versionId>/shot-design.final.md
+```
+
+只有用户明确指定某个 `versionId` 或明确要求只做单版时，才只生成该版本的 Shot 设计。
+
 ## 文件结构
 
 ```markdown
@@ -154,3 +162,5 @@ Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/shot-design.final.md
 
 无原素材台词镜头：new_shot_03、new_shot_07 当前写“无”。是否需要我为这些镜头补写后期字幕/旁白？
 ```
+
+多版本 ShotDesign 完成后，聊天回复列出每个版本的 `shot-design.final.md` 可点击路径，并说明是否有版本阻塞。台词质检状态按整体说明：只要任一版本包含新增台词/字幕，就声明等待平台侧外部质检。

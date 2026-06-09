@@ -92,12 +92,37 @@
 }
 ```
 
-## 输出格式
+## 输出路径
 
-启用多版本模式时，在 `restructure.final.md` 的第 1 节之后增加：
+启用多版本模式时，默认使用分文件输出，避免把多个完整方案塞进同一个 `restructure.final.md`，也便于后续 `function-slot-shot-design`、展示转换和 storyboard 只读取被选中的单个版本。
+
+目录结构：
+
+```text
+Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/
+  restructure.final.md
+  versions/
+    V1_click/restructure.final.md
+    V2_conversion/restructure.final.md
+    V3_rhythm/restructure.final.md
+    V4_quality/restructure.final.md
+```
+
+根目录 `restructure.final.md` 是多版本 manifest / index，只写共同信息、版本策略、版本差异总览和每个版本文件链接，不承载完整第 2-10 节。每个版本目录下的 `restructure.final.md` 是可独立进入 ShotDesign 的完整结构方案，必须保持普通重组的第 1-10 节格式。
+
+只有在用户明确要求“所有版本放一个文件”时，才允许单文件多版本输出；即便如此，也必须披露下游解析和 ShotDesign 选择成本。
+
+## 根文件格式
+
+根目录 `restructure.final.md` 使用以下格式：
 
 ```markdown
-## 1.1 多版本生成策略
+# 多版本重组方案索引
+
+## 1. 重组目标与假设
+[共享 brief、素材供给判断、结构库输入摘要]
+
+## 2. 多版本生成策略
 
 共同不变量：
 - 产品事实：
@@ -109,22 +134,44 @@
 | versionId | versionName | optimizationGoal | chainDelta | hookStrategy | proofStrategy | rhythmStrategy | packagingStrategy | riskTradeoff |
 |---|---|---|---|---|---|---|---|---|
 | `V1_click` | 高点击版 | | | | | | | |
+
+## 3. 版本文件
+
+| versionId | versionName | 文件 | 适用场景 | 不适用场景 |
+|---|---|---|---|---|
+| `V1_click` | 高点击版 | `versions/V1_click/restructure.final.md` | | |
+
+## 4. 选择建议
+[一句话说明优先推荐哪个版本，以及为什么]
 ```
 
-随后第 2-10 节按版本分组输出，例如：
+## 版本文件格式
 
-```markdown
-## 2. 最终功能槽位链 - V1_click 高点击版
-...
+每个版本文件必须保存到：
 
-## 3. Atoms 落地表 - V1_click 高点击版
-...
+```text
+Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/versions/<versionId>/restructure.final.md
 ```
 
 要求：
 
-- 每个版本都必须完整输出第 2-10 节，不得用“同上”代替。
+- 每个版本文件都必须完整输出普通重组第 1-10 节，不得依赖根文件中的“同上”才能成立。
+- 第 1 节需要写清该版本的 `versionId / versionName / optimizationGoal / sharedInvariants / versionStrategy`，并链接根目录 `restructure.final.md`。
 - 如果某个版本和其他版本共用同一 concrete atom，仍要在该版本的第 3 节写明复用来源和本方案落地。
-- 第 8 节必须逐版本校验 binding principle / rule policy；高点击、高节奏等激进版本也不能跳过证明和承接校验。
+- 第 8 节必须校验该版本自己的 binding principle / rule policy；高点击、高节奏等激进版本也不能跳过证明和承接校验。
 - 第 10 节“必要替代实现”仍只用于该版本存在未满足项时的兜底，不替代多版本方案本身。
 
+## 后续 ShotDesign 规则
+
+多版本重组进入 `function-slot-shot-design` 时，默认对根目录 manifest 中列出的所有 `versionProfiles` / 版本文件逐一生成 Shot 设计，不固定为 4 个版本；版本数量以本轮重组实际输出为准。每个版本的 Shot 设计必须写入对应版本目录：
+
+```text
+Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/versions/<versionId>/shot-design.final.md
+```
+
+要求：
+
+- 根目录 manifest 不直接进入单版 ShotDesign；ShotDesign 应遍历 manifest 中的版本文件，逐一读取 `versions/<versionId>/restructure.final.md`。
+- 每个版本的 `shot-design.final.md` 只服务该版本结构，不得把多个版本混在同一个 Shot 表里。
+- 只有用户明确指定某个 `versionId` 或明确要求只做单版时，才只生成该版本的 Shot 设计。
+- 若某个版本结构无法落地，只对该版本声明 `return_to_restructure_required` 或说明阻塞，不影响其他版本继续生成。

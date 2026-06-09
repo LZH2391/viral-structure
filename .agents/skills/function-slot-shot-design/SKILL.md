@@ -16,6 +16,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 - 写具体分镜画面、动作与运镜、包装说明、台词/字幕、预计时长预算、必须同步点和证明功能。
 - 在 Shot 表完成后，基于已确认方案和最终 Shot 设计写一份封面生图提示词；封面不占视频时长，不改变槽位链，也不回写上游结构方案。
 - 输出独立 `shot-design.final.md`，只保留可交付 Shot 设计，不输出输入依据、Shot 级校验或风险修复表。
+- 若输入是多版本重组 manifest，默认遍历其中列出的所有版本文件，为每个版本分别输出独立 `versions/<versionId>/shot-design.final.md`；版本数量以 manifest 实际列出的 `versionProfiles` 为准，不固定为 4 个。
 
 使用素材镜头时要区分两种字段边界：
 
@@ -40,6 +41,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 优先接受：
 
 - 用户已认可的 `Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`
+- 多版本重组根目录 manifest：`Artifacts/FunctionSlotRestructure/<briefSlug-or-runId>/restructure.final.md`，其中列出 `versions/<versionId>/restructure.final.md`
 - 或用户粘贴的第 1-7 节结构方案
 - 当前 thread 中的 `user-material-pack.stable`、素材包路径或用户明确提供的素材候选说明
 - 用户补充的拍摄限制、素材限制、画幅、人物/产品一致性要求
@@ -53,6 +55,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 
 2. **读取上游结构**
    提取第 2 节槽位链、素材供给判断、推荐素材路径、第 4 节 adapter、第 5 节脚本段落、第 6 节节奏区间、第 7 节包装块。第 9-10 节风险和替代实现只作为内部边界检查，不写入最终 Shot 文件。不要重新检索库。
+   如果读取到的是多版本 manifest，而不是单个版本的完整第 1-10 节结构方案，默认遍历 manifest 中所有版本文件，逐一读取 `versions/<versionId>/restructure.final.md` 并分别执行后续步骤。只有用户明确指定某个 `versionId` 或明确要求只做单版时，才只处理该版本。
 
 3. **先判断 ShotDesign 路径**
    若上游第 2 节存在 `materialSupplyType=material_sufficient_specific_path` 或 `material_oversupply_selectable`，并给出 `recommendedMaterialPath` / 推荐素材顺序，进入“素材充足路径”：ShotDesign 的第一责任是把推荐路径逐 shot 落地；包装字幕、自行设计和复用变形不能替代推荐路径成为新的主成片逻辑。
@@ -84,6 +87,7 @@ description: 基于已确认的 function-slot-restructure 结构方案和当前 
 
 10. **落独立文件并检查**
    在同一个重组目录下写入 `shot-design.final.md`，然后按 `references/output-contract.md` 的质量检查逐项自查。最终聊天回复也遵守该 reference。
+   多版本 manifest 路径下，不能把所有版本写进同一个 Shot 文件；每个版本必须写入自己的 `versions/<versionId>/shot-design.final.md`。某个版本无法落地时，只阻塞该版本，不影响其他版本继续产出。
 
 11. **台词状态声明**
    如果本轮写入了任何非原素材逐字来源的台词、后期字幕、屏幕文字、封面标题字或旁白，只在最终回复中声明“本轮包含新增台词/字幕，等待平台侧外部质检”。不要在 ShotDesign 内调用其他审查 role，不要在 `shot-design.final.md` 中写质检过程、质检结论或整版风险表。
