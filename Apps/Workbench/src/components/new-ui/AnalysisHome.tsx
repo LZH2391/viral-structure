@@ -35,7 +35,7 @@ export type AnalysisHomeQueueItem = {
   status: "done" | "running" | "waiting" | "failed" | "canceled";
   thumbnailUrl: string | null;
   ratio: "wide" | "cinema";
-  badgeLabel: "分析中" | "识别中" | "排队中" | "已完成" | "失败" | "已停止";
+  badgeLabel: "上传中" | "分析中" | "识别中" | "排队中" | "已完成" | "失败" | "已停止";
   title: string;
   historyItem: AnalysisHistoryItem | null;
   batchRunId?: string | null;
@@ -244,6 +244,8 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     operationTokenRef.current = token;
     stopPolling();
     setIsUploading(true);
+    const localItems = createUploadingQueueItems(files, mode, token);
+    setHomeQueueItems((current) => mergeLocalQueueItems(localItems, current));
     try {
       const batch = isMaterialMode
         ? await startMaterialRecognitionBatchRun(files, {
@@ -277,6 +279,9 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
         setView("home");
       }
       await refreshHomeQueue().catch(() => undefined);
+    } catch (error) {
+      setHomeQueueItems((current) => current.filter((item) => !localItems.some((local) => local.key === item.key)));
+      throw error;
     } finally {
       if (token === operationTokenRef.current) setIsUploading(false);
     }
@@ -954,6 +959,30 @@ function resolveBatchQueueBadgeLabel(queueItem: FullAnalysisBatchItem, batch: Fu
   return "分析中";
 }
 
+export function createUploadingQueueItems(files: File[], mode: AnalysisWorkflowMode, uploadToken: number): AnalysisHomeQueueItem[] {
+  return files.map((file, index) => ({
+    key: `local_upload_${uploadToken}_${index}`,
+    status: "running",
+    thumbnailUrl: null,
+    ratio: "cinema",
+    badgeLabel: "上传中",
+    title: stripMediaExtension(file.name || `视频 ${index + 1}`),
+    historyItem: null,
+    batchRunId: null,
+    queueItemId: null,
+    workflowRunId: null,
+    workflowKey: mode === "materialRecognition" ? "material-recognition" : "full-analysis",
+    retryable: false,
+    completedAt: null,
+  }));
+}
+
+export function mergeLocalQueueItems(localItems: AnalysisHomeQueueItem[], currentItems: AnalysisHomeQueueItem[]) {
+  if (!localItems.length) return currentItems;
+  const localKeys = new Set(localItems.map((item) => item.key));
+  return [...localItems, ...currentItems.filter((item) => !localKeys.has(item.key))];
+}
+
 function normalizePlayerQueueStatus(status: string | null | undefined): AnalysisHomeQueueItem["status"] {
   const text = String(status ?? "").toLowerCase();
   if (["processed", "done", "completed", "complete", "success", "succeeded"].includes(text)) return "done";
@@ -961,6 +990,12 @@ function normalizePlayerQueueStatus(status: string | null | undefined): Analysis
   if (text === "failed" || text === "partial_failed") return "failed";
   if (text === "canceled") return "canceled";
   return "waiting";
+}
+
+function stripMediaExtension(value?: string | null) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  return text.replace(/\.(mp4|mov|m4v|webm|mkv|avi|wmv|flv|mpeg|mpg)$/i, "");
 }
 
 function shouldShowQueueItem(item: AnalysisHomeQueueItem) {

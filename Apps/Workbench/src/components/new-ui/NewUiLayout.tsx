@@ -710,6 +710,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         const pendingItems = current.filter((item) => item.pending);
         return mergeMaterialPackOptions(pendingItems, materialItems);
       });
+      setSelectedRestructureMaterialPack((current) => replacePendingMaterialPackSelection(current, materialItems));
     } finally {
       setLoadingRestructureMaterialPacks(false);
     }
@@ -2385,15 +2386,21 @@ function pendingMaterialSampleId(batchRunId: string, queueItemId: string) {
   return `pending:${batchRunId}:${queueItemId}`;
 }
 
-function upsertMaterialPackOption(options: NewUiMaterialPackOption[], next: NewUiMaterialPackOption) {
+export function upsertMaterialPackOption(options: NewUiMaterialPackOption[], next: NewUiMaterialPackOption) {
+  if (next.pending && options.some((item) => item.sampleVideoId === next.sampleVideoId && !item.pending)) return options;
   const same = (item: NewUiMaterialPackOption) => item.sampleVideoId === next.sampleVideoId && (
     item.pending || next.pending || (item.artifactId ?? null) === (next.artifactId ?? null)
   );
   return [next, ...options.filter((item) => !same(item))];
 }
 
-function mergeMaterialPackOptions(primary: NewUiMaterialPackOption[], secondary: NewUiMaterialPackOption[]) {
+export function mergeMaterialPackOptions(primary: NewUiMaterialPackOption[], secondary: NewUiMaterialPackOption[]) {
   return [...secondary, ...primary].reduce<NewUiMaterialPackOption[]>((items, item) => upsertMaterialPackOption(items, item), []);
+}
+
+export function replacePendingMaterialPackSelection(selected: NewUiMaterialPackOption | null, readyOptions: NewUiMaterialPackOption[]) {
+  if (!selected?.pending) return selected;
+  return readyOptions.find((item) => item.sampleVideoId === selected.sampleVideoId && !item.pending) ?? selected;
 }
 
 function stripMediaExtension(value?: string | null) {

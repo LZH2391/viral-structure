@@ -13,16 +13,6 @@ const MATERIAL_GAP_MATERIAL_TYPES = new Set([
   "comparison_shot",
   "ending_cta_shot",
 ]);
-const MATERIAL_GAP_COMPENSATION_TYPES = new Set([
-  "structure_reorder",
-  "copy_or_caption_fill",
-  "packaging_overlay_fill",
-  "aigc_generate_fill",
-  "reuse_transform_fill",
-  "real_proof_reshoot_or_self_design",
-  "return_to_restructure_required",
-]);
-
 function normalizeState(value) {
   const conversations = Array.isArray(value?.conversations) ? value.conversations : [];
   return {
@@ -364,7 +354,6 @@ function normalizeMaterialGapRow(value) {
     missingMaterialTypes: normalizeStringArray(value.missingMaterialTypes, MATERIAL_GAP_ARRAY_LIMIT).filter((item) => MATERIAL_GAP_MATERIAL_TYPES.has(item)),
     impact: limitTextTo(value.impact, MATERIAL_GAP_TEXT_LIMIT),
     availableEvidenceRefs: normalizeStringArray(value.availableEvidenceRefs, MATERIAL_GAP_ARRAY_LIMIT),
-    suggestedCompensationTypes: normalizeStringArray(value.suggestedCompensationTypes, MATERIAL_GAP_ARRAY_LIMIT).filter((item) => MATERIAL_GAP_COMPENSATION_TYPES.has(item)),
     handoffToShotDesign: limitTextTo(value.handoffToShotDesign, MATERIAL_GAP_TEXT_LIMIT),
   };
 }

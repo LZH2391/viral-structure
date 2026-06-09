@@ -127,8 +127,9 @@ export function normalizeMediaTitle(value: string) {
 }
 
 function resolveHistoryBadge(item: AnalysisHistoryItem): "已完成" | "分析中" | "识别中" | "未完成" {
-  if (item.hasFunctionSlotAtomization || item.hasUserMaterialPack) return "已完成";
-  if (isHistoryItemRunning(item)) return resolveAnalysisKind(item) === "material" ? "识别中" : "分析中";
+  const completed = item.hasFunctionSlotAtomization || item.hasUserMaterialPack;
+  if (isHistoryItemRunning(item) && (!completed || hasExecutingHistoryStatus(item))) return resolveAnalysisKind(item) === "material" ? "识别中" : "分析中";
+  if (completed) return "已完成";
   if (item.isIncomplete) return "未完成";
   return "未完成";
 }
@@ -162,12 +163,24 @@ function isRunningStatus(status: string | null | undefined) {
   return ["queued", "pending", "running", "processing", "waiting", "blocked", "cache_waiting"].includes(String(status ?? "").toLowerCase());
 }
 
+function isExecutingStatus(status: string | null | undefined) {
+  return ["queued", "pending", "running", "processing", "in_progress", "inprogress"].includes(String(status ?? "").toLowerCase());
+}
+
 function isHistoryItemRunning(item: AnalysisHistoryItem) {
   return Boolean(
     item.isRunning
       || isRunningStatus(item.runtimeState?.status)
       || isRunningStatus(item.workflowRun?.status)
       || isRunningStatus(item.status),
+  );
+}
+
+function hasExecutingHistoryStatus(item: AnalysisHistoryItem) {
+  return Boolean(
+    isExecutingStatus(item.runtimeState?.status)
+      || isExecutingStatus(item.workflowRun?.status)
+      || isExecutingStatus(item.status),
   );
 }
 

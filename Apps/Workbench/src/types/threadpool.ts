@@ -173,7 +173,6 @@ export type AgentChatMaterialGapRow = {
   missingMaterialTypes?: string[];
   impact?: string | null;
   availableEvidenceRefs?: string[];
-  suggestedCompensationTypes?: string[];
   handoffToShotDesign?: string | null;
 };
 

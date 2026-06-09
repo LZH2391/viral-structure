@@ -2,15 +2,15 @@ const fs = require("fs/promises");
 const path = require("path");
 const { randomUUID } = require("crypto");
 const { nextStage } = require("../../../../Infrastructure/Observability/trace");
-const { loadRoleProfileByRole, renderTurnTemplate } = require("../gateways/threadpool/role-profile-loader");
 const { normalizeMaterialGapMatrix } = require("./conversation-normalizers");
 const {
   normalizeText,
   safePreview,
 } = require("./restructure-auto-display-utils");
 
-const MATERIAL_GAP_ROLE = "material-gap-auditor";
 const MATERIAL_GAP_STAGE_NAME = "function.slot.material_gap.auto_audit";
+const MATERIAL_GAP_AUDIT_KIND = "function-slot-restructure.internal-material-gap-audit";
+const MATERIAL_GAP_PROMPT_TEMPLATE_VERSION = "inline.material-gap-audit.v1";
 
 async function maybeAutoAuditMaterialGaps({
   payload,
@@ -69,16 +69,8 @@ async function maybeAutoAuditMaterialGaps({
     const result = await runMaterialGapAuditTurn({
       handlers,
       rootDir,
-      stageTraceContext,
-      artifactId,
-      parentArtifactId,
-      sourceTurnId: payload.turnId,
-      restructureFinalPath,
-      displayJsonPath,
-      materialPackPath,
+      conversation,
       outputJsonPath,
-      slotAtomDisplay: autoDisplayTransform.slotAtomDisplay,
-      materialPackSummary,
     });
     const normalized = normalizeMaterialGapMatrix({
       ...result.matrix,
@@ -92,7 +84,7 @@ async function maybeAutoAuditMaterialGaps({
       runId: stageTraceContext.runId,
       stageId: stageTraceContext.stageId,
       stageName: MATERIAL_GAP_STAGE_NAME,
-      role: MATERIAL_GAP_ROLE,
+      role: result.agent.role,
       turnId: result.agent.turnId,
       promptTemplateVersion: result.agent.promptTemplateVersion,
       createdAt: new Date().toISOString(),
@@ -108,7 +100,9 @@ async function maybeAutoAuditMaterialGaps({
       partialCount: normalized.summary?.partialCount ?? 0,
       unsafeCount: normalized.summary?.unsafeCount ?? 0,
       matrixJsonPath: safeRelative(rootDir, outputJsonPath),
-      role: MATERIAL_GAP_ROLE,
+      sourceRole: result.agent.role,
+      forkThreadId: result.agent.threadId,
+      parentThreadId: result.agent.parentThreadId,
       promptTemplateVersion: result.agent.promptTemplateVersion,
     };
     await logger.writeStageLog({
@@ -146,7 +140,7 @@ async function maybeAutoAuditMaterialGaps({
       debugPayload: {
         code: safeError.code,
         message: safeError.message,
-        role: MATERIAL_GAP_ROLE,
+        sourceRole: conversation.role ?? null,
       },
     });
     await logger.writeStageLog({
@@ -173,7 +167,7 @@ async function maybeAutoAuditMaterialGaps({
       runId: stageTraceContext.runId,
       stageId: stageTraceContext.stageId,
       stageName: MATERIAL_GAP_STAGE_NAME,
-      role: MATERIAL_GAP_ROLE,
+      role: conversation.role ?? "function-slot-restructure",
       error: safeError.code,
       message: safeError.message,
       debugSnapshotUri: snapshot.uri,
@@ -195,66 +189,104 @@ async function maybeAutoAuditMaterialGaps({
 async function runMaterialGapAuditTurn({
   handlers,
   rootDir,
-  stageTraceContext,
-  artifactId,
-  parentArtifactId,
-  sourceTurnId,
-  restructureFinalPath,
-  displayJsonPath,
-  materialPackPath,
+  conversation,
   outputJsonPath,
-  slotAtomDisplay,
-  materialPackSummary,
 }) {
-  if (!handlers.threadPool?.ensureRoleReady || !handlers.threadPool?.acquireLease || !handlers.threadPool?.releaseLease || !handlers.appServer?.runTurnWithInputs) {
-    throw materialGapError("material_gap_runtime_unavailable", "素材缺口审计需要 ThreadPool lease 和 appServer runTurnWithInputs");
+  if (!handlers.appServer?.startThread || !handlers.appServer?.runTurnWithInputs) {
+    throw materialGapError("material_gap_runtime_unavailable", "素材缺口审计需要 AppServer direct child thread 和 runTurnWithInputs");
   }
-  const roleProfile = await loadRoleProfileByRole(MATERIAL_GAP_ROLE);
-  const prompt = renderTurnTemplate(roleProfile, "audit", {
-    restructureFinalPath: safeRelative(rootDir, restructureFinalPath),
-    displayJsonPath: safeRelative(rootDir, displayJsonPath),
-    materialPackPath: safeRelative(rootDir, materialPackPath),
-    outputJsonPath: safeRelative(rootDir, outputJsonPath),
-    artifactId,
-    parentArtifactId: parentArtifactId ?? "",
-    sourceTurnId: sourceTurnId ?? "",
-    stageName: MATERIAL_GAP_STAGE_NAME,
-    slotAtomDisplayJson: JSON.stringify(slotAtomDisplay ?? {}),
-    materialPackSummaryJson: JSON.stringify(materialPackSummary ?? {}),
+  const parentThreadId = normalizeText(conversation?.threadId);
+  if (!parentThreadId) {
+    throw materialGapError("material_gap_parent_thread_missing", "素材缺口审计需要当前重组会话 threadId");
+  }
+  const workspaceRoot = conversation.workspaceRoot ?? rootDir;
+  const started = await handlers.appServer.startThread({
+    workspaceRoot,
+    timeoutSeconds: 180,
   });
-  const ownerId = `material-gap-audit-${stageTraceContext.runId}`;
-  const readiness = await handlers.threadPool.ensureRoleReady(MATERIAL_GAP_ROLE);
-  if (!readiness?.ok) throw materialGapError(readiness?.error ?? "material_gap_role_unavailable", readiness?.message ?? "素材缺口审计 role 暂不可用");
-  const lease = await handlers.threadPool.acquireLease({ role: MATERIAL_GAP_ROLE, ownerId });
-  const threadId = lease?.thread_id ?? lease?.threadId ?? null;
-  const leaseId = lease?.lease_id ?? lease?.leaseId ?? null;
-  if (lease?.ok === false || !threadId || !leaseId) throw materialGapError(lease?.error ?? lease?.code ?? "material_gap_lease_invalid", lease?.message ?? "素材缺口审计 lease 不可用");
-  try {
-    const turn = await handlers.appServer.runTurnWithInputs({
-      workspaceRoot: rootDir,
-      threadId,
-      skillPath: readiness.status?.skillPath ?? roleProfile.skillPath ?? null,
-      inputs: [{ type: "text", text: prompt.text, text_elements: [] }],
-      timeoutSeconds: 180,
-    });
-    if (!isCompleted(turn?.status)) throw materialGapError("material_gap_turn_failed", turn?.message ?? "素材缺口审计 turn 未成功完成");
-    const matrix = parseJsonObject(turn.finalMessage ?? turn.message ?? "");
-    return {
-      matrix,
-      agent: {
-        role: MATERIAL_GAP_ROLE,
-        threadId,
-        turnId: turn.turnId ?? turn.turn?.id ?? null,
-        profilePath: roleProfile.profilePath,
-        profileVersion: roleProfile.profileVersion,
-        promptTemplateId: prompt.promptTemplateId,
-        promptTemplateVersion: prompt.promptTemplateVersion,
-        promptTemplateHash: prompt.promptTemplateHash,
-      },
-    };
-  } finally {
-    await handlers.threadPool.releaseLease({ leaseId, ownerId }).catch(() => null);
+  const childThreadId = started?.threadId ?? started?.thread?.id ?? null;
+  if (started?.ok === false || !childThreadId) {
+    throw materialGapError(started?.error ?? started?.code ?? "material_gap_child_thread_start_failed", started?.message ?? "素材缺口审计 child thread 创建失败");
   }
+  const prompt = renderMaterialGapAuditPrompt();
+  const turn = await handlers.appServer.runTurnWithInputs({
+    workspaceRoot,
+    threadId: childThreadId,
+    skillPath: conversation.skillPath ?? null,
+    inputs: [{ type: "text", text: prompt.text, text_elements: [] }],
+    timeoutSeconds: 180,
+  });
+  if (!isCompleted(turn?.status)) throw materialGapError("material_gap_turn_failed", turn?.message ?? "素材缺口审计 turn 未成功完成");
+  const matrix = await parseMaterialGapMatrix(turn, outputJsonPath);
+  return {
+    matrix,
+    agent: {
+      role: conversation.role ?? "function-slot-restructure",
+      threadId: childThreadId,
+      parentThreadId,
+      turnId: turn.turnId ?? turn.turn?.id ?? null,
+      promptTemplateId: "internalMaterialGapAudit",
+      promptTemplateVersion: MATERIAL_GAP_PROMPT_TEMPLATE_VERSION,
+      auditKind: MATERIAL_GAP_AUDIT_KIND,
+    },
+  };
+}
+
+function renderMaterialGapAuditPrompt() {
+  return {
+    promptTemplateId: "internalMaterialGapAudit",
+    promptTemplateVersion: MATERIAL_GAP_PROMPT_TEMPLATE_VERSION,
+    text: [
+      "你是当前 function-slot-restructure 会话内部 fork 出的只读旁路审计 turn。",
+      "基于当前上下文中已完成的重组槽位方案和当前用户素材包，生成“结构槽位素材缺口矩阵” JSON。",
+      "",
+      "硬性边界：",
+      "- 只返回 JSON object，不要 Markdown，不要解释。",
+      "- 不修改任何重组方案、展示 JSON 或素材包文件。",
+      "- 不生成 Shot 表、台词、分镜、时间轴或最终包装方案。",
+      "- 不改变、不删除、不重排重组槽位链。",
+      "- 这是 advisory-only 旁路审计，主重组方案不会消费你的结果。",
+      "",
+      "字段要求：",
+      "- schemaVersion 固定为 material_gap_matrix.v1。",
+      "- status 固定为 processed，除非输入无法读取或无法判断。",
+      "- sourceRestructurePath 使用当前重组方案来源，未知可留空。",
+      "- sourceMaterialPackArtifactId 使用当前素材包 artifactId，未知可留空。",
+      "- rows 必须按槽位顺序输出。",
+      "- 每个槽位都必须判断当前素材能否直接满足该槽位的画面/证明需要。",
+      "- directSatisfaction 只能是 satisfied、partial、missing、unsafe、not_required。",
+      "",
+      "输出 JSON 形状：",
+      JSON.stringify({
+        schemaVersion: "material_gap_matrix.v1",
+        status: "processed",
+        sourceRestructurePath: "",
+        sourceMaterialPackArtifactId: "",
+        slotChainFingerprint: {},
+        summary: {
+          slotCount: 0,
+          satisfiedCount: 0,
+          partialCount: 0,
+          missingCount: 0,
+          unsafeCount: 0,
+          notRequiredCount: 0,
+          topMissingMaterialTypes: [],
+          overallImpact: "",
+        },
+        rows: [{
+          slotId: "",
+          slotSubtype: "",
+          slotFunction: "",
+          requiredMaterialTypes: [],
+          directSatisfaction: "missing",
+          missingMaterialTypes: [],
+          impact: "",
+          availableEvidenceRefs: [],
+          handoffToShotDesign: "",
+        }],
+      }, null, 2),
+    ].join("\n"),
+  };
 }
 
 async function summarizeMaterialPack(materialPackPath) {
@@ -323,6 +355,19 @@ function parseJsonObject(value) {
   }
 }
 
+async function parseMaterialGapMatrix(turn, outputJsonPath) {
+  const text = String(turn?.finalMessage ?? turn?.message ?? "").trim();
+  try {
+    return parseJsonObject(text);
+  } catch (finalMessageError) {
+    try {
+      return JSON.parse(await fs.readFile(outputJsonPath, "utf8"));
+    } catch {
+      throw finalMessageError;
+    }
+  }
+}
+
 function isCompleted(status) {
   return ["completed", "complete"].includes(String(status ?? "").toLowerCase());
 }
@@ -335,7 +380,6 @@ function materialGapError(code, message) {
 }
 
 module.exports = {
-  MATERIAL_GAP_ROLE,
   MATERIAL_GAP_STAGE_NAME,
   maybeAutoAuditMaterialGaps,
 };

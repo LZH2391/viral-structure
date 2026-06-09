@@ -47,7 +47,6 @@ export function MaterialGapMatrixViewer({ matrix }: MaterialGapMatrixViewerProps
                 <th>满足度</th>
                 <th>缺口</th>
                 <th>影响</th>
-                <th>补全方向</th>
                 <th>交给 ShotDesign</th>
               </tr>
             </thead>
@@ -56,7 +55,7 @@ export function MaterialGapMatrixViewer({ matrix }: MaterialGapMatrixViewerProps
                 <MaterialGapRowItem key={`${row.slotId ?? row.slotSubtype ?? "slot"}_${index}`} row={row} />
               )) : (
                 <tr>
-                  <td colSpan={6}>暂无槽位缺口判断</td>
+                  <td colSpan={5}>暂无槽位缺口判断</td>
                 </tr>
               )}
             </tbody>
@@ -78,7 +77,6 @@ function MaterialGapRowItem({ row }: { row: AgentChatMaterialGapRow }) {
       <td><span className={`new-ui-material-gap-status is-${direct}`}>{formatSatisfaction(direct)}</span></td>
       <td>{formatList(row.missingMaterialTypes, formatMaterialType) || formatList(row.requiredMaterialTypes, formatMaterialType) || "无明显缺口"}</td>
       <td>{row.impact || "暂无影响说明"}</td>
-      <td>{formatList(row.suggestedCompensationTypes, formatCompensationType) || "待 ShotDesign 判断"}</td>
       <td>{row.handoffToShotDesign || "按槽位功能选择素材或补全策略"}</td>
     </tr>
   );
@@ -110,19 +108,6 @@ function formatMaterialType(value: string) {
     usage_process_shot: "使用过程",
     comparison_shot: "对比镜头",
     ending_cta_shot: "结尾 CTA",
-  };
-  return labels[value] ?? value;
-}
-
-function formatCompensationType(value: string) {
-  const labels: Record<string, string> = {
-    structure_reorder: "结构重排",
-    copy_or_caption_fill: "文案/字幕",
-    packaging_overlay_fill: "包装补全",
-    aigc_generate_fill: "AIGC 补全",
-    reuse_transform_fill: "素材复用",
-    real_proof_reshoot_or_self_design: "真实补证",
-    return_to_restructure_required: "回重组",
   };
   return labels[value] ?? value;
 }

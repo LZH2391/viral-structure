@@ -43,10 +43,6 @@
       "profile_path": "Assets/RoleProfiles/function-slot-dialogue-robotic-reviewer/role.json",
       "min_idle": 3
     },
-    "material-gap-auditor": {
-      "profile_path": "Assets/RoleProfiles/material-gap-auditor/role.json",
-      "min_idle": 2
-    },
     "conversation-title-generator": {
       "profile_path": "Assets/RoleProfiles/conversation-title-generator/role.json",
       "min_idle": 1
