@@ -20,8 +20,12 @@ type NewUiRestructureWorkspaceProps = {
   creatingConversation: boolean;
   draftingConversation: boolean;
   loadingConversations?: boolean;
+  compactingContext?: boolean;
+  stoppingTurn?: boolean;
   onNewConversation: () => void;
+  onContextUsageChange?: (usage: AgentTurnTimeline["activity"]["tokenUsage"] | null) => void;
   onSendMessage: (message: string) => Promise<void>;
+  onStopTurn?: () => Promise<void> | void;
   activeTurnTarget?: NewUiTurnTimelineTarget | null;
   pendingAssistantMessage?: AgentChatMessageSnapshot | null;
   pendingUserMessage?: AgentChatMessageSnapshot | null;
@@ -32,7 +36,7 @@ type NewUiRestructureWorkspaceProps = {
 type RestructureTimelineActivityItem = {
   id: string;
   sourceKey: string;
-  kind: "reasoning" | "context_compacted" | "tool_call";
+  kind: "reasoning" | "context_compacting" | "context_compacted" | "tool_call" | "dialogue_review";
   label: string;
   detail: string | null;
   status: AgentTimelineItem["status"];
@@ -61,8 +65,12 @@ export function NewUiRestructureWorkspace({
   creatingConversation,
   draftingConversation,
   loadingConversations = false,
+  compactingContext = false,
+  stoppingTurn = false,
   onNewConversation,
+  onContextUsageChange,
   onSendMessage,
+  onStopTurn,
   activeTurnTarget = null,
   pendingAssistantMessage = null,
   pendingUserMessage = null,
@@ -83,6 +91,7 @@ export function NewUiRestructureWorkspace({
   const rawContextUsage = conversation ? timeline?.activity?.tokenUsage ?? contextUsageFallbackTimeline?.activity?.tokenUsage ?? null : null;
   const contextUsageScopeKey = conversation?.conversationId ?? conversation?.threadId ?? null;
   const contextUsage = useLastKnownContextUsage(rawContextUsage, contextUsageScopeKey);
+  const canStopTurn = Boolean(activeTurnTarget?.running && activeTurnTarget.threadId && activeTurnTarget.turnId && !stoppingTurn);
   const rawTimelineDisplayItems = buildRestructureTimelineDisplayItems(timeline?.items ?? []);
   const timelineTurnId = activeTurnTarget?.turnId && rawTimelineDisplayItems.length ? activeTurnTarget.turnId : null;
   const timelineConversationAssistantMessage = timelineTurnId
@@ -97,6 +106,18 @@ export function NewUiRestructureWorkspace({
         || normalizeTimelineText(item.text) !== timelineFinalMessageText
       ))
     : rawTimelineDisplayItems;
+  const compactingTimelineItems = useMemo<RestructureTimelineDisplayItem[]>(() => (
+    compactingContext
+      ? [{
+          id: "new-ui-restructure-context-compacting",
+          sourceKey: "new-ui-restructure-context-compacting",
+          kind: "context_compacting",
+          label: "Compacting",
+          detail: "正在压缩上下文",
+          status: "running",
+        }]
+      : []
+  ), [compactingContext]);
   const timelineInsertMessageId = timelineConversationAssistantMessage?.id ?? null;
   const timelineItemsAfterMessages = timelineInsertMessageId ? [] : timelineDisplayItems;
   const timelineHasAgentMessages = rawTimelineDisplayItems.some((item) => item.kind === "agent_message");
@@ -173,6 +194,10 @@ export function NewUiRestructureWorkspace({
     shouldStickToBottomRef.current = true;
   }, [conversation?.conversationId, draftingConversation]);
 
+  useEffect(() => {
+    onContextUsageChange?.(contextUsage);
+  }, [contextUsage, onContextUsageChange]);
+
   useLayoutEffect(() => {
     if (!shouldStickToBottomRef.current) return undefined;
     const frameId = window.requestAnimationFrame(() => {
@@ -246,9 +271,25 @@ export function NewUiRestructureWorkspace({
           </button>
         </div>
         <ContextUsageIndicator usage={contextUsage} />
-        <button className="new-ui-restructure-send-button" type="submit" aria-label="发送" data-tooltip="发送" disabled={!canSend}>
-          <SendGlyph />
-        </button>
+        {onStopTurn && (activeTurnTarget?.running || stoppingTurn) ? (
+          <button
+            className="new-ui-restructure-send-button is-stop"
+            type="button"
+            aria-label="停止生成"
+            data-tooltip={stoppingTurn ? "正在停止生成" : "停止生成"}
+            disabled={!canStopTurn}
+            onClick={() => {
+              if (!canStopTurn) return;
+              void onStopTurn();
+            }}
+          >
+            <StopTurnGlyph />
+          </button>
+        ) : (
+          <button className="new-ui-restructure-send-button" type="submit" aria-label="发送" data-tooltip="发送" disabled={!canSend}>
+            <SendGlyph />
+          </button>
+        )}
       </div>
     </form>
   );
@@ -292,6 +333,15 @@ export function NewUiRestructureWorkspace({
                   pseudoStreaming={isPseudoStreaming(visiblePendingUserMessage)}
                 />
               ) : null}
+              <RestructureTimelineItemGroup
+                items={compactingTimelineItems}
+                scopeKey="context-compacting"
+                expanded
+                running
+                getDisplayText={getTimelineDisplayText}
+                isPseudoStreaming={() => false}
+                onToggle={() => undefined}
+              />
               {visiblePendingAssistantMessage ? (
                 <RestructureMessage
                   message={visiblePendingAssistantMessage}
@@ -341,11 +391,6 @@ export function NewUiRestructureWorkspace({
       <header className="new-ui-restructure-header">
         <div className="new-ui-restructure-title-block">
           <h1 data-tooltip={displayTitle}>{displayTitle}</h1>
-        </div>
-        <div className="new-ui-restructure-actions" aria-label="重组会话操作">
-          <button type="button" data-tooltip="新会话" disabled={creatingConversation} onClick={onNewConversation}>
-            <NewConversationGlyph />
-          </button>
         </div>
       </header>
 
@@ -641,10 +686,7 @@ function RestructureProcessMessageGroup({
 
 function ProcessMessageIcon({ message }: { message: AgentChatMessageSnapshot }) {
   const kind = resolveProcessMessageKind(message);
-  if (kind === "tool_call") {
-    return <RestructureTimelineIcon kind="tool_call" />;
-  }
-  return <RestructureTimelineIcon kind="reasoning" />;
+  return <RestructureTimelineIcon kind={kind ?? "reasoning"} />;
 }
 
 function RestructureNotePill({
@@ -794,6 +836,7 @@ function resolveProcessMessageKind(message: AgentChatMessageSnapshot) {
   if (/^reasoning\b/i.test(text)) return "reasoning";
   if (/^(?:tool call|tool_call|command|mcp tool|dynamic tool)\s*[:：]/i.test(text)) return "tool_call";
   if (/^上下文已压缩\b/.test(text) || /^context compacted\b/i.test(text)) return "context_compacted";
+  if (/^(?:台词质检状态|台词审查状态|dialogue review status)\s*[:：]/i.test(text)) return "dialogue_review";
   return null;
 }
 
@@ -811,13 +854,18 @@ function formatProcessMessageLabel(message: AgentChatMessageSnapshot) {
     return match?.[1]?.trim() ? `Tool call: ${match[1].trim()}` : "Tool call";
   }
   if (kind === "context_compacted") return "上下文已压缩";
+  if (kind === "dialogue_review") return "台词质检";
   return "reasoning";
 }
 
 function formatProcessMessageDetail(message: AgentChatMessageSnapshot) {
   const text = String(message.text ?? "").trim();
-  if (resolveProcessMessageKind(message) === "reasoning") {
+  const kind = resolveProcessMessageKind(message);
+  if (kind === "reasoning") {
     return text.replace(/^reasoning\s*/i, "").trim() || "Reasoning";
+  }
+  if (kind === "dialogue_review") {
+    return text.replace(/^(?:台词质检状态|台词审查状态|dialogue review status)\s*[:：]\s*/i, "").trim() || "等待质检";
   }
   return text.replace(/^(?:tool call|tool_call|command|mcp tool|dynamic tool)\s*[:：]\s*/i, "").trim() || text;
 }
@@ -1377,7 +1425,12 @@ function usePseudoStreamedProcessMessages(conversationId: string | null, message
   const streamTextByKeyRef = useRef<Record<string, string>>({});
   const previousConversationIdRef = useRef<string | null | undefined>(undefined);
   const baselineInitializedRef = useRef(false);
-  const streamableMessages = useMemo(() => messages.filter(isPseudoStreamableProcessMessage), [messages]);
+  const streamableMessages = useMemo(() => createProcessPseudoStreamMessageItems(messages), [messages]);
+  const processMessageKeyByObject = useMemo(() => {
+    const keyByObject = new WeakMap<AgentChatMessageSnapshot, string>();
+    streamableMessages.forEach((item) => keyByObject.set(item.message, item.key));
+    return keyByObject;
+  }, [streamableMessages]);
 
   if (previousConversationIdRef.current !== conversationId) {
     previousConversationIdRef.current = conversationId;
@@ -1390,7 +1443,7 @@ function usePseudoStreamedProcessMessages(conversationId: string | null, message
   }
 
   if (!baselineInitializedRef.current && conversationId) {
-    seenMessageKeysRef.current = new Set(streamableMessages.map(createPseudoStreamMessageKey));
+    seenMessageKeysRef.current = new Set(streamableMessages.map((item) => item.key));
     baselineInitializedRef.current = true;
   }
 
@@ -1406,17 +1459,17 @@ function usePseudoStreamedProcessMessages(conversationId: string | null, message
 
   useEffect(() => {
     if (!targetRunning) {
-      streamableMessages.forEach((message) => {
-        const key = createPseudoStreamMessageKey(message);
+      streamableMessages.forEach((item) => {
+        const key = item.key;
         if (queuedMessageKeysRef.current.has(key) || activeKeyRef.current === key) return;
         seenMessageKeysRef.current.add(key);
       });
       return;
     }
-    streamableMessages.forEach((message) => {
-      const key = createPseudoStreamMessageKey(message);
+    streamableMessages.forEach((item) => {
+      const key = item.key;
       if (seenMessageKeysRef.current.has(key) || queuedMessageKeysRef.current.has(key) || activeKeyRef.current === key) return;
-      streamTextByKeyRef.current[key] = formatProcessMessageDetail(message);
+      streamTextByKeyRef.current[key] = item.detail;
       queuedMessageKeysRef.current.add(key);
       queueRef.current.push(key);
     });
@@ -1444,7 +1497,7 @@ function usePseudoStreamedProcessMessages(conversationId: string | null, message
 
   return {
     getDisplayText: (message: AgentChatMessageSnapshot) => {
-      const key = isPseudoStreamableProcessMessage(message) ? createPseudoStreamMessageKey(message) : null;
+      const key = isPseudoStreamableProcessMessage(message) ? processMessageKeyByObject.get(message) ?? createProcessPseudoStreamMessageKey(message, 0) : null;
       if (!key) return formatProcessMessageDetail(message);
       if (key in streamingTextByKey) return streamingTextByKey[key];
       if (seenMessageKeysRef.current.has(key)) return formatProcessMessageDetail(message);
@@ -1452,7 +1505,7 @@ function usePseudoStreamedProcessMessages(conversationId: string | null, message
       return formatProcessMessageDetail(message);
     },
     isPseudoStreaming: (message: AgentChatMessageSnapshot) => {
-      const key = isPseudoStreamableProcessMessage(message) ? createPseudoStreamMessageKey(message) : null;
+      const key = isPseudoStreamableProcessMessage(message) ? processMessageKeyByObject.get(message) ?? createProcessPseudoStreamMessageKey(message, 0) : null;
       return Boolean(key && (activeKeyRef.current === key || queuedMessageKeysRef.current.has(key) || key in streamingTextByKey));
     },
   };
@@ -1485,9 +1538,7 @@ function startPseudoStream(text: string, key: string, controls: { onText: (text:
 
 function isPseudoStreamableMessage(message: AgentChatMessageSnapshot) {
   if (message.role === "assistant") return isPseudoStreamableAssistantMessage(message) && !isPseudoStreamableProcessMessage(message);
-  return message.role === "user"
-    && Boolean(resolveUserInputOriginDisplay(message))
-    && Boolean(message.text);
+  return false;
 }
 
 function isPseudoStreamTargetMessage(
@@ -1506,6 +1557,33 @@ function isExplicitPendingPseudoStreamMessage(message: AgentChatMessageSnapshot,
 
 function isPseudoStreamableProcessMessage(message: AgentChatMessageSnapshot) {
   return Boolean(resolveProcessMessageKind(message) && formatProcessMessageDetail(message));
+}
+
+function createProcessPseudoStreamMessageItems(messages: AgentChatMessageSnapshot[]) {
+  const occurrenceByBaseKey = new Map<string, number>();
+  return messages
+    .filter(isPseudoStreamableProcessMessage)
+    .map((message) => {
+      const baseKey = createProcessPseudoStreamMessageBaseKey(message);
+      const occurrence = occurrenceByBaseKey.get(baseKey) ?? 0;
+      occurrenceByBaseKey.set(baseKey, occurrence + 1);
+      return {
+        message,
+        key: `${baseKey}:${occurrence}`,
+        detail: formatProcessMessageDetail(message),
+      };
+    });
+}
+
+function createProcessPseudoStreamMessageKey(message: AgentChatMessageSnapshot, occurrence: number) {
+  return `${createProcessPseudoStreamMessageBaseKey(message)}:${occurrence}`;
+}
+
+function createProcessPseudoStreamMessageBaseKey(message: AgentChatMessageSnapshot) {
+  const turnId = String(message.turnId ?? "").trim() || "no-turn";
+  const kind = resolveProcessMessageKind(message) ?? "process";
+  const detail = normalizeTimelineText(formatProcessMessageDetail(message)) ?? "";
+  return `process:${turnId}:${kind}:${detail}`;
 }
 
 function isPseudoStreamableAssistantMessage(message: AgentChatMessageSnapshot) {
@@ -1626,6 +1704,30 @@ function RestructureTimelineIcon({ kind }: { kind: RestructureTimelineActivityIt
       </svg>
     );
   }
+  if (kind === "context_compacting") {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path d="M5.1 5.2h9.8" />
+        <path d="M6.8 9.6h6.4" />
+        <path d="M8.3 14h3.4" />
+        <path d="M4.2 3.6v3.2h3.2" />
+        <path d="M15.8 16.4v-3.2h-3.2" />
+        <path d="M4.6 6.8a6.3 6.3 0 0 1 10.2-2" />
+        <path d="M15.4 13.2a6.3 6.3 0 0 1-10.2 2" />
+      </svg>
+    );
+  }
+  if (kind === "dialogue_review") {
+    return (
+      <svg viewBox="0 0 20 20" focusable="false">
+        <path d="M5.3 3.8h9.4a1 1 0 0 1 1 1v10.4a1 1 0 0 1-1 1H5.3a1 1 0 0 1-1-1V4.8a1 1 0 0 1 1-1Z" />
+        <path d="M7.2 7.2h5.8" />
+        <path d="M7.2 10h3.8" />
+        <path d="m7.2 13.4 1.4 1.3 3.2-3.2" />
+        <path d="M13.8 11.7h.01" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 20 20" focusable="false">
       <path d="M7.2 6.4 3.8 10l3.4 3.6" />
@@ -1647,6 +1749,14 @@ function NewConversationGlyph() {
   return (
     <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
       <path d="M10 4v12M4 10h12" />
+    </svg>
+  );
+}
+
+function StopTurnGlyph() {
+  return (
+    <svg viewBox="0 0 20 20" focusable="false" aria-hidden="true">
+      <rect x="6.2" y="6.2" width="7.6" height="7.6" rx="1.4" />
     </svg>
   );
 }

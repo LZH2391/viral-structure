@@ -8,11 +8,13 @@ const REPLACEMENT_DRAWER_ANIMATION_MS = 340;
 
 export function SlotAtomView({
   display,
+  active = true,
   busy = false,
   sourceRestructureFinalPath = null,
   onSubmitReplacement,
 }: {
   display: AgentChatSlotAtomDisplay | null;
+  active?: boolean;
   busy?: boolean;
   sourceRestructureFinalPath?: string | null;
   onSubmitReplacement?: (draft: ReplacementDraft, summary: string) => Promise<void>;
@@ -48,6 +50,16 @@ export function SlotAtomView({
     setDrawerClosing(false);
   }, [display]);
 
+  useEffect(() => {
+    if (active) return;
+    if (drawerCloseTimerRef.current) {
+      window.clearTimeout(drawerCloseTimerRef.current);
+      drawerCloseTimerRef.current = null;
+    }
+    setDrawer(null);
+    setDrawerClosing(false);
+  }, [active]);
+
   useEffect(() => () => {
     if (drawerCloseTimerRef.current) window.clearTimeout(drawerCloseTimerRef.current);
   }, []);
@@ -78,6 +90,7 @@ export function SlotAtomView({
   }, [drawer, query, selectedSlot?.slotSubtypeId]);
 
   const openSlotDrawer = useCallback((slot?: AgentChatSlotSummary | null) => {
+    if (!active) return;
     if (drawerCloseTimerRef.current) window.clearTimeout(drawerCloseTimerRef.current);
     drawerCloseTimerRef.current = null;
     setSelectedSlotId(slot?.slotSubtypeId ?? null);
@@ -86,9 +99,10 @@ export function SlotAtomView({
     setCandidateStatus("等待读取槽位库");
     setDrawerClosing(false);
     setDrawer({ kind: "slot" });
-  }, []);
+  }, [active]);
 
   const openAtomDrawer = useCallback((atomKind: AtomKind) => {
+    if (!active) return;
     if (drawerCloseTimerRef.current) window.clearTimeout(drawerCloseTimerRef.current);
     drawerCloseTimerRef.current = null;
     setQuery("");
@@ -96,7 +110,7 @@ export function SlotAtomView({
     setCandidateStatus(`等待读取${atomKindLabel(atomKind)}原子库`);
     setDrawerClosing(false);
     setDrawer({ kind: "atom", atomKind });
-  }, []);
+  }, [active]);
 
   const closeDrawer = useCallback(() => {
     if (!drawer) return;

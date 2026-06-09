@@ -195,6 +195,12 @@
   padding: 0;
 }
 
+.new-ui-restructure-actions button:not(:disabled):hover,
+.new-ui-restructure-actions button:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--new-ui-text) 10%, transparent);
+  outline: 0;
+}
+
 .new-ui-restructure-actions button:disabled,
 .new-ui-restructure-primary:disabled {
   cursor: wait;
@@ -346,15 +352,36 @@
   max-height: 0;
   overflow: hidden;
   opacity: 0;
+  visibility: hidden;
   transform: translateY(-4px);
   transition:
-    max-height 220ms ease,
+    max-height 260ms cubic-bezier(0.28, 0.84, 0.42, 1),
     opacity 180ms ease,
-    transform 220ms ease;
+    transform 240ms cubic-bezier(0.28, 0.84, 0.42, 1),
+    visibility 0s linear 180ms;
 }
 
 .new-ui-restructure-activity-group.is-expanded .new-ui-restructure-activity-group-body {
   max-height: 1600px;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    max-height 300ms cubic-bezier(0.28, 0.84, 0.42, 1),
+    opacity 220ms ease,
+    transform 260ms cubic-bezier(0.28, 0.84, 0.42, 1),
+    visibility 0s linear 0s;
+}
+
+.new-ui-restructure-activity-group-body > * {
+  opacity: 0;
+  transform: translateY(-3px);
+  transition:
+    opacity 160ms ease,
+    transform 220ms cubic-bezier(0.28, 0.84, 0.42, 1);
+}
+
+.new-ui-restructure-activity-group.is-expanded .new-ui-restructure-activity-group-body > * {
   opacity: 1;
   transform: translateY(0);
 }
@@ -390,6 +417,8 @@
   font-weight: 525;
   line-height: 1.6;
   overflow-wrap: anywhere;
+  opacity: 1;
+  transition: opacity 160ms ease;
 }
 
 .new-ui-restructure-activity p.is-thinking-text {
@@ -474,6 +503,7 @@
     background: none;
     animation: none;
   }
+
 }
 
 .new-ui-restructure-message.pseudo-streaming .new-ui-restructure-message-body p::after,
@@ -733,6 +763,11 @@
   cursor: pointer;
 }
 
+.new-ui-restructure-send-button.is-stop {
+  background: color-mix(in srgb, var(--danger) 18%, var(--new-ui-restructure-send-bg));
+  color: color-mix(in srgb, var(--new-ui-text) 88%, var(--danger));
+}
+
 .new-ui-restructure-context-usage {
   --context-progress: 0%;
   --context-ring: color-mix(in srgb, var(--new-ui-text-muted) 62%, transparent);
@@ -794,6 +829,11 @@
 .new-ui-restructure-send-button:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--new-ui-text) 28%, var(--new-ui-surface));
   outline: 0;
+}
+
+.new-ui-restructure-send-button.is-stop:not(:disabled):hover,
+.new-ui-restructure-send-button.is-stop:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--danger) 28%, var(--new-ui-surface));
 }
 
 .new-ui-restructure-send-button svg {
@@ -1042,20 +1082,24 @@
 
 @keyframes new-ui-slot-atom-drawer-enter {
   from {
+    opacity: 0;
     transform: translate(18px, 4px);
   }
 
   to {
+    opacity: 1;
     transform: translate(0, 0);
   }
 }
 
 @keyframes new-ui-slot-atom-drawer-exit {
   from {
+    opacity: 1;
     transform: translate(0, 0);
   }
 
   to {
+    opacity: 0;
     transform: translate(18px, 4px);
   }
 }

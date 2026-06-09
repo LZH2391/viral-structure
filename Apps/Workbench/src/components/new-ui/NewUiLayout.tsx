@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { archiveAgentChatConversation, collectAgentChatTurn, listAgentChatConversations, sendAgentChatMessage, startAgentChatThread, submitAgentChatManualReplacement } from "../../api/client";
+import { archiveAgentChatConversation, collectAgentChatTurn, compactAgentChatThread, listAgentChatConversations, sendAgentChatMessage, startAgentChatThread, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
-import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, ReplacementDraft } from "../../types";
+import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline, ReplacementDraft } from "../../types";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../../utils/restructurePath";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { AppErrorBoundary } from "../AppErrorBoundary";
@@ -111,6 +111,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const runningRestructureTurnsRef = useRef<Record<string, RunningRestructureTurn>>({});
   const restructureTurnPollTimersRef = useRef<Record<string, number>>({});
   const restructureSubmissionBusyRef = useRef(false);
+  const compactedRestructureUsageKeysRef = useRef<Set<string>>(new Set());
   const activeSectionRef = useRef<NewUiSectionId>("analysis");
   const activeRestructureConversationIdRef = useRef<string | null>(null);
   const draftingRestructureConversationRef = useRef(false);
@@ -130,6 +131,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [relativeTimeNowMs, setRelativeTimeNowMs] = useState(() => Date.now());
   const [creatingRestructureConversation, setCreatingRestructureConversation] = useState(false);
   const [sendingRestructureMessage, setSendingRestructureMessage] = useState(false);
+  const [compactingRestructureContext, setCompactingRestructureContext] = useState(false);
+  const [stoppingRestructureTurn, setStoppingRestructureTurn] = useState(false);
+  const [selectedRestructureContextUsage, setSelectedRestructureContextUsage] = useState<AgentTurnTimeline["activity"]["tokenUsage"] | null>(null);
   const [optimisticRestructureGeneration, setOptimisticRestructureGeneration] = useState<OptimisticRestructureGeneration | null>(null);
   const [restructureConversationErrors, setRestructureConversationErrors] = useState<Record<string, string>>(() => readStoredRestructureConversationErrors());
   const [runningRestructureConversationIds, setRunningRestructureConversationIds] = useState<Record<string, boolean>>({});
@@ -195,6 +199,8 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   );
   const selectedRestructureActionLocked = Boolean(
     sendingRestructureMessage
+    || compactingRestructureContext
+    || stoppingRestructureTurn
     || selectedRunningRestructureTurn
     || selectedOptimisticRestructureGeneration?.target.running
     || selectedOptimisticRestructureGeneration?.target.pending
@@ -776,6 +782,70 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     restructureTurnPollTimersRef.current[conversationId] = window.setTimeout(poll, RESTRUCTURE_TURN_POLL_INTERVAL_MS);
   }, [clearRunningRestructureTurn, refreshRestructureConversations]);
 
+  const maybeCompactRestructureContextBeforeSend = useCallback(async (
+    conversation: AgentChatConversation,
+    threadId: string,
+    expectedRevision: number | null,
+    workspaceRoot?: string | null,
+  ) => {
+    const usage = selectedRestructureContextUsage;
+    if (usage?.contextUsageState !== "danger") return null;
+    const usageKey = buildContextUsageKey(threadId, usage);
+    if (compactedRestructureUsageKeysRef.current.has(usageKey)) return null;
+    setCompactingRestructureContext(true);
+    try {
+      const result = await compactAgentChatThread(threadId, {
+        conversationId: conversation.conversationId,
+        expectedRevision,
+        workspaceRoot: workspaceRoot ?? null,
+        contextUsage: usage,
+      });
+      if (!result.compactCompleted) {
+        throw new Error(`上下文压缩未确认完成，状态：${result.compactStatus ?? result.status ?? "unknown"}`);
+      }
+      compactedRestructureUsageKeysRef.current.add(usageKey);
+      clearRestructureConversationError(conversation.conversationId);
+      return result;
+    } finally {
+      setCompactingRestructureContext(false);
+    }
+  }, [clearRestructureConversationError, selectedRestructureContextUsage]);
+
+  const handleStopRestructureTurn = useCallback(async () => {
+    const conversation = selectedRestructureConversation;
+    const target = selectedRestructureTurnTarget;
+    const threadId = target?.threadId ?? conversation?.threadId ?? null;
+    const turnId = target?.turnId ?? selectedRunningRestructureTurn?.turnId ?? null;
+    if (!conversation?.conversationId || !threadId || !turnId || stoppingRestructureTurn) return;
+    setStoppingRestructureTurn(true);
+    try {
+      await stopAgentChatTurn(threadId, turnId, {
+        conversationId: conversation.conversationId,
+        expectedRevision: conversation.revision ?? null,
+        workspaceRoot: target?.workspaceRoot ?? conversation.workspaceRoot ?? null,
+        reason: "manual stop from new ui",
+      });
+      clearRunningRestructureTurn(conversation.conversationId);
+      setOptimisticRestructureGeneration((current) => (
+        current?.conversationId === conversation.conversationId && current.turnId === turnId ? null : current
+      ));
+      clearRestructureConversationError(conversation.conversationId);
+      await refreshRestructureConversations(conversation.conversationId).catch(() => undefined);
+    } catch (error) {
+      markRestructureConversationError(conversation.conversationId, error);
+    } finally {
+      setStoppingRestructureTurn(false);
+    }
+  }, [clearRestructureConversationError, clearRunningRestructureTurn, markRestructureConversationError, refreshRestructureConversations, selectedRestructureConversation, selectedRestructureTurnTarget, selectedRunningRestructureTurn?.turnId, stoppingRestructureTurn]);
+
+  useEffect(() => {
+    restructureConversations.forEach((conversation) => {
+      const runningTurn = resolveRunningRestructureTurnFromConversation(conversation);
+      if (!runningTurn || runningRestructureTurnsRef.current[runningTurn.conversationId]) return;
+      scheduleRestructureTurnPoll(runningTurn);
+    });
+  }, [restructureConversations, scheduleRestructureTurnPoll]);
+
   const handleSendRestructureMessage = useCallback(async (message: string) => {
     const conversation = selectedRestructureConversation;
     if ((!conversation?.threadId && !draftingRestructureConversation) || selectedRestructureActionLocked || restructureSubmissionBusyRef.current) return;
@@ -826,6 +896,15 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       }
       const threadId = conversation?.threadId ?? startedSession?.threadId;
       if (!threadId) throw new Error("当前重组会话缺少可发送的 thread");
+      const compacted = conversation
+        ? await maybeCompactRestructureContextBeforeSend(
+          conversation,
+          threadId,
+          conversation.revision ?? null,
+          conversation.workspaceRoot ?? startedSession?.workspaceRoot ?? null,
+        )
+        : null;
+      const compactRevision = normalizeConversationRevision(compacted?.conversationRevision);
       const submitted = await sendAgentChatMessage(threadId, {
         message,
         source: conversation?.source === "direct" ? "direct" : "threadpool-role",
@@ -833,7 +912,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         leaseId: conversation?.leaseId ?? startedSession?.leaseId ?? null,
         parentThreadId: conversation?.parentThreadId ?? startedSession?.parentThreadId ?? null,
         conversationId: conversation?.conversationId ?? startedSession?.conversationId ?? null,
-        expectedRevision: conversation?.revision ?? startedSession?.conversationRevision ?? null,
+        expectedRevision: compactRevision ?? conversation?.revision ?? startedSession?.conversationRevision ?? null,
         workspaceRoot: conversation?.workspaceRoot ?? startedSession?.workspaceRoot ?? null,
         skillPath: conversation?.skillPath ?? startedSession?.skillPath ?? null,
       });
@@ -893,7 +972,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       setSendingRestructureMessage(false);
       restructureSubmissionBusyRef.current = false;
     }
-  }, [clearRestructureConversationError, draftingRestructureConversation, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectRestructureConversation, selectedRestructureActionLocked, selectedRestructureConversation, startPaneTransitionGuard, startRightPaneContentFreeze]);
+  }, [clearRestructureConversationError, draftingRestructureConversation, markRestructureConversationError, maybeCompactRestructureContextBeforeSend, refreshRestructureConversations, scheduleRestructureTurnPoll, selectRestructureConversation, selectedRestructureActionLocked, selectedRestructureConversation, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
   const handleManualReplacementSubmit = useCallback(async (replacementDraft: ReplacementDraft, summary: string) => {
     const conversation = selectedRestructureConversation;
@@ -941,10 +1020,17 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     setSendingRestructureMessage(true);
     let sendAccepted = false;
     try {
+      const compacted = await maybeCompactRestructureContextBeforeSend(
+        conversation,
+        conversation.threadId,
+        conversation.revision ?? null,
+        conversation.workspaceRoot ?? null,
+      );
+      const compactRevision = normalizeConversationRevision(compacted?.conversationRevision);
       const submitted = await submitAgentChatManualReplacement(conversation.threadId, {
         source: conversation.source === "direct" ? "direct" : "threadpool-role",
         conversationId: conversation.conversationId,
-        expectedRevision: conversation.revision ?? null,
+        expectedRevision: compactRevision ?? conversation.revision ?? null,
         workspaceRoot: conversation.workspaceRoot ?? null,
         skillPath: conversation.skillPath ?? null,
         sourceRestructureFinalPath: replacementDraft.sourceRestructureFinalPath,
@@ -998,7 +1084,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
       setSendingRestructureMessage(false);
       restructureSubmissionBusyRef.current = false;
     }
-  }, [clearRestructureConversationError, markRestructureConversationError, refreshRestructureConversations, scheduleRestructureTurnPoll, selectedRestructureActionLocked, selectedRestructureConversation, startPaneTransitionGuard, startRightPaneContentFreeze]);
+  }, [clearRestructureConversationError, markRestructureConversationError, maybeCompactRestructureContextBeforeSend, refreshRestructureConversations, scheduleRestructureTurnPoll, selectedRestructureActionLocked, selectedRestructureConversation, startPaneTransitionGuard, startRightPaneContentFreeze]);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -1123,16 +1209,20 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           {activeSection === "restructure" ? (
             <NewUiRestructureWorkspace
               conversation={selectedRestructureConversation}
+              compactingContext={compactingRestructureContext}
               creatingConversation={creatingRestructureConversation}
               draftingConversation={draftingRestructureConversation}
               loadingConversations={loadingRestructureConversations}
+              onContextUsageChange={setSelectedRestructureContextUsage}
               onNewConversation={() => void handleNewRestructureConversation()}
               onSendMessage={handleSendRestructureMessage}
+              onStopTurn={handleStopRestructureTurn}
               activeTurnTarget={selectedRestructureTurnTarget}
               pendingAssistantMessage={selectedOptimisticRestructureGeneration?.message ?? null}
               pendingUserMessage={selectedOptimisticRestructureGeneration?.userMessage ?? null}
               sendErrorMessage={selectedRestructureConversationError}
               sendingMessage={selectedRestructureActionLocked}
+              stoppingTurn={stoppingRestructureTurn}
             />
           ) : null}
         </div>
@@ -1165,6 +1255,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               </div>
               <SlotAtomView
                 display={selectedSlotAtomDisplay}
+                active={showRestructureSlotAtomPanel && !rightCollapsed}
                 busy={selectedRestructureActionLocked}
                 sourceRestructureFinalPath={selectedRestructureFinalPath}
                 onSubmitReplacement={handleManualReplacementSubmit}
@@ -1580,6 +1671,23 @@ function resolveRestructureTurnTarget(
   };
 }
 
+function resolveRunningRestructureTurnFromConversation(conversation: AgentChatConversation | null): RunningRestructureTurn | null {
+  if (!conversation?.conversationId || !conversation.threadId) return null;
+  const runningMessage = [...(conversation.messages ?? [])].reverse().find((message) => (
+    message.role === "assistant"
+    && message.status === "running"
+    && Boolean(message.turnId)
+  ));
+  if (!runningMessage?.turnId) return null;
+  return {
+    conversationId: conversation.conversationId,
+    role: conversation.role ?? "function-slot-restructure",
+    threadId: conversation.threadId,
+    turnId: runningMessage.turnId,
+    workspaceRoot: conversation.workspaceRoot ?? null,
+  };
+}
+
 function optimisticGenerationHasRealAssistant(generation: OptimisticRestructureGeneration, conversation: AgentChatConversation | null) {
   const messages = conversation?.messages ?? [];
   if (!messages.length) return false;
@@ -1628,6 +1736,20 @@ function conversationHasTerminalAssistantTurn(conversation: AgentChatConversatio
     && message.turnId === turnId
     && isTerminalAgentTurnStatus(message.status)
   ));
+}
+
+function normalizeConversationRevision(value: unknown) {
+  const revision = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(revision) && revision > 0 ? Math.floor(revision) : null;
+}
+
+function buildContextUsageKey(threadId: string, usage: NonNullable<AgentTurnTimeline["activity"]["tokenUsage"]>) {
+  return [
+    threadId,
+    usage.inputTokens ?? "input_unknown",
+    usage.modelContextWindow ?? "window_unknown",
+    usage.contextThresholdTokens ?? "threshold_unknown",
+  ].join(":");
 }
 
 function resolveAutoDialogueReworkRunningTurn(
