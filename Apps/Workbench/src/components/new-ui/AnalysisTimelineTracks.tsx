@@ -928,6 +928,8 @@ function resolveShotTimelineDetail(shot: ShotBoundaryShot, materialCard: Materia
     tone: "shot",
     title: label,
     timeLabel: `${formatTimelineTime(shot.start)} - ${formatTimelineTime(shot.end)}`,
+    start: shot.start,
+    end: shot.end,
     shotRangeLabel: label,
     summary: timelineDetailText(summary),
     fields: compactTimelineDetailFields([

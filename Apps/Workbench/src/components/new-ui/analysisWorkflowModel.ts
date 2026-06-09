@@ -1,6 +1,7 @@
 import type { SampleArtifact } from "../../types";
 import { formatSecondsCompact } from "../../utils/format";
 import type { AnalysisHistoryItem } from "./analysisHistoryData";
+import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
 
 export type WorkflowStageStatus = "done" | "running" | "waiting" | "failed" | "canceled";
 export type WorkflowStageKey =
@@ -33,6 +34,7 @@ export type WorkflowDetailCard = {
   title: string;
   meta: string;
   body: string;
+  timelineTarget?: AnalysisTimelineSegmentDetail | null;
 };
 
 export type WorkflowDetail = {
@@ -223,11 +225,7 @@ function resolveUserMaterialTaggerDetail(base: Pick<WorkflowDetail, "title" | "s
       metric("证明镜头", `${formatCount(proofCount)} 个`),
       metric("能力标签", `${formatCount(uniqueCount(shotCards.flatMap((shot) => shot.materialTags ?? [])))} 个`),
     ]),
-    cards: shotCards.map((shot, index) => card(
-      shot.shotNo ?? `素材镜头 ${String(index + 1).padStart(3, "0")}`,
-      formatMaterialShotTimeRange(shot.timeRange),
-      shot.visualSummary || shot.spokenOrSubtitleSummary || "这个素材镜头还没有摘要。",
-    )),
+    cards: shotCards.map((shot, index) => materialShotDetailCard(shot, index)),
     emptyText: failedText(materialPack?.status, "本步未生成有效素材包，可重试素材识别。", "素材识别完成后会展示素材能力包。"),
     nextText: shotCards.length ? "这部分可直接供结构重组和 shot design 判断素材供给。" : "",
   };
@@ -284,12 +282,42 @@ function metric(label: string, value: string): WorkflowDetailMetric {
   return { label, value };
 }
 
-function card(title: string | null | undefined, meta: string | null | undefined, body: string | null | undefined): WorkflowDetailCard {
-  return {
+function card(title: string | null | undefined, meta: string | null | undefined, body: string | null | undefined, timelineTarget: AnalysisTimelineSegmentDetail | null = null): WorkflowDetailCard {
+  const result: WorkflowDetailCard = {
     title: detailText(title || "未命名"),
     meta: meta == null ? "结果摘要" : detailText(meta),
     body: detailText(body || "暂无摘要。"),
   };
+  if (timelineTarget) result.timelineTarget = timelineTarget;
+  return result;
+}
+
+function materialShotDetailCard(shot: NonNullable<SampleArtifact["userMaterialPack"]>["shotCards"][number], index: number): WorkflowDetailCard {
+  const title = shot.shotNo ?? `素材镜头 ${String(index + 1).padStart(3, "0")}`;
+  const start = numericTime(shot.timeRange?.start);
+  const end = numericTime(shot.timeRange?.end);
+  const summary = shot.visualSummary || shot.spokenOrSubtitleSummary || "这个素材镜头还没有摘要。";
+  return card(
+    title,
+    formatMaterialShotTimeRange(shot.timeRange),
+    summary,
+    {
+      id: `shot:${shot.shotRef ?? shot.shotNo ?? index}`,
+      tone: "shot",
+      title,
+      timeLabel: formatMaterialShotTimeRange(shot.timeRange),
+      start,
+      end,
+      shotRangeLabel: title,
+      summary: detailText(summary),
+      fields: compactTimelineFields([
+        { label: "镜头类型", value: materialClassLabel(shot.shotClass) },
+        { label: "表达功能", value: (shot.shotFunctions ?? []).map(materialFunctionLabel).join(" / ") },
+        { label: "素材标签", value: (shot.materialTags ?? []).join(" / ") },
+        { label: "口播/字幕", value: shot.spokenOrSubtitleSummary },
+      ]),
+    },
+  );
 }
 
 function compactMetrics(items: Array<WorkflowDetailMetric | null | undefined>) {
@@ -320,6 +348,48 @@ function commerceBriefCards(brief: NonNullable<NonNullable<SampleArtifact["shotB
 function formatMaterialShotTimeRange(timeRange: { start: number; end: number } | null | undefined) {
   if (!timeRange || !Number.isFinite(timeRange.start) || !Number.isFinite(timeRange.end)) return "";
   return `${formatSecondsCompact(timeRange.start)} - ${formatSecondsCompact(timeRange.end)}`;
+}
+
+function numericTime(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function compactTimelineFields(fields: Array<{ label: string; value: string | null | undefined }>) {
+  return fields
+    .map((field) => ({ label: field.label, value: detailText(field.value) }))
+    .filter((field) => field.value);
+}
+
+function materialClassLabel(value: string | null | undefined) {
+  const labels: Record<string, string> = {
+    product_display: "商品展示",
+    usage_process: "使用过程",
+    problem_scene: "问题场景",
+    result_or_state: "结果状态",
+    comparison: "对比",
+    trust_evidence: "信任证据",
+    human_presence: "人物",
+    scene_context: "场景",
+    transition_or_filler: "过渡",
+    unusable: "不可用",
+  };
+  return labels[String(value ?? "")] ?? detailText(value);
+}
+
+function materialFunctionLabel(value: string | null | undefined) {
+  const labels: Record<string, string> = {
+    attention_entry: "吸引",
+    context_setup: "铺垫",
+    problem_visibility: "问题",
+    product_recognition: "商品识别",
+    product_desire: "种草",
+    mechanism_explanation: "机制解释",
+    trust_building: "信任",
+    result_confirmation: "结果确认",
+    conversion_prompt: "转化",
+  };
+  return labels[String(value ?? "")] ?? detailText(value);
 }
 
 function formatCount(value: number) {

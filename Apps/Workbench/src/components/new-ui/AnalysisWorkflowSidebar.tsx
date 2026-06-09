@@ -31,6 +31,7 @@ export type AnalysisDetailSidebarState = {
   workflowActionBusy?: "cancel" | "resume" | null;
   onWorkflowCancel?: () => void;
   onWorkflowResume?: () => void;
+  onWorkflowDetailCardSelect?: (target: AnalysisTimelineSegmentDetail) => void;
 };
 
 type AnalysisWorkflowSidebarProps = {
@@ -174,7 +175,13 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
       {selectedTimelineSegment ? (
         <TimelineSegmentDetailPanel segment={selectedTimelineSegment} />
       ) : (
-        <WorkflowDetailPanel selectedStageKey={activeSelectedStageKey} item={detail.item} stages={stages} structureStatus={structureStatus} />
+        <WorkflowDetailPanel
+          selectedStageKey={activeSelectedStageKey}
+          item={detail.item}
+          stages={stages}
+          structureStatus={structureStatus}
+          onDetailCardSelect={detail.onWorkflowDetailCardSelect}
+        />
       )}
       {pendingRerun ? <RerunConfirmDialog pending={pendingRerun} onCancel={() => setPendingRerun(null)} onConfirm={confirmRerun} /> : null}
     </section>
@@ -380,11 +387,13 @@ function WorkflowDetailPanel({
   item,
   stages,
   structureStatus,
+  onDetailCardSelect,
 }: {
   selectedStageKey: WorkflowStageKey;
   item: AnalysisHistoryItem | null;
   stages: WorkflowStages;
   structureStatus: WorkflowStageStatus;
+  onDetailCardSelect?: (target: AnalysisTimelineSegmentDetail) => void;
 }) {
   const detail = resolveWorkflowDetail(selectedStageKey, item, stages, structureStatus);
   const runningTraceStage = detail.status === "running" ? resolveRunningTraceStage(item, selectedStageKey) : null;
@@ -420,13 +429,30 @@ function WorkflowDetailPanel({
           ) : null}
           {detail.cards.length ? (
             <div className="new-ui-analysis-workflow-detail-list">
-              {detail.cards.map((card) => (
-                <article key={`${card.title}_${card.meta}`} className="new-ui-analysis-workflow-detail-card">
-                  <strong>{card.title}</strong>
-                  {card.meta ? <span>{card.meta}</span> : null}
-                  <p>{card.body}</p>
-                </article>
-              ))}
+              {detail.cards.map((card) => {
+                const cardKey = `${card.title}_${card.meta}`;
+                const cardContent = (
+                  <>
+                    <strong>{card.title}</strong>
+                    {card.meta ? <span>{card.meta}</span> : null}
+                    <p>{card.body}</p>
+                  </>
+                );
+                return card.timelineTarget && onDetailCardSelect ? (
+                  <button
+                    key={cardKey}
+                    className="new-ui-analysis-workflow-detail-card is-clickable"
+                    type="button"
+                    onClick={() => onDetailCardSelect(card.timelineTarget as AnalysisTimelineSegmentDetail)}
+                  >
+                    {cardContent}
+                  </button>
+                ) : (
+                  <article key={cardKey} className="new-ui-analysis-workflow-detail-card">
+                    {cardContent}
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <div className="new-ui-analysis-workflow-detail-empty">{detail.emptyText}</div>

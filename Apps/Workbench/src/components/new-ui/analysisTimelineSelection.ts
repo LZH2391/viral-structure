@@ -15,6 +15,8 @@ export type AnalysisTimelineSegmentDetail = {
   tone: AnalysisTimelineSegmentTone;
   title: string;
   timeLabel: string;
+  start?: number | null;
+  end?: number | null;
   shotRangeLabel: string | null;
   summary: string;
   fields: Array<{

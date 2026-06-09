@@ -25,6 +25,11 @@ type AnalysisHomeProps = {
   timelineSelectionClearRequest?: number;
 };
 
+type TimelineSeekRequest = {
+  requestId: number;
+  time: number;
+};
+
 export type AnalysisHomeQueueItem = {
   key: string;
   status: "done" | "running" | "waiting" | "failed" | "canceled";
@@ -59,6 +64,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   const operationTokenRef = useRef(0);
   const detailLoadKeyRef = useRef<string | null>(null);
   const detailPollingKeyRef = useRef<string | null>(null);
+  const detailSeekRequestIdRef = useRef(0);
   const [view, setView] = useState<"home" | "detail">("home");
   const [detailTransitionKey, setDetailTransitionKey] = useState(0);
   const [detailTitle, setDetailTitle] = useState("新建分析");
@@ -75,6 +81,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   const [homeQueueLoading, setHomeQueueLoading] = useState(false);
   const [detailHeavyReady, setDetailHeavyReady] = useState(false);
   const [detailTimelineReady, setDetailTimelineReady] = useState(false);
+  const [detailSeekRequest, setDetailSeekRequest] = useState<TimelineSeekRequest | null>(null);
   const isMaterialMode = mode === "materialRecognition";
   const uploadTitle = isMaterialMode ? "拖拽视频做素材识别" : "拖拽样例做结构分析";
   const uploadSubtitle = isMaterialMode ? "生成素材能力包" : "拆出脚本 / 节奏 / 包装";
@@ -462,22 +469,6 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     });
   }, [onQueueStateChange, openHistoryDetail]);
 
-  useEffect(() => {
-    const sidebarItem = detailTimelineReady ? detailItem : null;
-    onDetailStateChange?.({
-      visible: view === "detail",
-      title: detailTitle,
-      item: sidebarItem,
-      selectedTimelineSegment: detailTimelineReady ? selectedTimelineSegment : null,
-      rerunnableStageKeys: detailTimelineReady ? rerunnableStageKeys : [],
-      rerunningStageKey: detailTimelineReady ? rerunningStageKey : null,
-      onWorkflowStageRerun: handleWorkflowStageRerun,
-      workflowActionBusy,
-      onWorkflowCancel: handleWorkflowCancel,
-      onWorkflowResume: handleWorkflowResume,
-    });
-  }, [detailItem, detailTimelineReady, detailTitle, handleWorkflowCancel, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view, workflowActionBusy]);
-
   useEffect(() => () => {
     stopPolling();
   }, [stopPolling]);
@@ -504,6 +495,31 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
       onWorkflowResume: handleWorkflowResume,
     });
   }, [detailHeavyReady, detailItem, detailTitle, handleWorkflowCancel, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, view, workflowActionBusy]);
+
+  const handleWorkflowDetailCardSelect = useCallback((target: AnalysisTimelineSegmentDetail) => {
+    selectTimelineSegment(target);
+    const time = Number(target.start);
+    if (!Number.isFinite(time) || time < 0) return;
+    detailSeekRequestIdRef.current += 1;
+    setDetailSeekRequest({ requestId: detailSeekRequestIdRef.current, time });
+  }, [selectTimelineSegment]);
+
+  useEffect(() => {
+    const sidebarItem = detailTimelineReady ? detailItem : null;
+    onDetailStateChange?.({
+      visible: view === "detail",
+      title: detailTitle,
+      item: sidebarItem,
+      selectedTimelineSegment: detailTimelineReady ? selectedTimelineSegment : null,
+      rerunnableStageKeys: detailTimelineReady ? rerunnableStageKeys : [],
+      rerunningStageKey: detailTimelineReady ? rerunningStageKey : null,
+      onWorkflowStageRerun: handleWorkflowStageRerun,
+      workflowActionBusy,
+      onWorkflowCancel: handleWorkflowCancel,
+      onWorkflowResume: handleWorkflowResume,
+      onWorkflowDetailCardSelect: handleWorkflowDetailCardSelect,
+    });
+  }, [detailItem, detailTimelineReady, detailTitle, handleWorkflowCancel, handleWorkflowDetailCardSelect, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view, workflowActionBusy]);
 
   const handleTimelineReady = useCallback(() => {
     setDetailTimelineReady(true);
@@ -561,6 +577,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
         item={detailItem}
         heavyReady={detailHeavyReady}
         selectedTimelineSegment={selectedTimelineSegment}
+        seekRequest={detailSeekRequest}
         onTimelineReady={handleTimelineReady}
         onSelectTimelineSegment={selectTimelineSegment}
         onOpenItem={openHistoryDetail}
@@ -584,6 +601,7 @@ function AnalysisDetailPage({
   item,
   heavyReady,
   selectedTimelineSegment,
+  seekRequest,
   onTimelineReady,
   onSelectTimelineSegment,
   onOpenItem,
@@ -596,6 +614,7 @@ function AnalysisDetailPage({
   item: AnalysisHistoryItem | null;
   heavyReady: boolean;
   selectedTimelineSegment: AnalysisTimelineSegmentDetail | null;
+  seekRequest: TimelineSeekRequest | null;
   onTimelineReady: () => void;
   onSelectTimelineSegment: (segment: AnalysisTimelineSegmentDetail) => void;
   onOpenItem: (item: AnalysisHistoryItem) => void;
@@ -645,6 +664,11 @@ function AnalysisDetailPage({
       return;
     }
   };
+
+  useEffect(() => {
+    if (!seekRequest) return;
+    seekTimeline(seekRequest.time);
+  }, [seekRequest?.requestId]);
 
   return (
     <section className={`new-ui-analysis-detail ${hidden ? "is-hidden" : ""}`.trim()} aria-hidden={hidden} aria-label="分析详情">

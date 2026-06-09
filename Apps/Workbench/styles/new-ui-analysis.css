@@ -2637,6 +2637,35 @@
     0 6px 14px color-mix(in srgb, var(--new-ui-control-shadow) 26%, transparent);
 }
 
+.new-ui-analysis-workflow-detail-card.is-clickable {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.new-ui-analysis-workflow-detail-card.is-clickable:hover,
+.new-ui-analysis-workflow-detail-card.is-clickable:focus-visible {
+  border-color: color-mix(in srgb, var(--new-ui-accent) 42%, var(--new-ui-control-border));
+  background: color-mix(in srgb, var(--new-ui-control-bg) 84%, var(--new-ui-surface));
+}
+
+.new-ui-analysis-workflow-detail-card.is-clickable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--new-ui-accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.new-ui-analysis-workflow-detail-card.is-clickable:active {
+  transform: translateY(1px);
+}
+
 .new-ui-analysis-workflow-detail-card strong,
 .new-ui-analysis-workflow-detail-card span {
   min-width: 0;
