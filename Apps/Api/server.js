@@ -54,8 +54,11 @@ const { createShotStoryboardAutoPipelineService } = require("./lib/agent-chat/sh
 const { bindConversationDefaultMaterialPack } = require("./lib/agent-chat/material-pack-binding");
 const { initializeServerRuntime: initializeServerRuntimeImpl } = require("./lib/server-runtime");
 const { createPlatformHandlers } = require("./lib/platform/factory");
+const { loadAppConfig } = require("./lib/config/app-config");
 
 const rootDir = path.resolve(__dirname, "../..");
+const appConfig = loadAppConfig({ rootDir });
+applyProcessEnvFromAppConfig(appConfig);
 const port = Number(process.env.PORT || 5177);
 const store = createLocalStore(rootDir);
 const logger = createStageLogger(store);
@@ -63,7 +66,7 @@ const jobStore = createJobStore({ filePath: path.join(store.runtimeRoot, "Jobs",
 const workflowRunStore = createWorkflowRunStore({ filePath: path.join(store.runtimeRoot, "WorkflowRuns", "workflow-runs.json") });
 const agentConversationStore = createAgentConversationStore({ store });
 const artifactIndex = createArtifactIndex({ store, cacheParamBuilders: createArtifactCacheParamBuilders() });
-const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex });
+const service = createSampleProcessingService({ store, logger, jobStore, artifactIndex, subtitleRecognition: appConfig.subtitleRecognition, mediaConfig: appConfig.media });
 const appServer = createAppServerBridge();
 const codexRolloutReader = createCodexRolloutReader();
 const activeTurnOwnerHandlers = createActiveTurnOwnerHandlers({ agentConversationStore, jobStore, workflowRunStore });
@@ -74,7 +77,19 @@ const threadPool = createThreadPoolProxy({
 });
 const subtitleRevisionService = createSubtitleRevisionService({ store, logger, artifactIndex });
 const executorRegistry = createExecutorRegistry({ appServer, activeTurnRuntime });
-const shotBoundaryService = createShotBoundaryService({ rootDir, store, logger, jobStore, artifactIndex, threadPool, appServer, activeTurnRuntime, executorRegistry });
+const shotBoundaryService = createShotBoundaryService({
+  rootDir,
+  store,
+  logger,
+  jobStore,
+  artifactIndex,
+  threadPool,
+  appServer,
+  activeTurnRuntime,
+  executorRegistry,
+  rawAnalysisWorkspaceRoot: appConfig.shotBoundary.rawAnalysisWorkspaceRoot,
+  skillPath: appConfig.shotBoundary.videoShotSkillPath,
+});
 const functionSlotProjectionService = createFunctionSlotProjectionService({ store });
 const functionSlotLibraryService = createFunctionSlotLibraryService({ rootDir, store, logger, projectionService: functionSlotProjectionService });
 const moduleRegistry = createModuleRegistry({
@@ -84,6 +99,7 @@ const moduleRegistry = createModuleRegistry({
   artifactIndex,
   functionSlotProjectionService,
   executorRegistry,
+  imageGenerationProvider: appConfig.imageGeneration,
   serviceOverrides: {
     shotBoundaryService,
     sampleProcessingService: service,
@@ -186,7 +202,14 @@ function createServer(deps = {}) {
     rootDir: activeRootDir ?? rootDir,
     logger: activeLogger,
   });
-  const activeSampleService = deps.service ?? service;
+  const activeSampleService = deps.service ?? (activeStore === store ? service : createSampleProcessingService({
+    store: activeStore,
+    logger: activeLogger,
+    jobStore: activeJobStore,
+    artifactIndex: activeArtifactIndex,
+    subtitleRecognition: deps.subtitleRecognition ?? appConfig.subtitleRecognition,
+    mediaConfig: deps.mediaConfig ?? appConfig.media,
+  }));
   const activeShotBoundaryService = deps.shotBoundaryService ?? (activeStore === store && activeExecutorRegistry === executorRegistry
     ? shotBoundaryService
     : createShotBoundaryService({
@@ -199,6 +222,8 @@ function createServer(deps = {}) {
         appServer: deps.appServer ?? appServer,
         activeTurnRuntime: activeActiveTurnRuntime,
         executorRegistry: activeExecutorRegistry,
+        rawAnalysisWorkspaceRoot: (deps.shotBoundary ?? appConfig.shotBoundary).rawAnalysisWorkspaceRoot,
+        skillPath: (deps.shotBoundary ?? appConfig.shotBoundary).videoShotSkillPath,
       }));
   const activeModuleRegistry = deps.moduleRegistry ?? createModuleRegistry({
     rootDir: activeRootDir ?? rootDir,
@@ -211,6 +236,7 @@ function createServer(deps = {}) {
     appServer: deps.appServer ?? appServer,
     activeTurnRuntime: activeActiveTurnRuntime,
     executorRegistry: activeExecutorRegistry,
+    imageGenerationProvider: deps.imageGenerationProvider ?? appConfig.imageGeneration,
     serviceOverrides: {
       scriptSegmentService: deps.scriptSegmentService,
       rhythmStructureService: deps.rhythmStructureService,
@@ -610,6 +636,13 @@ function normalizeServerText(value) {
 
 function normalizeServerBoolean(value) {
   return value === true || String(value ?? "").trim().toLowerCase() === "true";
+}
+
+function applyProcessEnvFromAppConfig(config) {
+  if (config?.media?.ffmpegBinDir) process.env.FFMPEG_BIN_DIR = config.media.ffmpegBinDir;
+  if (config?.subtitleRecognition?.resourceId) process.env.DOUBAO_SAUC_RESOURCE_ID = config.subtitleRecognition.resourceId;
+  if (config?.subtitleRecognition?.wsUrl) process.env.DOUBAO_SAUC_WS_URL = config.subtitleRecognition.wsUrl;
+  if (config?.subtitleRecognition?.modelName) process.env.DOUBAO_SAUC_MODEL_NAME = config.subtitleRecognition.modelName;
 }
 
 if (require.main === module) {

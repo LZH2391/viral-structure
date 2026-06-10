@@ -9,7 +9,7 @@ const DEFAULT_PARAMS = {
   maxEnergyFrames: 240,
   maxEventCandidates: 80,
   sourceRole: "original",
-  pannsEnabled: true,
+  pannsEnabled: false,
   pannsCheckpointPath: process.env.PANNS_CHECKPOINT_PATH || null,
 };
 

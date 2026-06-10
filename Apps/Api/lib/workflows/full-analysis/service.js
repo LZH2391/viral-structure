@@ -1,11 +1,13 @@
 const { randomUUID } = require("crypto");
-const fs = require("fs/promises");
-const path = require("path");
 const { createTraceContext } = require("../../../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds, nextStage } = require("../../../../../Infrastructure/Observability/trace");
 const { loadCurrentSampleArtifact } = require("../../stores/artifact-reader");
+const { createWorkflowCancellation } = require("./service-cancellation");
+const { buildWorkflowContext } = require("./service-context");
 const { FULL_ANALYSIS_WORKFLOW_DESCRIPTOR } = require("./descriptor");
 const { createWorkflowLogger } = require("./logging");
+const { createWorkflowRunControl } = require("./service-run-control");
+const { createUploadRerunBuilder } = require("./service-upload-rerun");
 const {
   artifactRefForStage,
   buildAggregateSummary,
@@ -14,11 +16,9 @@ const {
   downstreamStageKeys,
   findModuleStage,
   findStage,
-  hasStage,
-  hasTerminalRunWithRunningChildren, hasRunningChildren, latestWorkflowRun,
+  hasStage, hasTerminalRunWithRunningChildren, hasRunningChildren, latestWorkflowRun,
   normalizeError,
   publicRun,
-  resetCanceledOrFailedStageForResume,
   resetStageForRun,
   resolveWorkflowStages,
   summarizeStageInput,
@@ -28,7 +28,6 @@ const {
 
 const TERMINAL_JOB_STATUSES = new Set(["processed", "failed"]);
 const CACHE_WAITING_STATUS = "cache_waiting";
-
 function createWorkflowService({
   workflowRunStore,
   service,
@@ -57,6 +56,29 @@ function createWorkflowService({
   const blockingStageKeys = new Set(stageDefinitions.filter((stage) => stage.blocking).map((stage) => stage.key));
   const advanceLocks = new Map();
   const workflowLogger = createWorkflowLogger({ logger });
+  const uploadRerunBuilder = createUploadRerunBuilder({ store, readArtifact });
+  const cancellation = createWorkflowCancellation({
+    workflowRunStore,
+    jobStore,
+    logger,
+    workflowLogger,
+    activeTurnRuntime,
+    threadPool,
+    workflowKey,
+    cacheWaitingStatus: CACHE_WAITING_STATUS,
+  });
+  const runControl = createWorkflowRunControl({
+    workflowRunStore,
+    workflowLogger,
+    workflowKey,
+    workflowDescriptor,
+    stageDefinitions,
+    rerunnableStageKeys,
+    startStage,
+    advanceUnlocked,
+    scheduleAdvance,
+    buildUploadRerunInputForSample: uploadRerunBuilder.buildUploadRerunInputForSample,
+  });
 
   async function start({ workspaceId, file, fields = {} }) {
     const traceContext = createTraceContext(createTraceIds());
@@ -98,7 +120,7 @@ function createWorkflowService({
   }
 
   async function startFromSample({ sampleVideoId }) {
-    return start(await buildUploadRerunInputForSample(sampleVideoId));
+    return start(await uploadRerunBuilder.buildUploadRerunInputForSample(sampleVideoId));
   }
 
   function get(workflowRunId) {
@@ -117,251 +139,15 @@ function createWorkflowService({
   }
 
   async function rerunStage({ workflowRunId, stageKey }) {
-    return runWithWorkflowLock(workflowRunId, () => rerunStageUnlocked({ workflowRunId, stageKey }));
+    return runWithWorkflowLock(workflowRunId, () => runControl.rerunStageUnlocked({ workflowRunId, stageKey }));
   }
 
   async function cancelRun({ workflowRunId, reason = "user_requested" } = {}) {
-    return runWithWorkflowLock(workflowRunId, () => cancelRunUnlocked({ workflowRunId, reason }));
-  }
-
-  async function cancelRunUnlocked({ workflowRunId, reason = "user_requested" } = {}) {
-    const run = workflowRunStore.getRun(workflowRunId);
-    if (!run) return null;
-    if (["processed", "failed", "canceled"].includes(run.status)) return publicRun(run);
-    const now = new Date().toISOString();
-    const traceContext = { runId: run.runId, traceId: run.traceId, stageId: `stage_${randomUUID()}` };
-    const errorSummary = {
-      code: "workflow_canceled",
-      message: "分析已手动停止",
-      stageName: "workflow.run",
-      retryable: true,
-    };
-    await cancelActiveStages(run, traceContext, reason);
-    const snapshot = await logger.writeDebugSnapshot({
-      traceContext,
-      stageName: "workflow.cancel",
-      artifactId: null,
-      parentArtifactId: null,
-      reason: errorSummary.code,
-      inputSummary: { workflowRunId, workflowKey, reason },
-      outputSummary: {
-        canceledStageKeys: run.stages.filter((stage) => ["pending", "running", CACHE_WAITING_STATUS].includes(stage.status)).map((stage) => stage.key),
-      },
-      debugPayload: {
-        currentStageKeys: run.currentStageKeys ?? [],
-      },
-    });
-    const canceledSummary = { ...errorSummary, debugSnapshotUri: snapshot.uri };
-    const updated = workflowRunStore.updateRun(workflowRunId, (current) => ({
-      status: "canceled",
-      currentStageKeys: [],
-      completedAt: now,
-      canceledAt: now,
-      cancelReason: reason,
-      errorSummary: canceledSummary,
-      stages: current.stages.map((stage) => {
-        if (!["pending", "running", CACHE_WAITING_STATUS].includes(stage.status)) return stage;
-        return {
-          ...stage,
-          status: "canceled",
-          completedAt: now,
-          errorSummary: {
-            code: "workflow_stage_canceled",
-            message: "步骤已随整条分析停止",
-            stageName: stage.key,
-            retryable: true,
-            debugSnapshotUri: snapshot.uri,
-          },
-        };
-      }),
-    }));
-    await workflowLogger.logWorkflowEvent(traceContext, "stage.fail", "workflow.cancel", null, null, { workflowRunId, workflowKey, reason }, { status: "canceled" }, null, canceledSummary);
-    await workflowLogger.logWorkflowRunClosed(updated, "stage.fail");
-    return publicRun(updated);
+    return runWithWorkflowLock(workflowRunId, () => cancellation.cancelRunUnlocked({ workflowRunId, reason }));
   }
 
   async function resumeRun({ workflowRunId } = {}) {
-    return runWithWorkflowLock(workflowRunId, () => resumeRunUnlocked({ workflowRunId }));
-  }
-
-  async function resumeRunUnlocked({ workflowRunId } = {}) {
-    const run = workflowRunStore.getRun(workflowRunId);
-    if (!run) return null;
-    if (!["canceled", "failed", "partial_failed"].includes(run.status)) return publicRun(run);
-    const firstStageKey = firstResumeStageKey(run);
-    if (!firstStageKey) return publicRun(run);
-    if (firstStageKey === "upload") {
-      if (!run.sampleVideoId) {
-        const error = new Error("上传尚未完成，请从队列继续该任务");
-        error.statusCode = 400;
-        error.code = "workflow_resume_upload_unavailable";
-        error.retryable = true;
-        throw error;
-      }
-      return rerunStageUnlocked({ workflowRunId, stageKey: "upload" });
-    }
-    const now = new Date().toISOString();
-    workflowRunStore.updateRun(workflowRunId, (current) => ({
-      status: "running",
-      currentStageKeys: [],
-      completedAt: null,
-      resumedAt: now,
-      errorSummary: null,
-      stages: current.stages.map(resetCanceledOrFailedStageForResume),
-    }));
-    await workflowLogger.logWorkflowEvent(
-      { runId: run.runId, traceId: run.traceId, stageId: `stage_${randomUUID()}` },
-      "stage.start",
-      "workflow.resume",
-      null,
-      null,
-      { workflowRunId, workflowKey, fromStatus: run.status, firstStageKey },
-    );
-    await advanceUnlocked(workflowRunId);
-    return publicRun(workflowRunStore.getRun(workflowRunId));
-  }
-
-  async function rerunStageUnlocked({ workflowRunId, stageKey }) {
-    const run = workflowRunStore.getRun(workflowRunId);
-    if (!run) return null;
-    if (!rerunnableStageKeys.has(stageKey)) {
-      const error = new Error("该步骤暂不支持重跑");
-      error.statusCode = 400;
-      error.code = "workflow_stage_rerun_unsupported";
-      error.retryable = false;
-      throw error;
-    }
-    if (!run.sampleVideoId && stageKey !== "upload") {
-      const error = new Error("样例视频尚未生成，不能重跑后续步骤");
-      error.statusCode = 400;
-      error.code = "workflow_stage_not_ready";
-      error.retryable = true;
-      throw error;
-    }
-    const uploadRerunInput = stageKey === "upload" ? await buildUploadRerunInputForSample(run.sampleVideoId) : null;
-    const traceContext = { runId: run.runId, traceId: run.traceId, stageId: `stage_${randomUUID()}` };
-    const resetKeys = unique([stageKey, ...downstreamStageKeys(stageDefinitions, stageKey, workflowDescriptor.parallelGroups)]);
-    workflowRunStore.updateRun(workflowRunId, (current) => ({
-      status: "running",
-      currentStageKeys: [stageKey],
-      sampleVideoId: stageKey === "upload" ? null : current.sampleVideoId,
-      stages: current.stages.map((stage) => {
-        if (!resetKeys.includes(stage.key)) return stage;
-        const reset = resetStageForRun(stage);
-        return {
-          ...reset,
-          attemptNo: stage.key === stageKey ? stage.attemptNo + 1 : stage.attemptNo,
-        };
-      }),
-      completedAt: null,
-      errorSummary: null,
-    }));
-    await startStage(workflowRunId, stageKey, uploadRerunInput ?? { cacheDecision: "refresh" }, traceContext);
-    scheduleAdvance(workflowRunId);
-    return publicRun(workflowRunStore.getRun(workflowRunId));
-  }
-
-  async function cancelActiveStages(run, traceContext, reason) {
-    const activeStages = run.stages.filter((stage) => stage.childJobId && ["running", "pending", CACHE_WAITING_STATUS].includes(stage.status));
-    for (const stage of activeStages) {
-      const job = jobStore.getJob(stage.childJobId);
-      if (!job) continue;
-      await cancelProcessingJobForWorkflow(job, stage, traceContext, reason);
-    }
-  }
-
-  async function cancelProcessingJobForWorkflow(job, stage, traceContext, reason) {
-    const errorSummary = {
-      code: "workflow_stage_canceled",
-      message: "步骤已手动停止",
-      stageName: stage.key,
-      retryable: true,
-    };
-    const agentRun = job.agentRun ?? null;
-    if (agentRun?.threadId && agentRun?.turnId && typeof activeTurnRuntime?.cancel === "function") {
-      await activeTurnRuntime.cancel({
-        workspaceRoot: agentRun.workspaceRoot ?? null,
-        threadId: agentRun.threadId,
-        turnId: agentRun.turnId,
-        traceContext,
-      }).catch(() => undefined);
-    }
-    if (agentRun?.leaseId && agentRun?.traceId && typeof threadPool?.releaseLease === "function") {
-      await threadPool.releaseLease({ leaseId: agentRun.leaseId, ownerId: agentRun.traceId }).catch(() => undefined);
-    } else if (agentRun?.traceId && typeof threadPool?.releaseOwnerLeases === "function") {
-      await threadPool.releaseOwnerLeases(agentRun.traceId).catch(() => undefined);
-    }
-    jobStore.updateJob(job.jobId, {
-      status: "failed",
-      errorSummary,
-      agentRun: agentRun ? { ...agentRun, status: "canceled", updatedAt: new Date().toISOString() } : agentRun,
-      cancelReason: reason,
-    });
-  }
-
-  function firstResumeStageKey(run) {
-    const first = run.stages.find((stage) => stage.status !== "processed");
-    return first?.key ?? null;
-  }
-
-  async function buildUploadRerunInputForSample(sampleVideoId) {
-    const artifact = await readArtifact(sampleVideoId);
-    const original = artifact?.sampleVideo?.original ?? null;
-    const filePath = resolveRuntimeFilePath(original?.uri);
-    if (!filePath) {
-      const error = new Error("原始视频文件不可用，不能刷新上传素材");
-      error.statusCode = 400;
-      error.code = "workflow_upload_rerun_source_unavailable";
-      error.retryable = false;
-      throw error;
-    }
-    let buffer;
-    try {
-      buffer = await fs.readFile(filePath);
-    } catch {
-      const error = new Error("原始视频文件不可读，不能刷新上传素材");
-      error.statusCode = 400;
-      error.code = "workflow_upload_rerun_source_unreadable";
-      error.retryable = false;
-      throw error;
-    }
-    const filename = path.basename(original?.summary || filePath);
-    return {
-      workspaceId: artifact?.workspaceId ?? "default-workspace",
-      file: {
-        filename,
-        name: filename,
-        mimeType: mimeTypeForVideoPath(filePath),
-        type: mimeTypeForVideoPath(filePath),
-        extension: path.extname(filePath),
-        size: buffer.length,
-        buffer,
-      },
-      fields: {
-        frameSampleRateFps: artifact?.processingOptions?.frameSampleRateFps ?? 10,
-        enableAudioSeparation: Boolean(artifact?.processingOptions?.enableAudioSeparation),
-        enableSubtitleRecognition: Boolean(artifact?.processingOptions?.enableSubtitleRecognition),
-        enableAudioFeatureAnalysis: Boolean(artifact?.processingOptions?.enableAudioFeatureAnalysis),
-        cacheDecision: "refresh",
-      },
-    };
-  }
-
-  function resolveRuntimeFilePath(uri) {
-    const text = String(uri ?? "").trim();
-    if (!text.startsWith("/runtime/") || !store?.runtimeRoot) return null;
-    const relative = text.slice("/runtime/".length).split("/").filter(Boolean);
-    const filePath = path.resolve(store.runtimeRoot, ...relative);
-    const root = path.resolve(store.runtimeRoot);
-    return filePath === root || filePath.startsWith(`${root}${path.sep}`) ? filePath : null;
-  }
-
-  function mimeTypeForVideoPath(filePath) {
-    const extension = path.extname(filePath).toLowerCase();
-    if (extension === ".mov") return "video/quicktime";
-    if (extension === ".webm") return "video/webm";
-    if (extension === ".m4v") return "video/x-m4v";
-    return "video/mp4";
+    return runWithWorkflowLock(workflowRunId, () => runControl.resumeRunUnlocked({ workflowRunId }));
   }
 
   async function startStage(workflowRunId, stageKey, input, traceContext) {
@@ -732,23 +518,6 @@ function createWorkflowService({
   }
 
   return { start, startFromSample, get, getLatest, getLatestBySampleVideoId, rerunStage, cancelRun, resumeRun, advance };
-}
-
-function buildWorkflowContext(fields = {}) {
-  const targetConversationId = normalizeContextText(fields.targetConversationId);
-  return {
-    targetConversationId,
-    bindMaterialToConversation: normalizeBooleanFlag(fields.bindMaterialToConversation) || Boolean(targetConversationId),
-  };
-}
-
-function normalizeContextText(value) {
-  const text = String(value ?? "").trim();
-  return text || null;
-}
-
-function normalizeBooleanFlag(value) {
-  return value === true || String(value ?? "").trim().toLowerCase() === "true";
 }
 
 module.exports = {

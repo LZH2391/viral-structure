@@ -1,6 +1,0 @@
-pydantic
-websocket-client
-fastapi
-uvicorn
-librosa
-panns-inference

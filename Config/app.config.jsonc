@@ -1,0 +1,40 @@
+{
+  // 用户只填这个文件即可。
+  // apiKey 写在这里最省事；如果你会提交仓库，请自己注意不要把真实密钥提交出去。
+
+  // Storyboard 生图配置。
+  // 默认示例使用 OpenAI 官方 endpoint：填 apiKey 后即可用于 OpenAI 生图。
+  // 如果你用 pptoken，把 provider/apiKey/generationsUrl/editsUrl 改成下方注释里的 pptoken 版本。
+  "imageGeneration": {
+    "provider": "openai",
+    "apiKey": "sk-replace-with-your-openai-api-key",
+    "generationsUrl": "https://api.openai.com/v1/images/generations",
+    "editsUrl": "https://api.openai.com/v1/images/edits"
+
+    // 如果你用 pptoken，把上面四行改成：
+    // "provider": "pptoken",
+    // "apiKey": "replace-with-your-pptoken-image-generation-api-key",
+    // "generationsUrl": "https://api.pptoken.cc/v1/images/generations",
+    // "editsUrl": "https://api.pptoken.cc/v1/images/edits"
+  },
+
+  // 豆包字幕识别。字幕识别是主流程必需能力，请填写真实 appKey / accessKey。
+  "subtitleRecognition": {
+    "provider": "doubao-sauc",
+    "appKey": "replace-with-doubao-app-key",
+    "accessKey": "replace-with-doubao-access-key",
+    "resourceId": "volc.bigasr.sauc.duration"
+  },
+
+  // 媒体工具路径。建议使用仓库内置 ffmpeg，避免本机版本差异。
+  "media": {
+    "ffmpegBinDir": "C:\\ByteDanceFullStack\\ffmpeg-8.1.1-full_build-shared\\bin"
+  },
+
+  // Shot Boundary 原始分析 workspace。这里应指向一个项目外部的 Codex workspace，
+  // 并在该 workspace 下放置 .agents\\skills\\video-shot\\SKILL.md。
+  // 这样 video-shot 只读取原始分析工作区，避免扫描本项目的大量业务文件。
+  "shotBoundary": {
+    "rawAnalysisWorkspaceRoot": "C:\\Users\\Administrator\\Documents\\Codex"
+  }
+}

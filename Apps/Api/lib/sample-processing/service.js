@@ -29,8 +29,12 @@ const {
 } = require("./media-artifact-helpers");
 
 const FRAME_MAX_COUNT = 6000;
+const DEFAULT_SUBTITLE_RESOURCE_ID = "volc.bigasr.sauc.duration";
 
-function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, asrClient = defaultAsrClient, artifactIndex = createArtifactIndex({ store }) }) {
+function createSampleProcessingService({ store, logger, jobStore, mediaProcessor = defaultMediaProcessor, demucsAdapter = defaultDemucsAdapter, transcoder = defaultTranscoder, librosaAdapter = defaultLibrosaAdapter, asrClient = defaultAsrClient, artifactIndex = createArtifactIndex({ store }), subtitleRecognition = {}, mediaConfig = {} }) {
+  const subtitleResourceId = normalizeConfigText(subtitleRecognition.resourceId) || process.env.DOUBAO_SAUC_RESOURCE_ID || DEFAULT_SUBTITLE_RESOURCE_ID;
+  const subtitleEnv = buildSubtitleRecognitionEnv(subtitleRecognition, subtitleResourceId);
+
   async function enqueueUpload({ workspaceId, file, fields = {} }) {
     const fileHash = hashBuffer(file.buffer);
     let processingOptions = null;
@@ -309,7 +313,13 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
           return degraded;
         }
         try {
-          return await librosaAdapter.extractAudioFeatures({ audioPath: runtimePathFromUri(source.uri), parentArtifactId: source.artifactId, sourceAudioArtifactId: source.artifactId, store, params: { sourceRole } });
+          return await librosaAdapter.extractAudioFeatures({
+            audioPath: runtimePathFromUri(source.uri),
+            parentArtifactId: source.artifactId,
+            sourceAudioArtifactId: source.artifactId,
+            store,
+            params: { sourceRole },
+          });
         } catch (error) {
           const degraded = librosaAdapter.audioFeaturesDegraded({ parentArtifactId: source.artifactId, sourceAudioArtifactId: source.artifactId, reason: error.safeSummary || error.message || "音频基础分析失败", params: { sourceRole } });
           degraded.debugSnapshotUri = await writeStageSnapshot(context, STAGES.audioFeaturesExtracted, degraded.artifactId, source.artifactId, "audio_feature_analysis_degraded", {
@@ -335,19 +345,19 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
         preferredSource: audioSeparation?.vocal?.uri ? "vocal" : "original",
         provider: "doubao-sauc",
         protocolVersion: 1,
-        resourceId: process.env.DOUBAO_SAUC_RESOURCE_ID || "volc.bigasr.sauc.duration",
+        resourceId: subtitleResourceId,
       },
       action: async () => {
         const cached = await findStageCache(context, STAGES.subtitleRecognized, {
           provider: "doubao-sauc",
-          resourceId: process.env.DOUBAO_SAUC_RESOURCE_ID || "volc.bigasr.sauc.duration",
+          resourceId: subtitleResourceId,
           protocolVersion: 1,
           enabled: true,
         });
         if (cached) return cached.artifact.subtitles;
         if (!source?.uri) {
           const error = optionalCapabilityError("subtitle_source_unavailable", "可识别音频不可用", "subtitle.recognize");
-          const degraded = subtitleDegraded(source?.artifactId ?? audio.artifactId, error.safeSummary);
+          const degraded = subtitleDegraded(source?.artifactId ?? audio.artifactId, error.safeSummary, { resourceId: subtitleResourceId });
           degraded.debugSnapshotUri = await writeStageSnapshot(context, STAGES.subtitleRecognized, degraded.artifactId, degraded.parentArtifactId, "subtitle_recognition_degraded", buildSubtitleSummary(degraded), error.mediaDebug);
           await writeNonBlockingFailure(context, STAGES.subtitleRecognized, degraded.artifactId, degraded.parentArtifactId, error, degraded.debugSnapshotUri);
           return degraded;
@@ -355,7 +365,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
         try {
           const pcmPath = path.join(sampleDir, "subtitle-audio.pcm");
           const pcm = await transcoder.transcodeForIat({ inputPath: runtimePathFromUri(source.uri), outputPath: pcmPath });
-          const recognized = await asrClient.recognizeAudio({ audioPath: pcm.path });
+          const recognized = await asrClient.recognizeAudio({ audioPath: pcm.path, env: subtitleEnv });
           return buildSubtitleArtifact({
             parentArtifactId: source.artifactId,
             recognized,
@@ -363,7 +373,7 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
             uri: null,
           });
         } catch (error) {
-          const degraded = subtitleDegraded(source.artifactId, error.safeSummary || error.message || "字幕识别失败");
+          const degraded = subtitleDegraded(source.artifactId, error.safeSummary || error.message || "字幕识别失败", { resourceId: subtitleResourceId });
           degraded.debugSnapshotUri = await writeStageSnapshot(context, STAGES.subtitleRecognized, degraded.artifactId, source.artifactId, "subtitle_recognition_degraded", {
             status: degraded.status,
             reason: degraded.reason,
@@ -472,6 +482,22 @@ function createSampleProcessingService({ store, logger, jobStore, mediaProcessor
     const relative = decodeURIComponent(String(uri).replace(/^\/runtime\//, ""));
     return path.join(store.runtimeRoot, relative);
   }
+}
+
+function buildSubtitleRecognitionEnv(config, resourceId) {
+  return {
+    ...process.env,
+    DOUBAO_Api_App_Key: normalizeConfigText(config.appKey) || process.env.DOUBAO_Api_App_Key,
+    DOUBAO_Api_Access_Key: normalizeConfigText(config.accessKey) || process.env.DOUBAO_Api_Access_Key,
+    DOUBAO_SAUC_RESOURCE_ID: resourceId,
+    DOUBAO_SAUC_WS_URL: normalizeConfigText(config.wsUrl) || process.env.DOUBAO_SAUC_WS_URL,
+    DOUBAO_SAUC_MODEL_NAME: normalizeConfigText(config.modelName) || process.env.DOUBAO_SAUC_MODEL_NAME,
+  };
+}
+
+function normalizeConfigText(value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text || null;
 }
 
 module.exports = { createSampleProcessingService, STAGES };

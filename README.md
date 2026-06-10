@@ -1,122 +1,96 @@
 # 爆款结构迁移引擎
 
-本仓库用于建设面向短视频创作的 AI 创作平台。核心目标不是直接生成视频，而是从优质样例中拆解可迁移的创作结构，并迁移到用户的新主题、商品或素材中。
+这是一个面向短视频创作的本地 AI 工作台。它不直接生成成片，而是把优质样例拆成可迁移的脚本、节奏、包装和功能槽位结构，再迁移到新的商品、主题或用户素材上。
 
-当前项目仍处于本地原型和能力验证阶段，依赖 Windows 本地运行环境、媒体处理工具和本地 AppServer / ThreadPool 服务。公开仓库中不包含运行时素材、调试快照、API 密钥或本地工作区状态。
+日常使用请从新 UI 进入；旧 UI 只作为兼容入口保留。
 
-## 目录结构
+## 快速开始
 
-当前工程按职责分为：
-
-- `Apps`：对外入口，包括创作工作台和 API 编排入口。
-- `Core`：核心业务契约与领域边界；当前真实代码主要在 `Core/Workspace`。
-- `Infrastructure`：模型、媒体、存储、日志和运行时工程支撑。
-- `Assets`：prompt、role profile、schema、评估标准等可调整资产；只在有实际资产时建子目录。
-- `Runtime`：本地运行产物，默认不入库。
-- `Docs`：长期架构文档；产品和领域说明只有形成真实内容时再建目录。
-
-长期架构约束以 `Docs/Architecture` 为准。阶段讨论和本地计划不作为公开仓库内容提交。
-
-## 关键架构文档
-
-- [基础架构约束](Docs/Architecture/基础架构约束.md)：通用边界、追踪、返工和文件粒度约束。
-- [Debug 追踪规范](Docs/Architecture/Debug追踪规范.md)：stage log、DebugSnapshot、artifact lineage 的硬性要求。
-- [模块注册体系](Docs/Architecture/模块注册体系.md)：模块 descriptor、executor registry、workflow descriptor 和前端安全投影的权威边界。
-- [Analysis Role Registry](Docs/Architecture/Analysis%20Role%20Registry.md)：旧分析入口兼容层，已委托给模块注册体系。
-- [新增 ThreadPool Role 标准路线](Docs/Architecture/新增ThreadPoolRole标准路线.md)：新增 role/profile/service/thread lease 闭环的标准步骤。
-
-## 环境要求
+环境要求：
 
 - Windows PowerShell
 - Node.js 18+
 - Python 3.10+
-- FFmpeg，可通过 `FFMPEG_BIN` / `FFPROBE_BIN` 指向本机安装路径
-- Codex AppServer 本地可启动
+- 本机可执行 `codex` CLI
 - Python 依赖：`pydantic`、`websocket-client`、`fastapi`、`uvicorn`
-- 可选：豆包 SAUC 凭据，用于字幕识别
 
-## 安装
+首次准备依赖：
 
 ```powershell
 npm install
-```
-
-如需运行本仓库内置的 AgentRuntime / ThreadPool，请额外安装 Python 依赖：
-
-```powershell
 python -m pip install pydantic websocket-client fastapi uvicorn
 ```
 
-## 启动
-
-推荐使用根目录脚本启动完整本地栈：
-
-```powershell
-.\start-api-server.ps1
-```
-
-脚本会启动：
-
-- Codex AppServer：`codex app-server --listen ws://127.0.0.1:8146`
-- ThreadPool：`Infrastructure\AgentRuntime\scripts\thread_pool_service.py`
-- API server：`Apps\Api\server.js`
-- Workbench：Vite dev server
-
-默认访问地址：
+然后填写唯一需要手动改的配置文件：
 
 ```text
-http://127.0.0.1:5177/
+Config\app.config.jsonc
 ```
 
-调试追踪页：
+启动完整本地栈：
+
+```bat
+start-api-server.bat
+```
+
+脚本会启动 Codex AppServer、ThreadPool、API server 和新 UI 开发服务器。启动完成后浏览器会自动打开新 UI：
 
 ```text
-http://127.0.0.1:5177/debug
+http://127.0.0.1:5178/
 ```
 
-ThreadPool 页面：
+保持启动窗口打开即可使用；按 `Esc` 或 `Ctrl+C` 会停止这一组本地服务。
+
+## 配置说明
+
+所有普通使用配置都放在 `Config\app.config.jsonc`。通常只需要改下面四块。
+
+`imageGeneration` 用于 Storyboard 生图。可以填 OpenAI 官方接口，也可以填 pptoken 或任何兼容 OpenAI 图片接口的代理。使用 OpenAI 时保持 `provider: "openai"`，把 `apiKey` 换成自己的 OpenAI key，并使用 `https://api.openai.com/v1/images/generations` / `https://api.openai.com/v1/images/edits`。使用 pptoken 或代理时，把 `provider`、`apiKey`、`generationsUrl`、`editsUrl` 换成对应服务提供的值。
+
+`subtitleRecognition` 用于豆包 SAUC 字幕识别，这是主流程必填能力。请填写真实的 `appKey` 和 `accessKey`，`resourceId` 默认使用 `volc.bigasr.sauc.duration`，除非豆包控制台给了不同资源。
+
+`media.ffmpegBinDir` 建议指向仓库内置 ffmpeg：
 
 ```text
-http://127.0.0.1:5177/threadpool
+C:\ByteDanceFullStack\ffmpeg-8.1.1-full_build-shared\bin
 ```
 
-## 本地服务配置
+这样可以避免不同机器上的 ffmpeg 版本差异影响切镜、抽帧、音频特征和字幕处理。
 
-启动脚本默认使用以下端口：
-
-- API server：`5177`
-- Workbench dev server：`5178`
-- Codex AppServer：`8146`
-- ThreadPool：`8877`
-
-AppServer 需要本机已安装并可执行 `codex` CLI。脚本通过 `APP_SERVER_URL` 配置 AppServer websocket 地址，并同步写入 `CODEX_APP_SERVER_WS_URL` 供 API bridge 和 ThreadPool 使用。
-
-ThreadPool 通过 `THREADPOOL_CONFIG_PATH` 读取角色配置，默认使用：
+`shotBoundary.rawAnalysisWorkspaceRoot` 指向一个项目外部的 Codex workspace。`video-shot` skill 会从这个路径自动解析：
 
 ```text
-Infrastructure\ThreadPool\thread_roles.json
+<rawAnalysisWorkspaceRoot>\.agents\skills\video-shot\SKILL.md
 ```
 
-AgentRuntime 默认从仓库内置目录加载：
+建议把 `video-shot` 放在外部 workspace，而不是放进本项目目录。这样原始切镜分析只读取专门的分析工作区，不会误扫本仓库里的业务代码和大量运行产物。
+
+## 新 UI 使用
+
+打开 `http://127.0.0.1:5178/` 后，左侧是新 UI 的主导航。
+
+- `分析`：上传样例视频或用户素材，执行结构分析、素材识别等前置处理。
+- `库`：查看样例结构图、语义治理库和方案溯源图。
+- `重组`：基于样例结构和用户素材，让 Agent 生成、返工或确认重组方案，并继续进入分镜 / Storyboard 流程。
+
+推荐流程是：先在 `分析` 中处理样例和素材，再到 `重组` 创建方案；需要查看结构来源或治理结果时，再切到 `库`。
+
+## 切换旧 UI
+
+新 UI 左上角有 `旧 UI` 切换按钮。也可以直接访问：
 
 ```text
-Infrastructure\AgentRuntime
+http://127.0.0.1:5178/workspace
 ```
 
-## 常用环境变量
+回到新 UI 可访问：
 
-本项目不提交 `.env` 文件。需要的本地配置请通过系统环境变量、PowerShell 会话变量或本地私有脚本注入。
+```text
+http://127.0.0.1:5178/
+```
 
-- `PORT`：API server 端口，默认 `5177`。
-- `VITE_PORT`：Workbench dev server 端口，默认 `5178`。
-- `APP_SERVER_URL`：启动 Codex AppServer 使用的 websocket 地址，默认 `ws://127.0.0.1:8146`。
-- `PYTHON_RUNTIME_ROOT`：本仓库内置 AgentRuntime 根目录，默认 `Infrastructure\AgentRuntime`。
-- `CODEX_APP_SERVER_WS_URL`：API bridge 和 ThreadPool 连接 AppServer 使用的 websocket 地址，通常由启动脚本从 `APP_SERVER_URL` 写入。
-- `THREADPOOL_BASE_URL`：ThreadPool HTTP 服务地址。
-- `THREADPOOL_PORT`：本地 ThreadPool 端口。
-- `THREADPOOL_CONFIG_PATH`：ThreadPool 角色配置文件路径。
-- `FFMPEG_BIN`：本机 FFmpeg 可执行文件路径。
-- `FFPROBE_BIN`：本机 FFprobe 可执行文件路径。
-- `DOUBAO_Api_App_Key`：豆包 SAUC 应用 Key。
-- `DOUBAO_Api_Access_Key`：豆包 SAUC Access Key。
-- `DOUBAO_SAUC_RESOURCE_ID`：豆包 SAUC 资源 ID，默认 `volc.bigasr.sauc.duration`。
+## 常见问题
+
+端口占用：启动脚本默认使用 `5178` 作为新 UI、`5177` 作为 API、`8146` 作为 Codex AppServer、`8877` 作为 ThreadPool。如果启动失败并提示端口被占用，先关闭之前打开的启动窗口，或结束占用这些端口的旧进程后重新运行 `start-api-server.bat`。
+
+配置未生效：确认修改的是 `Config\app.config.jsonc`，保存后重新运行 `start-api-server.bat`。

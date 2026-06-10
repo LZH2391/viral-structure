@@ -14,13 +14,14 @@ function createImageGenerationService({
   jobStore,
   executorRegistry = null,
   provider = null,
+  imageGenerationProvider = null,
   ppapi = {},
 } = {}) {
   if (!store) throw new Error("store is required for image-generation service");
   if (!logger) throw new Error("logger is required for image-generation service");
   if (!jobStore) throw new Error("jobStore is required for image-generation service");
   const activeExecutorRegistry = executorRegistry ?? createExecutorRegistry();
-  const activeProvider = provider ?? createPPAPIProvider(ppapi);
+  const activeProvider = provider ?? createPPAPIProvider(imageGenerationProvider ?? ppapi);
 
   async function enqueue(options = {}) {
     const sampleVideoId = String(options.sampleVideoId ?? "image-generation").trim();

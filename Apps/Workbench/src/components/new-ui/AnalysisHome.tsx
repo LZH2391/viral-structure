@@ -1,20 +1,17 @@
-import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { cancelFullAnalysisBatchItem, cancelMaterialRecognitionBatchItem, getFunctionSlotGovernanceSchedulerState, getLatestFullAnalysisBatchRun, getLatestMaterialRecognitionBatchRun, getSampleArtifact, retryFullAnalysisBatchItem, retryMaterialRecognitionBatchItem, runtimeUrl, startFullAnalysisBatchRun, startMaterialRecognitionBatchRun, type FunctionSlotGovernanceSchedulerState } from "../../api/client";
-import type { FullAnalysisBatchItem, FullAnalysisBatchRun, SampleArtifact } from "../../types";
-import { AnalysisHistory } from "./AnalysisHistory";
-import { AnalysisTimelineTracks } from "./AnalysisTimelineTracks";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { cancelFullAnalysisBatchItem, cancelMaterialRecognitionBatchItem, getFunctionSlotGovernanceSchedulerState, retryFullAnalysisBatchItem, retryMaterialRecognitionBatchItem, startFullAnalysisBatchRun, startMaterialRecognitionBatchRun, type FunctionSlotGovernanceSchedulerState } from "../../api/client";
+import type { TimelineSeekRequest } from "./AnalysisDetailPage";
+import { AnalysisHomeView } from "./AnalysisHomeView";
 import { loadAnalysisDetailItem, refreshAnalysisDetailItem } from "./analysisDetailData";
-import {
-  cancelAnalysisWorkflow,
-  isAnalysisItemRunning,
-  loadRerunnableWorkflowStageKeys,
-  rerunAnalysisWorkflowStage,
-  resumeAnalysisWorkflow,
-} from "./analysisBackend";
+import { cancelAnalysisWorkflow, isAnalysisItemRunning, loadRerunnableWorkflowStageKeys, rerunAnalysisWorkflowStage, resumeAnalysisWorkflow } from "./analysisBackend";
 import type { AnalysisWorkflowMode } from "./analysisBackend";
 import { listAnalysisHistorySamples, resolveAnalysisHistoryMedia, type AnalysisHistoryItem, type AnalysisHistoryMedia } from "./analysisHistoryData";
 import type { AnalysisTimelineSegmentDetail } from "./analysisTimelineSelection";
+import { ANALYSIS_PLAYER_QUEUE_REFRESH_MS, analysisDetailPollingKey, createUploadingQueueItems, loadLatestVideoProcessingQueue, mergeLocalQueueItems, normalizePlayerQueueStatus, resolveBatchQueueHistoryItem, toVisibleGovernanceSchedulerState, type AnalysisHomeQueueItem, type AnalysisHomeQueueState } from "./analysisHomeQueueModel";
 import type { AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
+import { useAnalysisHomeSidebarSync } from "./useAnalysisHomeSidebarSync";
+
+export type { AnalysisHomeQueueItem, AnalysisHomeQueueState } from "./analysisHomeQueueModel";
 
 type AnalysisHomeProps = {
   mode?: AnalysisWorkflowMode;
@@ -25,45 +22,10 @@ type AnalysisHomeProps = {
   timelineSelectionClearRequest?: number;
 };
 
-type TimelineSeekRequest = {
-  requestId: number;
-  time: number;
-};
-
-export type AnalysisHomeQueueItem = {
-  key: string;
-  status: "done" | "running" | "waiting" | "failed" | "canceled";
-  thumbnailUrl: string | null;
-  ratio: "wide" | "cinema";
-  badgeLabel: "上传中" | "分析中" | "识别中" | "排队中" | "已完成" | "失败" | "已停止";
-  title: string;
-  historyItem: AnalysisHistoryItem | null;
-  batchRunId?: string | null;
-  queueItemId?: string | null;
-  workflowRunId?: string | null;
-  workflowKey?: string | null;
-  retryable?: boolean;
-  completedAt?: string | null;
-};
-
-export type AnalysisHomeQueueState = {
-  items: AnalysisHomeQueueItem[];
-  loading: boolean;
-  governanceSchedulerState?: FunctionSlotGovernanceSchedulerState | null;
-  onOpenItem: (item: AnalysisHistoryItem) => void;
-  onCancelItem?: (item: AnalysisHomeQueueItem) => void;
-  onRetryItem?: (item: AnalysisHomeQueueItem) => void;
-  actionBusyKey?: string | null;
-};
-
 const ANALYSIS_DETAIL_HEAVY_MOUNT_DELAY_MS = 240;
-const ANALYSIS_PLAYER_QUEUE_REFRESH_MS = 3200;
-const ANALYSIS_QUEUE_DONE_VISIBLE_MS = 3000;
-const VISIBLE_GOVERNANCE_SCHEDULER_STATUSES = new Set(["scheduled", "running", "dirty", "failed", "skipped"]);
 
 export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, onQueueStateChange, openRequest = null, onOpenRequestResolved, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
   const lastTimelineSelectionClearRequestRef = useRef(timelineSelectionClearRequest);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
   const pollTimerRef = useRef<number | null>(null);
   const operationTokenRef = useRef(0);
   const detailLoadKeyRef = useRef<string | null>(null);
@@ -88,9 +50,6 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   const [detailTimelineReady, setDetailTimelineReady] = useState(false);
   const [detailSeekRequest, setDetailSeekRequest] = useState<TimelineSeekRequest | null>(null);
   const isMaterialMode = mode === "materialRecognition";
-  const uploadTitle = isMaterialMode ? "拖拽视频做素材识别" : "拖拽样例做结构分析";
-  const uploadSubtitle = isMaterialMode ? "生成素材能力包" : "拆出脚本 / 节奏 / 包装";
-  const uploadAriaLabel = isMaterialMode ? "上传视频开始素材识别" : "上传视频开始结构分析";
   const workflowStageKeySignature = detailItem?.workflowRun?.stages?.map((stage) => stage.key).join("|") ?? "";
   const detailArtifactSignature = [
     detailItem?.artifact?.sampleVideo?.artifactId,
@@ -138,10 +97,6 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
       void poll();
     }, 2000);
   }, [stopPolling]);
-
-  const openUploadDetail = () => {
-    uploadInputRef.current?.click();
-  };
 
   const openHistoryDetail = useCallback((item: AnalysisHistoryItem) => {
     const token = operationTokenRef.current + 1;
@@ -293,12 +248,6 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     if (!videoFiles.length) return;
     await startAnalysisBatch(videoFiles, { openFirstWhenReady: videoFiles.length === 1 });
   }, [startAnalysisBatch]);
-
-  const handleUploadDrop = useCallback((event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    if (isUploading) return;
-    if (event.dataTransfer.files.length) void handleUploadFiles(event.dataTransfer.files);
-  }, [handleUploadFiles, isUploading]);
 
   const handleWorkflowStageRerun = useCallback(async (stageKey: string | string[]) => {
     if (!detailItem || rerunningStageKey) return;
@@ -474,541 +423,69 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     };
   }, [detailHeavyReady, detailItem, view]);
 
-  useEffect(() => {
-    onQueueStateChange?.({
-      items: homeQueueItems,
-      loading: homeQueueLoading,
-      governanceSchedulerState,
-      onOpenItem: openHistoryDetail,
-      onCancelItem: handleQueueItemCancel,
-      onRetryItem: handleQueueItemRetry,
-      actionBusyKey: queueActionBusyKey,
-    });
-  }, [governanceSchedulerState, handleQueueItemCancel, handleQueueItemRetry, homeQueueItems, homeQueueLoading, onQueueStateChange, openHistoryDetail, queueActionBusyKey]);
-
-  useEffect(() => () => {
-    onQueueStateChange?.({
-      items: [],
-      loading: false,
-      governanceSchedulerState: null,
-      onOpenItem: openHistoryDetail,
-      actionBusyKey: null,
-    });
-  }, [onQueueStateChange, openHistoryDetail]);
-
   useEffect(() => () => {
     stopPolling();
   }, [stopPolling]);
 
-  useEffect(() => {
-    if (lastTimelineSelectionClearRequestRef.current === timelineSelectionClearRequest) return;
-    lastTimelineSelectionClearRequestRef.current = timelineSelectionClearRequest;
-    setSelectedTimelineSegment(null);
-  }, [timelineSelectionClearRequest]);
-
-  const selectTimelineSegment = useCallback((segment: AnalysisTimelineSegmentDetail) => {
-    if (!detailHeavyReady) return;
-    setSelectedTimelineSegment(segment);
-    onDetailStateChange?.({
-      visible: view === "detail",
-      title: detailTitle,
-      item: detailItem,
-      selectedTimelineSegment: segment,
-      rerunnableStageKeys,
-      rerunningStageKey,
-      onWorkflowStageRerun: handleWorkflowStageRerun,
-      workflowActionBusy,
-      onWorkflowCancel: handleWorkflowCancel,
-      onWorkflowResume: handleWorkflowResume,
-    });
-  }, [detailHeavyReady, detailItem, detailTitle, handleWorkflowCancel, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, view, workflowActionBusy]);
-
-  const handleWorkflowDetailCardSelect = useCallback((target: AnalysisTimelineSegmentDetail) => {
-    selectTimelineSegment(target);
-    const time = Number(target.start);
-    if (!Number.isFinite(time) || time < 0) return;
-    detailSeekRequestIdRef.current += 1;
-    setDetailSeekRequest({ requestId: detailSeekRequestIdRef.current, time });
-  }, [selectTimelineSegment]);
-
-  useEffect(() => {
-    onDetailStateChange?.({
-      visible: view === "detail",
-      title: detailTitle,
-      item: detailItem,
-      selectedTimelineSegment: detailTimelineReady ? selectedTimelineSegment : null,
-      rerunnableStageKeys,
-      rerunningStageKey,
-      onWorkflowStageRerun: handleWorkflowStageRerun,
-      workflowActionBusy,
-      onWorkflowCancel: handleWorkflowCancel,
-      onWorkflowResume: handleWorkflowResume,
-      onWorkflowDetailCardSelect: handleWorkflowDetailCardSelect,
-    });
-  }, [detailItem, detailTimelineReady, detailTitle, handleWorkflowCancel, handleWorkflowDetailCardSelect, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view, workflowActionBusy]);
+  const { selectTimelineSegment } = useAnalysisHomeSidebarSync({
+    actionBusyKey: workflowActionBusy,
+    detailHeavyReady,
+    detailItem,
+    detailSeekRequestIdRef,
+    detailTimelineReady,
+    detailTitle,
+    governanceSchedulerState,
+    handleQueueItemCancel,
+    handleQueueItemRetry,
+    handleWorkflowCancel,
+    handleWorkflowResume,
+    handleWorkflowStageRerun,
+    homeQueueItems,
+    homeQueueLoading,
+    lastTimelineSelectionClearRequestRef,
+    onDetailStateChange,
+    onQueueStateChange,
+    openHistoryDetail,
+    queueActionBusyKey,
+    rerunnableStageKeys,
+    rerunningStageKey,
+    selectedTimelineSegment,
+    setDetailSeekRequest,
+    setSelectedTimelineSegment,
+    timelineSelectionClearRequest,
+    view,
+  });
 
   const handleTimelineReady = useCallback(() => {
     setDetailTimelineReady(true);
   }, []);
 
-  return (
-    <>
-      <input
-        ref={uploadInputRef}
-        type="file"
-        accept="video/*"
-        multiple
-        hidden
-        onChange={(event) => {
-          const files = event.currentTarget.files;
-          if (files?.length) void handleUploadFiles(files);
-          event.currentTarget.value = "";
-        }}
-      />
-      <section className={`new-ui-analysis-home ${view === "home" ? "" : "is-hidden"}`.trim()} aria-hidden={view !== "home"} aria-label="分析首页">
-        <button
-          className="new-ui-analysis-upload-frame"
-          type="button"
-          aria-label={uploadAriaLabel}
-          disabled={isUploading}
-          onClick={openUploadDetail}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={handleUploadDrop}
-        >
-          <span className="new-ui-analysis-upload-icon-tile">
-            <svg className="new-ui-analysis-upload-icon" viewBox="0 0 128 96" focusable="false" aria-hidden="true">
-              <path className="new-ui-analysis-upload-cloud-fill" d="M38 70c-10.6 0-19-8.2-19-18.5 0-9.8 7.3-17.6 17.1-19.1 3.6-10.9 13.1-17.9 24.4-17.9 12.6 0 23 9 25.1 20.9 10.1 1.3 17.9 9 17.9 18.8 0 8.9-6.7 15.8-16.1 15.8H38Z" />
-              <path className="new-ui-analysis-upload-cloud-line" d="M38 70c-10.6 0-19-8.2-19-18.5 0-9.8 7.3-17.6 17.1-19.1 3.6-10.9 13.1-17.9 24.4-17.9 12.6 0 23 9 25.1 20.9 10.1 1.3 17.9 9 17.9 18.8 0 8.9-6.7 15.8-16.1 15.8H38Z" />
-              <path className="new-ui-analysis-upload-arrow" d="M61 71V42" />
-              <path className="new-ui-analysis-upload-arrow" d="M46 56 61 41l15 15" />
-              <path className="new-ui-analysis-upload-base" d="M49 82h24" />
-            </svg>
-          </span>
-          <span className="new-ui-analysis-upload-copy">
-            <span className="new-ui-analysis-upload-primary">{isUploading ? (isMaterialMode ? "正在启动识别" : "正在启动分析") : uploadTitle}</span>
-            <span className="new-ui-analysis-upload-secondary">{isUploading ? "正在创建任务" : uploadSubtitle}</span>
-          </span>
-          <span className="new-ui-analysis-upload-limit-group" aria-hidden="true">
-            <span className="new-ui-analysis-upload-limit">支持并行</span>
-            <span className="new-ui-analysis-upload-limit">单文件最大 2G</span>
-          </span>
-        </button>
-        <AnalysisHistory mode={mode} refreshKey={historyRefreshKey} onOpenItem={openHistoryDetail} />
-      </section>
-      <AnalysisDetailPage
-        hidden={view !== "detail"}
-        mode={mode}
-        title={detailTitle}
-        media={detailMedia}
-        item={detailItem}
-        heavyReady={detailHeavyReady}
-        selectedTimelineSegment={selectedTimelineSegment}
-        seekRequest={detailSeekRequest}
-        onTimelineReady={handleTimelineReady}
-        onSelectTimelineSegment={selectTimelineSegment}
-        onOpenItem={openHistoryDetail}
-        onBack={() => {
-          stopPolling();
-          detailPollingKeyRef.current = null;
-          setDetailHeavyReady(false);
-          setDetailTimelineReady(false);
-          setView("home");
-        }}
-      />
-    </>
-  );
-}
-
-function AnalysisDetailPage({
-  hidden,
-  mode,
-  title,
-  media,
-  item,
-  heavyReady,
-  selectedTimelineSegment,
-  seekRequest,
-  onTimelineReady,
-  onSelectTimelineSegment,
-  onOpenItem,
-  onBack,
-}: {
-  hidden: boolean;
-  mode: AnalysisWorkflowMode;
-  title: string;
-  media: AnalysisHistoryMedia | null;
-  item: AnalysisHistoryItem | null;
-  heavyReady: boolean;
-  selectedTimelineSegment: AnalysisTimelineSegmentDetail | null;
-  seekRequest: TimelineSeekRequest | null;
-  onTimelineReady: () => void;
-  onSelectTimelineSegment: (segment: AnalysisTimelineSegmentDetail) => void;
-  onOpenItem: (item: AnalysisHistoryItem) => void;
-  onBack: () => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const orientation = media?.orientation ?? "landscape";
-  const [queueExpanded, setQueueExpanded] = useState(false);
-  const [batchQueueItems, setBatchQueueItems] = useState<AnalysisHomeQueueItem[] | null>(null);
-  const queueItems = resolveVideoProcessingQueueItems(item, media, batchQueueItems);
-
-  useEffect(() => {
-    if (hidden) {
-      videoRef.current?.pause();
-      setQueueExpanded(false);
-    }
-  }, [hidden]);
-
-  useEffect(() => {
-    if (!queueExpanded) {
-      setBatchQueueItems(null);
-      return undefined;
-    }
-    let mounted = true;
-    const refreshQueue = () => {
-      loadLatestVideoProcessingQueue(mode)
-        .then((items) => {
-          if (mounted) setBatchQueueItems(items);
-        })
-        .catch(() => {
-          if (mounted) setBatchQueueItems([]);
-        });
-    };
-    refreshQueue();
-    const refreshTimer = window.setInterval(refreshQueue, ANALYSIS_PLAYER_QUEUE_REFRESH_MS);
-    return () => {
-      mounted = false;
-      window.clearInterval(refreshTimer);
-    };
-  }, [mode, queueExpanded]);
-
-  const seekTimeline = (time: number) => {
-    const nextTime = Math.max(0, time);
-    const video = videoRef.current;
-    if (video) {
-      video.currentTime = Math.min(nextTime, Number.isFinite(video.duration) ? video.duration : nextTime);
-      return;
-    }
-  };
-
-  useEffect(() => {
-    if (!seekRequest) return;
-    seekTimeline(seekRequest.time);
-  }, [seekRequest?.requestId]);
+  const handleDetailBack = useCallback(() => {
+    stopPolling();
+    detailPollingKeyRef.current = null;
+    setDetailHeavyReady(false);
+    setDetailTimelineReady(false);
+    setView("home");
+  }, [stopPolling]);
 
   return (
-    <section className={`new-ui-analysis-detail ${hidden ? "is-hidden" : ""}`.trim()} aria-hidden={hidden} aria-label="分析详情">
-      <header className="new-ui-analysis-detail-header">
-        <button className="new-ui-analysis-title-button" type="button" aria-label={`返回分析首页：${title}`} data-tooltip={title} onClick={onBack}>
-          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-            <path d="M15 6 9 12l6 6" />
-          </svg>
-          <span className="new-ui-analysis-detail-title">{title}</span>
-        </button>
-      </header>
-      <div className="new-ui-analysis-detail-body">
-        <div className="new-ui-analysis-detail-media">
-          <div className={`new-ui-analysis-player-shell ${queueExpanded ? "is-queue-expanded" : ""}`.trim()}>
-            <div className={`new-ui-analysis-player is-${orientation}`}>
-              {media?.videoUrl ? (
-                heavyReady ? (
-                  <video
-                    ref={videoRef}
-                    key={media.videoUrl}
-                    src={media.videoUrl}
-                    poster={media.coverUrl ?? undefined}
-                    controls
-                    playsInline
-                    preload="metadata"
-                  />
-                ) : (
-                  <div className="new-ui-analysis-player-empty" aria-hidden="true" />
-                )
-              ) : (
-                <div className="new-ui-analysis-player-empty" aria-hidden="true" />
-              )}
-            </div>
-            <PlayerQueueRail
-              currentSampleVideoId={item?.sampleVideoId ?? null}
-              expanded={queueExpanded}
-              items={queueItems}
-              onOpenItem={onOpenItem}
-              onToggle={() => setQueueExpanded((value) => !value)}
-            />
-          </div>
-          <div className="new-ui-analysis-detail-status-spacer" aria-hidden="true" />
-        </div>
-        <AnalysisTimelineTracks
-          item={heavyReady && item?.artifact ? item : null}
-          modeHint={resolveTimelineModeHint(media)}
-          mediaKey={heavyReady ? media?.videoUrl ?? item?.sampleVideoId ?? "empty" : "deferred"}
-          active={!hidden && heavyReady && Boolean(item?.artifact)}
-          videoRef={videoRef}
-          selectedSegmentId={selectedTimelineSegment?.id ?? null}
-          onReady={onTimelineReady}
-          onSeek={seekTimeline}
-          onSelectSegment={onSelectTimelineSegment}
-        />
-      </div>
-    </section>
+    <AnalysisHomeView
+      view={view}
+      mode={mode}
+      isUploading={isUploading}
+      historyRefreshKey={historyRefreshKey}
+      detailTitle={detailTitle}
+      detailMedia={detailMedia}
+      detailItem={detailItem}
+      detailHeavyReady={detailHeavyReady}
+      selectedTimelineSegment={selectedTimelineSegment}
+      detailSeekRequest={detailSeekRequest}
+      onUploadFiles={handleUploadFiles}
+      onOpenItem={openHistoryDetail}
+      onTimelineReady={handleTimelineReady}
+      onSelectTimelineSegment={selectTimelineSegment}
+      onBack={handleDetailBack}
+    />
   );
 }
 
-function resolveTimelineModeHint(media: AnalysisHistoryMedia | null): "material" | "structure" | null {
-  return media?.analysisKind ?? null;
-}
-
-function PlayerQueueRail({
-  currentSampleVideoId,
-  expanded,
-  items,
-  onOpenItem,
-  onToggle,
-}: {
-  currentSampleVideoId: string | null;
-  expanded: boolean;
-  items: AnalysisHomeQueueItem[];
-  onOpenItem: (item: AnalysisHistoryItem) => void;
-  onToggle: () => void;
-}) {
-  const queueLabel = expanded ? "收起视频处理队列" : "展开视频处理队列";
-  const handleQueueKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    onToggle();
-  };
-  const openQueueItem = (event: MouseEvent<HTMLButtonElement>, queueItem: AnalysisHomeQueueItem) => {
-    event.stopPropagation();
-    if (!queueItem.historyItem) return;
-    if (queueItem.historyItem.sampleVideoId === currentSampleVideoId) return;
-    onOpenItem(queueItem.historyItem);
-  };
-
-  return (
-    <aside
-      className={`new-ui-analysis-player-queue ${expanded ? "is-expanded" : ""}`.trim()}
-      role="button"
-      tabIndex={0}
-      aria-expanded={expanded}
-      aria-label={queueLabel}
-      data-tooltip={queueLabel}
-      onClick={onToggle}
-      onKeyDown={handleQueueKeyDown}
-    >
-      <div className="new-ui-analysis-player-queue-preview">
-        {items.map((item) => {
-          const currentItem = Boolean(item.historyItem?.sampleVideoId && item.historyItem.sampleVideoId === currentSampleVideoId);
-          return (
-            <button
-              key={item.key}
-              className={`new-ui-analysis-player-queue-thumb is-${item.status} is-${item.ratio} ${currentItem ? "is-current" : ""}`.trim()}
-              type="button"
-              tabIndex={expanded && item.historyItem && !currentItem ? 0 : -1}
-              disabled={!item.historyItem}
-              aria-current={currentItem ? "true" : undefined}
-              aria-label={currentItem ? `当前视频：${item.title}` : `打开分析详情：${item.title}`}
-              onClick={(event) => openQueueItem(event, item)}
-            >
-              {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" loading="lazy" decoding="async" /> : <span className="new-ui-analysis-player-queue-thumb-empty" />}
-              <span className="new-ui-analysis-player-queue-badge">{item.badgeLabel}</span>
-            </button>
-          );
-        })}
-      </div>
-      <span
-        className="new-ui-analysis-player-queue-toggle"
-        aria-hidden="true"
-      >
-        <QueueIcon expanded={expanded} />
-      </span>
-    </aside>
-  );
-}
-
-function QueueIcon({ expanded }: { expanded: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-      <path d={expanded ? "M14 7l-5 5 5 5" : "M10 7l5 5-5 5"} />
-    </svg>
-  );
-}
-
-function resolveVideoProcessingQueueItems(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, batchItems: AnalysisHomeQueueItem[] | null): AnalysisHomeQueueItem[] {
-  if (batchItems?.length) return batchItems;
-  return [];
-}
-
-function resolveQueueThumbnailRatio(media: AnalysisHistoryMedia | null): AnalysisHomeQueueItem["ratio"] {
-  return media?.ratioLabel === "16:9" ? "wide" : "cinema";
-}
-
-function resolveQueueBadgeLabel(item: AnalysisHistoryItem | null, media: AnalysisHistoryMedia | null, status: AnalysisHomeQueueItem["status"]): AnalysisHomeQueueItem["badgeLabel"] {
-  if (status === "done") return "已完成";
-  if (status === "failed") return "失败";
-  if (status === "canceled") return "已停止";
-  if (status === "waiting") return "排队中";
-  if (media?.analysisKind === "material" || item?.workflowRun?.workflowKey === "material-recognition") return "识别中";
-  return "分析中";
-}
-
-function toVisibleGovernanceSchedulerState(state: FunctionSlotGovernanceSchedulerState | null) {
-  if (!state) return null;
-  return VISIBLE_GOVERNANCE_SCHEDULER_STATUSES.has(state.status) ? state : null;
-}
-
-async function loadLatestVideoProcessingQueue(mode: AnalysisWorkflowMode = "structureAnalysis"): Promise<AnalysisHomeQueueItem[]> {
-  const loadBatch = mode === "materialRecognition" ? getLatestMaterialRecognitionBatchRun : getLatestFullAnalysisBatchRun;
-  const batch = await loadBatch({ active: true }).catch(() => null);
-  if (!batch?.items?.length) return [];
-  const artifactEntries = await Promise.all(
-    batch.items.map(async (queueItem) => {
-      if (!queueItem.sampleVideoId) return [queueItem.queueItemId, null] as const;
-      const artifact = await getSampleArtifact(queueItem.sampleVideoId).catch(() => null);
-      return [queueItem.queueItemId, artifact] as const;
-    }),
-  );
-  const artifactByQueueItemId = new Map<string, SampleArtifact | null>(artifactEntries);
-  return batch.items
-    .map((queueItem) => resolveBatchQueueItem(queueItem, batch, artifactByQueueItemId.get(queueItem.queueItemId) ?? null))
-    .filter((item) => shouldShowQueueItem(item));
-}
-
-function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): AnalysisHomeQueueItem {
-  const status = resolveBatchQueueStatus(queueItem, batch, artifact);
-  return {
-    key: queueItem.queueItemId,
-    status,
-    thumbnailUrl: resolveArtifactThumbnailUrl(artifact),
-    ratio: resolveBatchQueueThumbnailRatio(artifact),
-    badgeLabel: resolveBatchQueueBadgeLabel(queueItem, batch, status),
-    title: resolveBatchQueueTitle(queueItem, artifact),
-    historyItem: resolveBatchQueueHistoryItem(queueItem, batch, artifact, status),
-    batchRunId: batch.batchRunId,
-    queueItemId: queueItem.queueItemId,
-    workflowRunId: queueItem.workflowRunId ?? null,
-    workflowKey: batch.workflowKey,
-    retryable: Boolean(queueItem.retryable),
-    completedAt: queueItem.completedAt ?? null,
-  };
-}
-
-function resolveBatchQueueStatus(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): AnalysisHomeQueueItem["status"] {
-  const status = normalizePlayerQueueStatus(queueItem.status ?? artifact?.status);
-  if (status === "running" || status === "waiting" || status === "failed" || status === "canceled") return status;
-  if (batch.workflowKey === "material-recognition" && artifact?.userMaterialPack) return "done";
-  if (batch.workflowKey !== "material-recognition" && artifact?.functionSlotAtomizationAnalysis) return "done";
-  return status;
-}
-
-function resolveBatchQueueTitle(queueItem: FullAnalysisBatchItem, artifact: SampleArtifact | null) {
-  return artifact?.sampleVideo.original.summary ?? queueItem.filename ?? queueItem.sampleVideoId ?? "队列视频";
-}
-
-function resolveBatchQueueHistoryItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null, status: AnalysisHomeQueueItem["status"]): AnalysisHistoryItem | null {
-  if (!queueItem.sampleVideoId) return null;
-  return {
-    sampleVideoId: queueItem.sampleVideoId,
-    workflowRunId: queueItem.workflowRunId ?? null,
-    workflowKey: batch.workflowKey,
-    title: resolveBatchQueueTitle(queueItem, artifact),
-    status: artifact?.status ?? queueItem.status,
-    updatedAt: queueItem.updatedAt,
-    createdAt: queueItem.createdAt,
-    artifactId: latestSampleAnalysisArtifactId(artifact),
-    traceId: artifact?.trace?.traceId ?? null,
-    runId: artifact?.trace?.runId ?? null,
-    stageId: artifact?.trace?.stageId ?? null,
-    durationSeconds: artifact?.metadata.durationSeconds ?? null,
-    width: artifact?.metadata.width ?? null,
-    height: artifact?.metadata.height ?? null,
-    coverUri: artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null,
-    videoUri: artifact?.sampleVideo.normalized.uri ?? artifact?.sampleVideo.original.uri ?? null,
-    hasFunctionSlotAtomization: Boolean(artifact?.functionSlotAtomizationAnalysis),
-    hasUserMaterialPack: Boolean(artifact?.userMaterialPack),
-    isIncomplete: status !== "done" && status !== "running" && status !== "waiting",
-    isRunning: status === "running" || status === "waiting",
-    artifact,
-    workflowRun: null,
-    runtimeState: null,
-  };
-}
-
-function latestSampleAnalysisArtifactId(artifact: SampleArtifact | null) {
-  return artifact?.functionSlotAtomizationAnalysis?.artifactId
-    ?? artifact?.userMaterialPack?.artifactId
-    ?? artifact?.packagingStructureAnalysis?.artifactId
-    ?? artifact?.rhythmStructureAnalysis?.artifactId
-    ?? artifact?.scriptSegmentAnalysis?.artifactId
-    ?? artifact?.shotBoundaryAnalysis?.artifactId
-    ?? null;
-}
-
-function resolveArtifactThumbnailUrl(artifact: SampleArtifact | null) {
-  return runtimeUrl(artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null);
-}
-
-function resolveBatchQueueThumbnailRatio(artifact: SampleArtifact | null): AnalysisHomeQueueItem["ratio"] {
-  const width = Number(artifact?.metadata?.width);
-  const height = Number(artifact?.metadata?.height);
-  if (Number.isFinite(width) && Number.isFinite(height) && height > width) return "cinema";
-  return "wide";
-}
-
-function resolveBatchQueueBadgeLabel(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, status: AnalysisHomeQueueItem["status"]): AnalysisHomeQueueItem["badgeLabel"] {
-  if (status === "done") return "已完成";
-  if (status === "failed") return "失败";
-  if (status === "canceled") return "已停止";
-  if (status === "waiting" || queueItem.status === "queued" || queueItem.position > batch.maxConcurrentRuns) return "排队中";
-  if (batch.workflowKey === "material-recognition" || queueItem.currentStageLabel?.includes("素材")) return "识别中";
-  return "分析中";
-}
-
-export function createUploadingQueueItems(files: File[], mode: AnalysisWorkflowMode, uploadToken: number): AnalysisHomeQueueItem[] {
-  return files.map((file, index) => ({
-    key: `local_upload_${uploadToken}_${index}`,
-    status: "running",
-    thumbnailUrl: null,
-    ratio: "cinema",
-    badgeLabel: "上传中",
-    title: stripMediaExtension(file.name || `视频 ${index + 1}`),
-    historyItem: null,
-    batchRunId: null,
-    queueItemId: null,
-    workflowRunId: null,
-    workflowKey: mode === "materialRecognition" ? "material-recognition" : "full-analysis",
-    retryable: false,
-    completedAt: null,
-  }));
-}
-
-export function mergeLocalQueueItems(localItems: AnalysisHomeQueueItem[], currentItems: AnalysisHomeQueueItem[]) {
-  if (!localItems.length) return currentItems;
-  const localKeys = new Set(localItems.map((item) => item.key));
-  return [...localItems, ...currentItems.filter((item) => !localKeys.has(item.key))];
-}
-
-function normalizePlayerQueueStatus(status: string | null | undefined): AnalysisHomeQueueItem["status"] {
-  const text = String(status ?? "").toLowerCase();
-  if (["processed", "done", "completed", "complete", "success", "succeeded"].includes(text)) return "done";
-  if (text === "running" || text === "processing" || text === "cache_waiting") return "running";
-  if (text === "failed" || text === "partial_failed") return "failed";
-  if (text === "canceled") return "canceled";
-  return "waiting";
-}
-
-function stripMediaExtension(value?: string | null) {
-  const text = String(value ?? "").trim();
-  if (!text) return "";
-  return text.replace(/\.(mp4|mov|m4v|webm|mkv|avi|wmv|flv|mpeg|mpg)$/i, "");
-}
-
-function shouldShowQueueItem(item: AnalysisHomeQueueItem) {
-  if (item.status !== "done") return true;
-  const completedAt = item.completedAt ? Date.parse(item.completedAt) : NaN;
-  return Number.isFinite(completedAt) && Date.now() - completedAt <= ANALYSIS_QUEUE_DONE_VISIBLE_MS;
-}
-
-function analysisDetailPollingKey(item: AnalysisHistoryItem) {
-  return `${item.sampleVideoId ?? ""}:${item.workflowRunId ?? ""}:${item.artifactId ?? ""}`;
-}

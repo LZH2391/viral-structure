@@ -1,0 +1,3 @@
+interface:
+  display_name: "vidio-shot"
+  short_description: "Analyze video files for shot boundaries and total shot/lens counts. Use when Codex is asked to perform video cut detection, shot segmentation, lens counting, scene cut analysis, or timestamped shot breakdowns for files such as .mp4, .mov, .mkv, or similar video assets."

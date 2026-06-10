@@ -1,45 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { checkFullAnalysisUploadCache, checkMaterialRecognitionUploadCache, getFullAnalysisBatchRun, getLatestFullAnalysisBatchRun, getLatestFullAnalysisRun, getLatestFullAnalysisRunForSample, getLatestMaterialRecognitionRun, getLatestMaterialRecognitionRunForSample, getProcessingJob, getSampleArtifact, getWorkflowRun, retryFullAnalysisBatchItem, rerunWorkflowStage, resolveCacheDecision, runtimeUrl, startFullAnalysisBatchRun, startFullAnalysisRun, startMaterialRecognitionRun } from "../api/client";
 import type { FullAnalysisBatchItem, FullAnalysisBatchRun, LibraryItemSummary, ProcessingJob, SampleArtifact, WorkflowRun, WorkflowStageState } from "../types";
-import { SplitResizeHandle } from "./SplitResizeHandle";
-import { CacheDecisionDialog } from "./CacheDecisionDialog";
 import { shortId } from "../utils/format";
 import { useResizableGridLayout } from "../hooks/useResizableGridLayout";
 import { readFullAnalysisDraft, writeFullAnalysisActiveSampleDraft, writeFullAnalysisBatchDraft, writeFullAnalysisDraft } from "../utils/fullAnalysisDraft";
-import { ResultPanel, TabButton, type ResultTab } from "./full-analysis/FullAnalysisResults";
-import { canRerun, StageStep, type FullAnalysisStageTarget } from "./full-analysis/FullAnalysisStageStep";
-import { buildWorkbenchSyncSignature, clampNumber, isRunExecuting, NON_EXECUTING_RUN_STATUS, statusLabel } from "./full-analysis/fullAnalysisState";
+import type { ResultTab } from "./full-analysis/FullAnalysisResults";
+import type { FullAnalysisStageTarget } from "./full-analysis/FullAnalysisStageStep";
+import { batchStatusLabel, isBatchTerminal } from "./full-analysis/FullAnalysisBatchPanel";
+import { FullAnalysisLayout } from "./full-analysis/FullAnalysisLayout";
+import { buildWorkbenchSyncSignature, isRunExecuting, NON_EXECUTING_RUN_STATUS, statusLabel } from "./full-analysis/fullAnalysisState";
+import { CACHE_PROMPT_ORDER, DEFAULT_STAGES, MATERIAL_DEFAULT_STAGES, MATERIAL_STAGE_ORDER, STAGE_ORDER, shouldPreserveActiveWorkflow, type FullAnalysisWorkbenchActiveSample, type FullAnalysisWorkbenchSync } from "./full-analysis/fullAnalysisWorkflowModel";
+import { useFullAnalysisPolling } from "./full-analysis/useFullAnalysisPolling";
 export type { FullAnalysisStageTarget } from "./full-analysis/FullAnalysisStageStep";
+export type { FullAnalysisWorkbenchActiveSample, FullAnalysisWorkbenchSync } from "./full-analysis/fullAnalysisWorkflowModel";
 
 type WorkflowCachePrompt = { stage: WorkflowStageState; job: ProcessingJob; order: number };
 type UploadCachePrompt = { file: File; cachedItem: LibraryItemSummary } | null;
-export type FullAnalysisWorkbenchActiveSample = {
-  artifact: SampleArtifact;
-  activeSampleRevision: number;
-  activeSampleSource: "workbench" | "fullAnalysis" | "materialRecognition" | "library";
-};
-export type FullAnalysisWorkbenchSync = { run: WorkflowRun; artifact: SampleArtifact | null; childJobs: Record<string, ProcessingJob | null>; activeSampleChanged: boolean };
-
-const POLL_INTERVAL_MS = 2000;
-const TERMINAL_SETTLE_POLL_COUNT = 5;
-const STAGE_ORDER = ["upload", "shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization", "aggregate"];
-const MATERIAL_STAGE_ORDER = ["upload", "shotBoundary", "userMaterialTagger", "aggregate"];
-const CACHE_PROMPT_ORDER = ["shotBoundary", "scriptSegment", "rhythmStructure", "packagingStructure", "functionSlotAtomization"];
-const DEFAULT_STAGES: WorkflowStageState[] = [
-  buildDefaultStage("upload", "上传"),
-  buildDefaultStage("shotBoundary", "切镜"),
-  buildDefaultStage("scriptSegment", "脚本段落"),
-  buildDefaultStage("rhythmStructure", "节奏结构"),
-  buildDefaultStage("packagingStructure", "包装结构"),
-  buildDefaultStage("functionSlotAtomization", "功能槽位原子化"),
-  buildDefaultStage("aggregate", "汇总"),
-];
-const MATERIAL_DEFAULT_STAGES: WorkflowStageState[] = [
-  buildDefaultStage("upload", "上传"),
-  buildDefaultStage("shotBoundary", "切镜"),
-  buildDefaultStage("userMaterialTagger", "素材识别"),
-  buildDefaultStage("aggregate", "汇总"),
-];
 
 type WorkflowMode = "full-analysis" | "material-recognition";
 
@@ -73,11 +49,7 @@ export function FullAnalysisApp({ embedded = false, active = true, mode = "full-
   const [uploadCachePrompt, setUploadCachePrompt] = useState<UploadCachePrompt>(null);
   const [batchRun, setBatchRun] = useState<FullAnalysisBatchRun | null>(null);
   const [selectedBatchItemId, setSelectedBatchItemId] = useState<string | null>(null);
-  const pollTimerRef = useRef<number | null>(null);
-  const batchPollTimerRef = useRef<number | null>(null);
   const operationTokenRef = useRef(0);
-  const runPollSequenceRef = useRef(0);
-  const batchPollSequenceRef = useRef(0);
   const batchSelectionSequenceRef = useRef(0);
   const restoredRunRef = useRef(false);
   const lastActiveSampleRevisionRef = useRef<number | null>(null);
@@ -103,6 +75,21 @@ export function FullAnalysisApp({ embedded = false, active = true, mode = "full-
     minBottomLeft: 260,
     maxBottomLeft: 520,
     minBottomRight: 420,
+  });
+  const { startPolling, startBatchPolling, clearRunPolling } = useFullAnalysisPolling({
+    active,
+    pageTitle,
+    draftStorageKey,
+    run,
+    batchRun,
+    operationTokenRef,
+    selectedBatchItemIdRef,
+    setRun,
+    setArtifact,
+    setStatusText,
+    setErrorText,
+    setBatchRun,
+    setSelectedBatchItemId,
   });
 
   const orderedStages = useMemo(() => {
@@ -138,116 +125,6 @@ export function FullAnalysisApp({ embedded = false, active = true, mode = "full-
       .filter((item) => !dismissedCachePromptJobIds.includes(item.job.jobId as string))
       .sort((a, b) => a.order - b.order)[0] ?? null;
   }, [childJobs, dismissedCachePromptJobIds, orderedStages]);
-
-  const startPolling = useCallback((workflowRunId: string, token = operationTokenRef.current) => {
-    if (!active) return;
-    if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
-    let terminalPollsRemaining = TERMINAL_SETTLE_POLL_COUNT;
-    const poll = async () => {
-      const pollSequence = runPollSequenceRef.current + 1;
-      runPollSequenceRef.current = pollSequence;
-      const isCurrentPoll = () => token === operationTokenRef.current && pollSequence === runPollSequenceRef.current;
-      if (!isCurrentPoll()) return;
-      try {
-        const nextRun = await getWorkflowRun(workflowRunId);
-        if (!isCurrentPoll()) return;
-        setRun(nextRun);
-        setStatusText(statusLabel(nextRun));
-        let nextArtifact: SampleArtifact | null = null;
-        if (nextRun.sampleVideoId) {
-          nextArtifact = await getSampleArtifact(nextRun.sampleVideoId).catch(() => null);
-          if (!isCurrentPoll()) return;
-          if (nextArtifact && "sampleVideo" in nextArtifact) setArtifact(nextArtifact as SampleArtifact);
-        }
-        writeFullAnalysisDraft(nextRun, nextArtifact, draftStorageKey);
-        if (!NON_EXECUTING_RUN_STATUS.has(nextRun.status)) {
-          terminalPollsRemaining = TERMINAL_SETTLE_POLL_COUNT;
-          return;
-        }
-        const terminalArtifactSettled = hasSettledArtifactForRun(nextRun, nextArtifact);
-        if ((terminalArtifactSettled || terminalPollsRemaining <= 0) && pollTimerRef.current != null) {
-          window.clearInterval(pollTimerRef.current);
-          pollTimerRef.current = null;
-          return;
-        }
-        terminalPollsRemaining -= 1;
-      } catch (error) {
-        if (isCurrentPoll()) setErrorText(error instanceof Error ? error.message : `查询${pageTitle}状态失败`);
-      }
-    };
-    void poll();
-    pollTimerRef.current = window.setInterval(() => {
-      void poll();
-    }, POLL_INTERVAL_MS);
-  }, [active, draftStorageKey, pageTitle]);
-
-  const startBatchPolling = useCallback((batchRunId: string, token = operationTokenRef.current) => {
-    if (!active) return;
-    if (batchPollTimerRef.current != null) window.clearInterval(batchPollTimerRef.current);
-    const poll = async () => {
-      const pollSequence = batchPollSequenceRef.current + 1;
-      batchPollSequenceRef.current = pollSequence;
-      const isCurrentPoll = () => token === operationTokenRef.current && pollSequence === batchPollSequenceRef.current;
-      if (!isCurrentPoll()) return;
-      try {
-        const nextBatch = await getFullAnalysisBatchRun(batchRunId);
-        if (!isCurrentPoll()) return;
-        setBatchRun(nextBatch);
-        writeFullAnalysisBatchDraft(nextBatch.batchRunId, draftStorageKey);
-        const selected = nextBatch.items.find((item) => item.queueItemId === selectedBatchItemIdRef.current) ?? nextBatch.items.find((item) => item.workflowRunId) ?? null;
-        if (selected && selected.queueItemId !== selectedBatchItemIdRef.current) {
-          selectedBatchItemIdRef.current = selected.queueItemId;
-          setSelectedBatchItemId(selected.queueItemId);
-        }
-        if (selected?.workflowRunId) {
-          const nextRun = await getWorkflowRun(selected.workflowRunId).catch(() => null);
-          if (!isCurrentPoll()) return;
-          if (nextRun) {
-            setRun(nextRun);
-            setStatusText(statusLabel(nextRun));
-            if (nextRun.sampleVideoId) {
-              const nextArtifact = await getSampleArtifact(nextRun.sampleVideoId).catch(() => null);
-              if (!isCurrentPoll()) return;
-              if (nextArtifact && "sampleVideo" in nextArtifact) setArtifact(nextArtifact as SampleArtifact);
-            }
-          }
-        }
-        if (isBatchTerminal(nextBatch) && batchPollTimerRef.current != null) {
-          window.clearInterval(batchPollTimerRef.current);
-          batchPollTimerRef.current = null;
-        }
-      } catch (error) {
-        if (isCurrentPoll()) setErrorText(error instanceof Error ? error.message : "查询批量完整分析状态失败");
-      }
-    };
-    void poll();
-    batchPollTimerRef.current = window.setInterval(() => {
-      void poll();
-    }, POLL_INTERVAL_MS);
-  }, [active, draftStorageKey]);
-
-  useEffect(() => () => {
-    if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
-    if (batchPollTimerRef.current != null) window.clearInterval(batchPollTimerRef.current);
-  }, []);
-
-  useEffect(() => {
-    if (!active) {
-      runPollSequenceRef.current += 1;
-      batchPollSequenceRef.current += 1;
-      if (pollTimerRef.current != null) {
-        window.clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-      if (batchPollTimerRef.current != null) {
-        window.clearInterval(batchPollTimerRef.current);
-        batchPollTimerRef.current = null;
-      }
-      return;
-    }
-    if (run && !NON_EXECUTING_RUN_STATUS.has(run.status) && pollTimerRef.current == null) startPolling(run.workflowRunId, operationTokenRef.current);
-    if (batchRun && !isBatchTerminal(batchRun) && batchPollTimerRef.current == null) startBatchPolling(batchRun.batchRunId, operationTokenRef.current);
-  }, [active, batchRun, run, startBatchPolling, startPolling]);
 
   useEffect(() => {
     if (restoredRunRef.current) return;
@@ -334,10 +211,7 @@ export function FullAnalysisApp({ embedded = false, active = true, mode = "full-
     const shouldPreserveWorkflow = shouldPreserveActiveWorkflow(run, activeSample);
     if (!shouldPreserveWorkflow) {
       operationTokenRef.current += 1;
-      if (pollTimerRef.current != null) {
-        window.clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
+      clearRunPolling();
     }
     setArtifact(activeSample.artifact);
     setRun((current) => shouldPreserveActiveWorkflow(current, activeSample) ? current : null);
@@ -348,7 +222,7 @@ export function FullAnalysisApp({ embedded = false, active = true, mode = "full-
       activeSampleRevision: activeSample.activeSampleRevision,
       activeSampleSource: activeSample.activeSampleSource,
     }, draftStorageKey);
-    if (shouldPreserveWorkflow && run && !NON_EXECUTING_RUN_STATUS.has(run.status) && pollTimerRef.current == null) {
+    if (shouldPreserveWorkflow && run && !NON_EXECUTING_RUN_STATUS.has(run.status)) {
       startPolling(run.workflowRunId, operationTokenRef.current);
       return;
     }
@@ -371,7 +245,7 @@ export function FullAnalysisApp({ embedded = false, active = true, mode = "full-
     void syncRunForSample().catch((error) => {
       if (token === operationTokenRef.current) setErrorText(error instanceof Error ? error.message : `恢复当前视频${pageTitle}失败`);
     });
-  }, [activeSample, draftStorageKey, embedded, isMaterialMode, pageTitle, run, startPolling]);
+  }, [activeSample, clearRunPolling, draftStorageKey, embedded, isMaterialMode, pageTitle, run, startPolling]);
 
   useEffect(() => {
     if (!active) return;
@@ -617,292 +491,27 @@ export function FullAnalysisApp({ embedded = false, active = true, mode = "full-
       setStatusText(message);
     }
   }, [artifact, draftStorageKey, run, startPolling]);
+  const resolveStageCache = useCallback((stage: WorkflowStageState, job: ProcessingJob, decision: "reuse" | "refresh") => {
+    return resolveWorkflowCache({ stage, job, order: CACHE_PROMPT_ORDER.indexOf(stage.key) }, decision);
+  }, [resolveWorkflowCache]);
 
   const videoUrl = runtimeUrl(artifact?.sampleVideo.normalized.uri);
   const countLabel = `workflow ${run ? shortId(run.workflowRunId) : "未创建"}`;
   const workflowTraceLabel = `workflow trace ${run ? shortId(run.traceId) : "等待后端返回"}`;
 
   return (
-    <div className={embedded ? "full-analysis-shell embedded-view" : "app-shell full-analysis-shell"}>
-      {embedded ? null : (
-        <header className="topbar">
-          <div className="project-block">
-            <div className="project-name">{pageTitle}</div>
-            <div className="save-status">{statusText}</div>
-          </div>
-          <div className="run-status-bar">
-            <span>{countLabel}</span>
-            <span>{workflowTraceLabel}</span>
-          </div>
-        </header>
-      )}
-      <main ref={layoutRef} className="full-analysis-main">
-        <div className="full-analysis-top-row">
-          <section className="full-analysis-upload" aria-label={`${pageTitle}上传`}>
-            <label className="upload-target" htmlFor={`${mode}VideoInput`}>
-              <input
-                id={`${mode}VideoInput`}
-                type="file"
-                accept="video/*"
-                multiple={!isMaterialMode}
-                disabled={isStarting || isRunExecuting(run)}
-                onChange={(event) => {
-                  const files = event.currentTarget.files;
-                  if (files?.length) void handleUpload(files);
-                  event.currentTarget.value = "";
-                }}
-              />
-              <span className="upload-title">{isStarting ? "启动中" : `选择视频并${pageTitle}`}</span>
-              <span className="upload-meta">{artifact?.sampleVideo.original.summary ?? (isMaterialMode ? "上传后自动完成切镜" : "上传后自动完成切镜、脚本、节奏、包装")}</span>
-            </label>
-            <div className="upload-options compact-options">
-              <label className="sampling-control">
-                <span>抽帧采样率</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  step="1"
-                  value={frameSampleRate}
-                  disabled={isStarting || isRunExecuting(run)}
-                  onChange={(event) => setFrameSampleRate(clampNumber(Number(event.currentTarget.value || 10), 1, 10))}
-                />
-              </label>
-              {!isMaterialMode ? (
-                <label className="sampling-control">
-                  <span>并发视频数</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="12"
-                    step="1"
-                    value={maxConcurrentRuns}
-                    disabled={isStarting || isRunExecuting(run)}
-                    onChange={(event) => setMaxConcurrentRuns(clampNumber(Number(event.currentTarget.value || 2), 1, 12))}
-                  />
-                </label>
-              ) : null}
-              <label className="option-toggle">
-                <input
-                  type="checkbox"
-                  checked={refreshMode}
-                  disabled={isStarting || isRunExecuting(run)}
-                  onChange={(event) => setRefreshMode(event.currentTarget.checked)}
-                />
-                <span>重新生成</span>
-              </label>
-              {!isMaterialMode ? (
-                <label className="option-toggle">
-                  <input
-                    type="checkbox"
-                    checked={enableFunctionSlotAtomization}
-                    disabled={isStarting || isRunExecuting(run)}
-                    onChange={(event) => setEnableFunctionSlotAtomization(event.currentTarget.checked)}
-                  />
-                  <span>原子化</span>
-                </label>
-              ) : null}
-            </div>
-          </section>
-          <SplitResizeHandle
-            className="workspace-resize-handle full-analysis-col-resizer"
-            label="调整上方面板左右分界"
-            orientation="vertical"
-            onResizeStart={(event) => layout.startResize("column", event)}
-            onReset={() => layout.resetSize("column")}
-            onNudge={(direction) => layout.nudgeSize("column", direction)}
-          />
-          <section className="full-analysis-preview" aria-label="视频预览">
-            {videoUrl ? (
-              <video controls src={videoUrl} />
-            ) : (
-              <div className="empty-preview">等待视频产物</div>
-            )}
-          </section>
-        </div>
-        <SplitResizeHandle
-          className="workspace-resize-handle full-analysis-row-resizer"
-          label="调整上下区域高度"
-          orientation="horizontal"
-          onResizeStart={(event) => layout.startResize("top-row", event)}
-          onReset={() => layout.resetSize("top-row")}
-          onNudge={(direction) => layout.nudgeSize("top-row", direction)}
-        />
-        <div className="full-analysis-bottom-row">
-          <section className="full-analysis-flow" aria-label="流程状态">
-            {batchRun ? (
-              <BatchQueuePanel batch={batchRun} selectedItemId={selectedBatchItemId} onSelect={handleSelectBatchItem} onRetry={handleRetryBatchItem} />
-            ) : null}
-            {orderedStages.map((stage) => (
-              <StageStep
-                key={stage.key}
-                stage={stage}
-                job={stage.childJobId ? childJobs[stage.childJobId] ?? null : null}
-                onRerun={handleRerun}
-                onOpenStage={onOpenWorkbenchStage}
-                onResolveCache={(cacheStage, job, decision) => resolveWorkflowCache({ stage: cacheStage, job, order: CACHE_PROMPT_ORDER.indexOf(cacheStage.key) }, decision)}
-                disabled={!canRerun(stage, run, isRunExecuting)}
-              />
-            ))}
-          </section>
-          <SplitResizeHandle
-            className="workspace-resize-handle full-analysis-bottom-resizer"
-            label="调整下方面板左右分界"
-            orientation="vertical"
-            onResizeStart={(event) => layout.startResize("bottom-row", event)}
-            onReset={() => layout.resetSize("bottom-row")}
-            onNudge={(direction) => layout.nudgeSize("bottom-row", direction)}
-          />
-          <section className="full-analysis-results" aria-label="分析结果">
-            <div className="result-tabs">
-              <TabButton active={activeTab === "shot"} label="切镜" onClick={() => setActiveTab("shot")} />
-              {isMaterialMode ? <TabButton active={activeTab === "material"} label="素材" onClick={() => setActiveTab("material")} /> : null}
-              {!isMaterialMode ? <TabButton active={activeTab === "script"} label="脚本" onClick={() => setActiveTab("script")} /> : null}
-              {!isMaterialMode ? <TabButton active={activeTab === "rhythm"} label="节奏" onClick={() => setActiveTab("rhythm")} /> : null}
-              {!isMaterialMode ? <TabButton active={activeTab === "packaging"} label="包装" onClick={() => setActiveTab("packaging")} /> : null}
-              {!isMaterialMode && enableFunctionSlotAtomization ? (
-                <TabButton active={activeTab === "atomization"} label="原子化" onClick={() => setActiveTab("atomization")} />
-              ) : null}
-            </div>
-            {errorText ? <div className="detail-hint failure-hint">{errorText}</div> : null}
-            <ResultPanel tab={activeTab} artifact={artifact} />
-          </section>
-        </div>
-      </main>
-      {activeCachePrompt ? (
-        <CacheDecisionDialog
-          item={activeCachePrompt.job.cachePrompt!.cachedItem}
-          onReuse={() => resolveWorkflowCache(activeCachePrompt, "reuse")}
-          onRefresh={() => resolveWorkflowCache(activeCachePrompt, "refresh")}
-          onCancel={() => {
-            setDismissedCachePromptJobIds((current) => activeCachePrompt.job.jobId && !current.includes(activeCachePrompt.job.jobId) ? [...current, activeCachePrompt.job.jobId] : current);
-            setStatusText(`${activeCachePrompt.stage.label}等待缓存选择`);
-          }}
-        />
-      ) : null}
-      {uploadCachePrompt ? (
-        <CacheDecisionDialog
-          item={uploadCachePrompt.cachedItem}
-          onReuse={() => {
-            const prompt = uploadCachePrompt;
-            setUploadCachePrompt(null);
-            void startFullAnalysis(prompt.file, "reuse");
-          }}
-          onRefresh={() => {
-            const prompt = uploadCachePrompt;
-            setUploadCachePrompt(null);
-            void startFullAnalysis(prompt.file, "refresh");
-          }}
-          onCancel={() => {
-            setUploadCachePrompt(null);
-            setStatusText("等待上传");
-          }}
-        />
-      ) : null}
-    </div>
+    <FullAnalysisLayout
+      {...{
+        embedded, pageTitle, mode, isMaterialMode, statusText, countLabel, workflowTraceLabel, layoutRef, layout, run, artifact, videoUrl, isStarting,
+        frameSampleRate, maxConcurrentRuns, refreshMode, enableFunctionSlotAtomization, batchRun, selectedBatchItemId, orderedStages, childJobs,
+        activeTab, errorText, activeCachePrompt, uploadCachePrompt, onOpenWorkbenchStage,
+        onUpload: handleUpload, onFrameSampleRateChange: setFrameSampleRate, onMaxConcurrentRunsChange: setMaxConcurrentRuns,
+        onRefreshModeChange: setRefreshMode, onFunctionSlotAtomizationChange: setEnableFunctionSlotAtomization,
+        onSelectBatchItem: handleSelectBatchItem, onRetryBatchItem: handleRetryBatchItem, onRerun: handleRerun,
+        onResolveStageCache: resolveStageCache, onResolveWorkflowCache: resolveWorkflowCache, onActiveTabChange: setActiveTab,
+        onDismissCachePromptJobIdsChange: setDismissedCachePromptJobIds, onUploadCachePromptChange: setUploadCachePrompt,
+        onStatusTextChange: setStatusText, onStartFullAnalysis: startFullAnalysis,
+      }}
+    />
   );
-}
-
-function shouldPreserveActiveWorkflow(run: WorkflowRun | null, activeSample: FullAnalysisWorkbenchActiveSample) {
-  if (!run) return false;
-  if (activeSample.activeSampleSource === "fullAnalysis") return true;
-  if (activeSample.activeSampleSource === "materialRecognition") return true;
-  if (run.sampleVideoId && run.sampleVideoId === activeSample.artifact.sampleVideoId) return true;
-  return isRunExecuting(run);
-}
-
-function hasSettledArtifactForRun(run: WorkflowRun, artifact: SampleArtifact | null) {
-  if (!artifact || !run.sampleVideoId || artifact.sampleVideoId !== run.sampleVideoId) return false;
-  return run.stages.every((stage) => {
-    if (stage.status !== "processed") return true;
-    if (!stage.artifactId) return true;
-    return sampleArtifactContainsStageArtifact(artifact, stage.key, stage.artifactId);
-  });
-}
-
-function sampleArtifactContainsStageArtifact(artifact: SampleArtifact, stageKey: string, artifactId: string) {
-  if (stageKey === "upload") return artifact.sampleVideo.artifactId === artifactId;
-  if (stageKey === "shotBoundary") return artifact.shotBoundaryAnalysis?.artifactId === artifactId;
-  if (stageKey === "scriptSegment") return artifact.scriptSegmentAnalysis?.artifactId === artifactId;
-  if (stageKey === "rhythmStructure") return artifact.rhythmStructureAnalysis?.artifactId === artifactId;
-  if (stageKey === "packagingStructure") return artifact.packagingStructureAnalysis?.artifactId === artifactId;
-  if (stageKey === "functionSlotAtomization") return artifact.functionSlotAtomizationAnalysis?.artifactId === artifactId;
-  if (stageKey === "userMaterialTagger") return artifact.userMaterialPack?.artifactId === artifactId;
-  if (stageKey === "aggregate") return true;
-  return true;
-}
-
-function BatchQueuePanel({ batch, selectedItemId, onSelect, onRetry }: { batch: FullAnalysisBatchRun; selectedItemId: string | null; onSelect: (item: FullAnalysisBatchItem) => void; onRetry: (item: FullAnalysisBatchItem) => void }) {
-  return (
-    <div className="full-analysis-batch-panel">
-      <div className="batch-panel-heading">
-        <strong>批量队列</strong>
-        <span>{batchStatusLabel(batch.status)} · 并发 {batch.maxConcurrentRuns}</span>
-      </div>
-      <div className="batch-item-list">
-        {batch.items.map((item) => (
-          <div
-            key={item.queueItemId}
-            className={`batch-item ${selectedItemId === item.queueItemId ? "is-selected" : ""}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => onSelect(item)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              onSelect(item);
-            }}
-          >
-            <span className="batch-item-title">{item.filename}</span>
-            <span>{batchStatusLabel(item.status)}{item.position > 0 ? ` · 第 ${item.position} 位` : ""}</span>
-            <span>{item.currentStageLabel ?? (item.workflowRunId ? `workflow ${shortId(item.workflowRunId)}` : "等待启动")}</span>
-            {item.errorSummary?.message ? <em>{item.errorSummary.message}</em> : null}
-            {item.retryable ? (
-              <button className="ghost-button" type="button" onClick={(event) => {
-                event.stopPropagation();
-                onRetry(item);
-              }}>
-                重试
-              </button>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function batchStatusLabel(status: string) {
-  if (status === "queued") return "排队中";
-  if (status === "running") return "分析中";
-  if (status === "cache_waiting") return "等待缓存选择";
-  if (status === "processed") return "完成";
-  if (status === "partial_failed") return "部分失败";
-  if (status === "failed") return "失败";
-  if (status === "canceled") return "已取消";
-  return status || "等待";
-}
-
-function isBatchTerminal(batch: FullAnalysisBatchRun) {
-  return batch.items.every((item) => ["processed", "partial_failed", "failed", "canceled"].includes(item.status));
-}
-
-function buildDefaultStage(key: WorkflowStageState["key"], label: string): WorkflowStageState {
-  return {
-    key,
-    stageName: key,
-    label,
-    status: "pending",
-    attemptNo: 1,
-    stageId: null,
-    childJobId: null,
-    childTraceId: null,
-    artifactId: null,
-    parentArtifactId: null,
-    sampleVideoId: null,
-    outputSummary: null,
-    errorSummary: null,
-    startedAt: null,
-    completedAt: null,
-  };
 }

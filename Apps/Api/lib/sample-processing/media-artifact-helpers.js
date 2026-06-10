@@ -70,7 +70,7 @@ function buildSubtitleArtifact({ parentArtifactId, segments, recognized, uri }) 
   };
 }
 
-function subtitleDegraded(parentArtifactId, reason) {
+function subtitleDegraded(parentArtifactId, reason, providerMeta = {}) {
   return {
     artifactId: `artifact_${randomUUID()}`,
     parentArtifactId,
@@ -79,7 +79,7 @@ function subtitleDegraded(parentArtifactId, reason) {
     summary: "字幕识别未产出",
     provider: "doubao-sauc",
     providerMeta: {
-      resourceId: process.env.DOUBAO_SAUC_RESOURCE_ID || "volc.bigasr.sauc.duration",
+      resourceId: providerMeta.resourceId || process.env.DOUBAO_SAUC_RESOURCE_ID || "volc.bigasr.sauc.duration",
       connectId: null,
       requestId: null,
       logId: null,

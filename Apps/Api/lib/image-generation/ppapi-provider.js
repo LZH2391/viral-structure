@@ -4,12 +4,13 @@ const { randomBytes } = require("crypto");
 const fs = require("fs/promises");
 const path = require("path");
 
-const DEFAULT_PPAPI_IMAGE_URL = process.env.PPAPI_IMAGE_GENERATIONS_URL || "https://api.pptoken.cc/v1/images/generations";
-const DEFAULT_PPAPI_IMAGE_EDITS_URL = process.env.PPAPI_IMAGE_EDITS_URL || "https://api.pptoken.cc/v1/images/edits";
+const DEFAULT_IMAGE_GENERATION_PROVIDER = process.env.IMAGE_GENERATION_PROVIDER || "pptoken";
+const DEFAULT_IMAGE_GENERATIONS_URL = process.env.IMAGE_GENERATION_GENERATIONS_URL || "https://api.pptoken.cc/v1/images/generations";
+const DEFAULT_IMAGE_EDITS_URL = process.env.IMAGE_GENERATION_EDITS_URL || "https://api.pptoken.cc/v1/images/edits";
 
-function createPPAPIProvider({ apiKey = null, url = DEFAULT_PPAPI_IMAGE_URL, editsUrl = DEFAULT_PPAPI_IMAGE_EDITS_URL, requestImpl = null } = {}) {
+function createPPAPIProvider({ apiKey = null, url = DEFAULT_IMAGE_GENERATIONS_URL, editsUrl = DEFAULT_IMAGE_EDITS_URL, providerName = DEFAULT_IMAGE_GENERATION_PROVIDER, requestImpl = null } = {}) {
   return {
-    providerName: "pptoken",
+    providerName,
     request: async (requestPayload = {}, options = {}) => {
       const token = resolveApiKey(apiKey);
       const startedAt = Date.now();
@@ -96,9 +97,9 @@ async function buildPPAPIEditForm({ prompt, referenceImagePath, size = "auto", q
 }
 
 function resolveApiKey(explicitKey) {
-  const value = explicitKey || process.env.PPAPI || process.env.PPTOKEN_API_KEY || process.env.PPTOKEN;
+  const value = explicitKey || process.env.IMAGE_GENERATION_API_KEY;
   const token = String(value ?? "").trim();
-  if (!token) throw ppapiError("missing_api_key", "PPAPI 环境变量未配置", null, false);
+  if (!token) throw ppapiError("missing_api_key", "IMAGE_GENERATION_API_KEY 未配置", null, false);
   return token;
 }
 
@@ -144,10 +145,10 @@ function postJson(url, body, headers, timeoutSeconds) {
       });
     });
     req.on("timeout", () => {
-      req.destroy(ppapiError("network_timeout", "PPAPI 生图请求超时", { timeoutSeconds }, true));
+      req.destroy(ppapiError("network_timeout", "生图服务请求超时", { timeoutSeconds }, true));
     });
     req.on("error", (error) => {
-      reject(error?.code ? error : ppapiError("network_error", "PPAPI 生图网络请求失败", { message: error.message }, true));
+      reject(error?.code ? error : ppapiError("network_error", "生图服务网络请求失败", { message: error.message }, true));
     });
     req.write(data, "utf8");
     req.end();
@@ -183,10 +184,10 @@ async function postMultipart(url, fields, files, headers, timeoutSeconds) {
       });
     });
     req.on("timeout", () => {
-      req.destroy(ppapiError("network_timeout", "PPAPI 生图请求超时", { timeoutSeconds }, true));
+      req.destroy(ppapiError("network_timeout", "生图服务请求超时", { timeoutSeconds }, true));
     });
     req.on("error", (error) => {
-      reject(error?.code ? error : ppapiError("network_error", "PPAPI 生图网络请求失败", { message: error.message }, true));
+      reject(error?.code ? error : ppapiError("network_error", "生图服务网络请求失败", { message: error.message }, true));
     });
     req.write(body);
     req.end();
@@ -230,11 +231,11 @@ function normalizePPAPIResponse(rawPayload, durationMs, requestMode = "generatio
     try {
       payload = JSON.parse(rawPayload || "{}");
     } catch (error) {
-      throw ppapiError("invalid_json", "PPAPI 生图响应不是合法 JSON", { detail: rawPayload.slice(0, 500) }, false);
+      throw ppapiError("invalid_json", "生图服务响应不是合法 JSON", { detail: rawPayload.slice(0, 500) }, false);
     }
   }
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    throw ppapiError("invalid_response", "PPAPI 生图响应格式不正确", null, false);
+    throw ppapiError("invalid_response", "生图服务响应格式不正确", null, false);
   }
   return {
     payload,
@@ -258,13 +259,13 @@ function extractImageItems(payload) {
 function classifyHTTPError(statusCode, rawBody) {
   const { providerErrorCode, providerMessage } = providerErrorFields(rawBody);
   const combined = `${providerErrorCode ?? ""} ${providerMessage ?? ""} ${rawBody ?? ""}`.toLowerCase();
-  if ([401, 403].includes(statusCode) || combined.includes("api_key") || combined.includes("authorization")) return ppapiError("auth_error", "PPAPI 鉴权失败", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
-  if (statusCode === 413) return ppapiError("file_too_large", "PPAPI 请求体过大", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
-  if (statusCode === 429) return ppapiError("rate_limited", "PPAPI 请求被限流", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), true);
-  if ([400, 422].includes(statusCode) && ["policy", "moderation", "safety", "content_filter", "blocked", "rejected"].some((token) => combined.includes(token))) return ppapiError("prompt_rejected", "PPAPI 拒绝了当前 prompt", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
-  if ([400, 422].includes(statusCode)) return ppapiError("bad_request", "PPAPI 请求参数不合法", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
-  if (statusCode >= 500) return ppapiError("server_error", "PPAPI 服务暂时失败", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), true);
-  return ppapiError("http_error", "PPAPI 请求失败", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
+  if ([401, 403].includes(statusCode) || combined.includes("api_key") || combined.includes("authorization")) return ppapiError("auth_error", "生图服务鉴权失败", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
+  if (statusCode === 413) return ppapiError("file_too_large", "生图服务请求体过大", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
+  if (statusCode === 429) return ppapiError("rate_limited", "生图服务请求被限流", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), true);
+  if ([400, 422].includes(statusCode) && ["policy", "moderation", "safety", "content_filter", "blocked", "rejected"].some((token) => combined.includes(token))) return ppapiError("prompt_rejected", "生图服务拒绝了当前 prompt", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
+  if ([400, 422].includes(statusCode)) return ppapiError("bad_request", "生图服务请求参数不合法", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
+  if (statusCode >= 500) return ppapiError("server_error", "生图服务暂时失败", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), true);
+  return ppapiError("http_error", "生图服务请求失败", errorPayload(statusCode, providerErrorCode, providerMessage, rawBody), false);
 }
 
 function providerErrorFields(rawBody) {
@@ -302,8 +303,9 @@ function ppapiError(code, message, debugPayload = null, retryable = true) {
 }
 
 module.exports = {
-  DEFAULT_PPAPI_IMAGE_URL,
-  DEFAULT_PPAPI_IMAGE_EDITS_URL,
+  DEFAULT_IMAGE_GENERATION_PROVIDER,
+  DEFAULT_IMAGE_GENERATIONS_URL,
+  DEFAULT_IMAGE_EDITS_URL,
   createPPAPIProvider,
   buildPPAPIRequestBody,
   buildPPAPIEditForm,
