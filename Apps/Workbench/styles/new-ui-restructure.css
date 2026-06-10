@@ -2164,8 +2164,8 @@ button.new-ui-restructure-attachment-chip-main:focus-visible {
   --panel-2: color-mix(in srgb, var(--new-ui-text) 5%, var(--new-ui-surface));
   --field-bg: color-mix(in srgb, var(--new-ui-bg) 36%, var(--new-ui-surface));
   display: grid;
-  grid-template-rows: auto auto auto;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
   gap: 10px;
   position: relative;
   min-width: 0;
@@ -2174,6 +2174,10 @@ button.new-ui-restructure-attachment-chip-main:focus-visible {
   padding: 6px 12px 14px;
   color: var(--new-ui-text);
   overflow: visible;
+}
+
+.new-ui-restructure-slot-atom-panel:has(> .new-ui-slot-atom-version-bar) {
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .new-ui-layout[data-active-section="restructure"] .new-ui-pane-right,
@@ -2244,7 +2248,7 @@ button.new-ui-restructure-attachment-chip-main:focus-visible {
   gap: 12px;
   min-height: 0;
   height: 100%;
-  padding: 28px 18px 52px;
+  padding: 28px 18px;
   border: 0;
   border-radius: 0;
   background: transparent;

@@ -2,6 +2,24 @@ const fs = require("fs/promises");
 const path = require("path");
 const { createHash } = require("crypto");
 
+const ORDER_KEYS = ["顺序", "序号", "order", "index", "编号"];
+const SLOT_SUBTYPE_KEYS = [
+  "slotSubtype",
+  "slotSubtypeId",
+  "slot subtype",
+  "slot subtype id",
+  "slot",
+  "slot id",
+  "槽位",
+  "对应槽位",
+  "功能槽位",
+  "槽位类型",
+  "槽位 subtype",
+];
+const SLOT_ARCHETYPE_KEYS = ["parent archetype", "parentArchetype", "slotArchetype", "slot archetype", "archetype", "父级原型", "槽位原型", "原型"];
+const ATOM_SLOT_KEYS = ["槽位", "对应槽位", "功能槽位", "slotSubtype", "slotSubtypeId", "slot subtype", "slot subtype id", "slot", "slot id"];
+const SOURCE_KEYS = ["来源", "source", "source slot", "sourceSlot", "来源槽位", "样例来源", "原槽位", "source id"];
+
 function findLatestRestructureFinalPath(conversation) {
   const messages = Array.isArray(conversation?.messages) ? conversation.messages : [];
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -78,7 +96,10 @@ function shouldHydrateSlotAtomDisplay(display) {
   if (!display || typeof display !== "object") return false;
   if (!display.displayJsonPath) return false;
   const slots = Array.isArray(display.slots) ? display.slots : [];
-  return slots.length === 0 || Number(display.slotCount ?? 0) === 0 || hasBareAtomReferences(display);
+  return slots.length === 0
+    || Number(display.slotCount ?? 0) === 0
+    || hasBareAtomReferences(display)
+    || hasUnmatchedAtomSlotBindings(display);
 }
 
 function hasBareAtomReferences(display) {
@@ -95,6 +116,18 @@ function isBareAtomReference(value, atomKind) {
   if (!text) return false;
   const escapedKind = atomKind.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp("^`?[^`]+::" + escapedKind + "::[^`]+`?$", "i").test(text);
+}
+
+function hasUnmatchedAtomSlotBindings(display) {
+  const atoms = Array.isArray(display.atoms) ? display.atoms : [];
+  const slots = Array.isArray(display.slots) ? display.slots : [];
+  if (!atoms.length || !slots.length) return false;
+  const slotIds = new Set(slots.map((slot) => normalizeText(slot?.slotSubtypeId)).filter(Boolean));
+  if (!slotIds.size) return false;
+  return atoms.some((atom) => {
+    const atomSlotId = normalizeText(atom?.slotSubtypeId);
+    return !atomSlotId || !slotIds.has(atomSlotId);
+  });
 }
 
 function resolveWorkspacePath(rootDir, relativePath) {
@@ -176,26 +209,33 @@ function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, file
   if (!slotRows.length) slotRows = firstTableRows(displayJson?.sections?.finalSlotChain);
   const atomRows = firstTableRows(displayJson?.sections?.atomLandingTable);
   const slots = slotRows.map((row, index) => {
-    const slotSubtype = rowValue(row, ["slotSubtype", "槽位", "slot subtype"]);
-    const archetype = rowValue(row, ["parent archetype", "slotArchetype", "slot archetype", "archetype"]);
+    const slotSubtype = rowValue(row, SLOT_SUBTYPE_KEYS);
+    const archetype = rowValue(row, SLOT_ARCHETYPE_KEYS);
     return {
-      index: numberOrFallback(rowValue(row, ["顺序", "序号"]), index + 1),
-      demand: rowValue(row, ["需求"]),
+      index: numberOrFallback(rowValue(row, ORDER_KEYS), index + 1),
+      demand: rowValue(row, ["需求", "观众需求", "need", "demand"]),
       slotSubtype,
-      slotSubtypeId: extractBacktickId(slotSubtype),
+      slotSubtypeId: extractStructuredId(slotSubtype, "slotSubtype"),
       archetype,
-      archetypeId: extractBacktickId(archetype),
-      functionText: rowValue(row, ["链路功能", "本方案任务", "任务", "功能"]),
-      usage: rowValue(row, ["本方案用法", "用法"]),
-      reason: rowValue(row, ["选择理由", "理由"]),
+      archetypeId: extractStructuredId(archetype, "slotArchetype"),
+      functionText: rowValue(row, ["链路功能", "本方案任务", "任务", "功能", "function", "role"]),
+      usage: rowValue(row, ["本方案用法", "用法", "usage", "application"]),
+      reason: rowValue(row, ["选择理由", "理由", "reason", "why"]),
     };
   });
-  const atoms = atomRows.map((row) => {
-    const slotSubtype = rowValue(row, ["槽位", "slotSubtype"]);
+  const atoms = atomRows.map((row, index) => {
+    const slotSubtype = rowValue(row, ATOM_SLOT_KEYS);
+    const source = rowValue(row, SOURCE_KEYS);
     return {
       slotSubtype,
-      slotSubtypeId: extractBacktickId(slotSubtype),
-      source: rowValue(row, ["来源"]),
+      slotSubtypeId: resolveAtomSlotSubtypeId({
+        slotSubtype,
+        source,
+        slots,
+        rowIndex: index,
+        atomRowCount: atomRows.length,
+      }),
+      source,
       scriptAtom: rowAtomLandingValue(row, "script"),
       rhythmAtom: rowAtomLandingValue(row, "rhythm"),
       packagingAtom: rowAtomLandingValue(row, "packaging"),
@@ -219,6 +259,40 @@ function buildSlotAtomDisplaySummary(displayJson, { displayJsonPath = null, file
 function firstTableRows(section) {
   const table = (section?.items ?? []).find((item) => item?.type === "table" && Array.isArray(item.rows));
   return table?.rows ?? [];
+}
+
+function resolveAtomSlotSubtypeId({ slotSubtype, source, slots, rowIndex, atomRowCount }) {
+  const explicitId = extractStructuredId(slotSubtype, "slotSubtype");
+  if (explicitId) return explicitId;
+  const matchedByLabel = findSlotByLabel(slotSubtype, slots);
+  if (matchedByLabel?.slotSubtypeId) return matchedByLabel.slotSubtypeId;
+  const sourceOrder = sourceSlotOrder(source) ?? sourceSlotOrder(slotSubtype);
+  if (sourceOrder) {
+    const matchedByOrder = slots.find((slot) => slot.index === sourceOrder) ?? slots[sourceOrder - 1];
+    if (matchedByOrder?.slotSubtypeId) return matchedByOrder.slotSubtypeId;
+  }
+  if (atomRowCount === slots.length && slots[rowIndex]?.slotSubtypeId) return slots[rowIndex].slotSubtypeId;
+  return null;
+}
+
+function findSlotByLabel(value, slots) {
+  const needle = normalizeSlotLabel(value);
+  if (!needle) return null;
+  return slots.find((slot) => slot.slotSubtypeId && [
+    slot.slotSubtype,
+    stripBacktickLabel(slot.slotSubtype),
+  ].some((candidate) => normalizeSlotLabel(candidate) === needle)) ?? null;
+}
+
+function sourceSlotOrder(value) {
+  const text = String(value ?? "");
+  const match = text.match(/(?:^|::|[\s_-])F0*(\d+)\b/i)
+    ?? text.match(/\bslot\s*0*(\d+)\b/i)
+    ?? text.match(/第\s*0*(\d+)\s*槽/)
+    ?? text.match(/\b0*(\d+)\s*槽\b/);
+  if (!match?.[1]) return null;
+  const order = Number(match[1]);
+  return Number.isFinite(order) && order > 0 ? order : null;
 }
 
 function tableRowsAfterHeading(section, headingNeedle) {
@@ -268,7 +342,7 @@ function extractVersionMeta(displayJson) {
 function rowAtomLandingValue(row, atomKind) {
   const entries = Object.entries(row ?? {});
   const kindNeedles = atomKindNeedles(atomKind).map(normalizeKey);
-  const landingNeedles = ["本方案落地", "本方案节奏落地", "本方案证明包装落地", "落地为", "落地"].map(normalizeKey);
+  const landingNeedles = atomLandingNeedles().map(normalizeKey);
   const preferred = entries.find(([key]) => {
     const normalizedKey = normalizeKey(key);
     return kindNeedles.some((needle) => normalizedKey.includes(needle))
@@ -285,16 +359,16 @@ function rowAtomLandingValue(row, atomKind) {
 function withRawAtomIdPrefix(row, atomKind, landingValue) {
   const landingText = String(landingValue ?? "").trim();
   if (!landingText) return "";
-  if (extractBacktickId(landingText)) return landingText;
+  if (extractStructuredId(landingText, atomKind)) return landingText;
   const rawAtom = rawAtomReferenceValue(row, atomKind);
-  const rawId = extractBacktickId(rawAtom);
+  const rawId = extractStructuredId(rawAtom, atomKind);
   if (!rawId) return landingText;
   return `\`${rawId}\` ${landingText}`;
 }
 
 function rawAtomReferenceValue(row, atomKind) {
   const kindNeedles = atomKindNeedles(atomKind).map(normalizeKey);
-  const landingNeedles = ["本方案落地", "本方案节奏落地", "本方案证明包装落地", "落地为", "落地"].map(normalizeKey);
+  const landingNeedles = atomLandingNeedles().map(normalizeKey);
   const found = Object.entries(row ?? {}).find(([key]) => {
     const normalizedKey = normalizeKey(key);
     return kindNeedles.some((needle) => normalizedKey.includes(needle))
@@ -304,18 +378,46 @@ function rawAtomReferenceValue(row, atomKind) {
 }
 
 function atomKindNeedles(atomKind) {
-  if (atomKind === "script") return ["script atom", "scriptAtom", "脚本原子", "脚本"];
-  if (atomKind === "rhythm") return ["rhythm atom", "rhythmAtom", "节奏原子", "节奏"];
-  return ["packaging atom", "packagingAtom", "包装原子", "包装"];
+  if (atomKind === "script") return ["script atom", "scriptAtom", "script_atom", "脚本原子", "脚本"];
+  if (atomKind === "rhythm") return ["rhythm atom", "rhythmAtom", "rhythm_atom", "节奏原子", "节奏"];
+  return ["packaging atom", "packagingAtom", "packaging_atom", "包装原子", "包装", "证明包装"];
+}
+
+function atomLandingNeedles() {
+  return ["本方案落地", "本方案节奏落地", "本方案证明包装落地", "落地为", "落地", "方案落地", "迁移后", "改写后", "应用为", "应用"];
 }
 
 function normalizeKey(value) {
   return String(value ?? "").toLowerCase().replace(/[\s_（）()：:·\-]/g, "");
 }
 
+function normalizeSlotLabel(value) {
+  return stripBacktickLabel(value)
+    .toLowerCase()
+    .replace(/^\s*(?:\d+|0+\d+|第\s*\d+\s*槽|slot\s*\d+|f0*\d+)[.、\s:：-]*/i, "")
+    .replace(/[\s_（）()：:·\-`'"]/g, "");
+}
+
+function stripBacktickLabel(value) {
+  return String(value ?? "").replace(/`[^`]+`\s*[：:]?\s*/g, "").trim();
+}
+
 function extractBacktickId(value) {
-  const match = String(value ?? "").match(/`([^`]+)`/);
-  return match?.[1] ?? null;
+  return extractStructuredId(value);
+}
+
+function extractStructuredId(value, kind = null) {
+  const text = String(value ?? "");
+  const backtick = text.match(/`([^`]+)`/);
+  if (backtick?.[1]) return backtick[1].trim();
+  if (kind === "slotSubtype") return text.match(/\bSUB_[A-Za-z0-9_.:-]+\b/)?.[0] ?? null;
+  if (kind === "slotArchetype") return text.match(/\bARCH_[A-Za-z0-9_.:-]+\b/)?.[0] ?? null;
+  if (kind === "script") return text.match(/\b[A-Za-z0-9_.-]+::script::[A-Za-z0-9_.:-]+\b/i)?.[0] ?? null;
+  if (kind === "rhythm") return text.match(/\b[A-Za-z0-9_.-]+::rhythm::[A-Za-z0-9_.:-]+\b/i)?.[0] ?? null;
+  if (kind === "packaging") return text.match(/\b[A-Za-z0-9_.-]+::packaging::[A-Za-z0-9_.:-]+\b/i)?.[0] ?? null;
+  return text.match(/\b(?:SUB|ARCH)_[A-Za-z0-9_.:-]+\b/)?.[0]
+    ?? text.match(/\b[A-Za-z0-9_.-]+::(?:script|rhythm|packaging)::[A-Za-z0-9_.:-]+\b/i)?.[0]
+    ?? null;
 }
 
 function numberOrFallback(value, fallback) {
