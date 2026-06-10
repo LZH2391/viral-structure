@@ -319,6 +319,17 @@ function resolveSourceVideoName(artifact) {
   );
 }
 
+function stripMediaExtension(value) {
+  const text = normalizeOptionalText(value);
+  if (!text) return null;
+  return text.replace(/\.(mp4|mov|m4v|webm|mkv|avi|wmv|flv|mpeg|mpg)$/i, "");
+}
+
+function normalizeOptionalText(value) {
+  const text = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+  return text || null;
+}
+
 async function withStage({ logger, stageName, inputSummary, action, outputSummary }) {
   if (!logger?.writeStageLog) return action();
   const traceContext = createTraceContext(createTraceIds());

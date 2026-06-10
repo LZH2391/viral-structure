@@ -9,6 +9,17 @@ function read(root, file) {
   return fs.readFileSync(path.join(root, file), "utf8");
 }
 
+function readWorkbenchApi(root) {
+  return [
+    "Apps/Workbench/src/api/client.ts",
+    "Apps/Workbench/src/api/client/shared.ts",
+    "Apps/Workbench/src/api/client/workflows.ts",
+    "Apps/Workbench/src/api/client/threadpool.ts",
+    "Apps/Workbench/src/api/client/agent-chat.ts",
+    "Apps/Workbench/src/api/client/library.ts",
+  ].map((file) => read(root, file)).join("\n");
+}
+
 function readPropertyPanelCss(root) {
   return [
     "Apps/Workbench/styles/property-panel.css",
@@ -17,4 +28,4 @@ function readPropertyPanelCss(root) {
   ].map((file) => read(root, file)).join("\n");
 }
 
-module.exports = { test, assert, fs, path, vm, ts, read, readPropertyPanelCss };
+module.exports = { test, assert, fs, path, vm, ts, read, readPropertyPanelCss, readWorkbenchApi };
