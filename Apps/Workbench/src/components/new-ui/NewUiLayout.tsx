@@ -2886,7 +2886,6 @@ function SlotAtomVersionBar({
   if (displays.length <= 1) return null;
   return (
     <div className="new-ui-storyboard-version-bar new-ui-slot-atom-version-bar" aria-label="槽位版本选择">
-      <span>版本</span>
       {displays.map((display, index) => {
         const versionId = display.versionId ?? null;
         const label = display.versionName || display.versionId || `版本 ${index + 1}`;

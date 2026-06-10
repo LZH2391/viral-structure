@@ -60,6 +60,69 @@ test("display overlay materializes display json, index, and multi-plan trace gra
   assert.ok(logs.some((entry) => entry.event === "stage.end"));
 });
 
+test("display overlay merges shared source samples across plan versions", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-shared-sample-"));
+  await fs.mkdir(path.join(rootDir, "Artifacts", "FunctionSlotLibrary", "_governance"), { recursive: true });
+  await fs.writeFile(path.join(rootDir, "Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json"), JSON.stringify({
+    slotSubtypes: [{
+      id: "SUB_shared_slot",
+      name: "共享样例槽位",
+    }],
+    atomPatterns: [{
+      id: "SCRIPT_shared",
+      name: "共享样例脚本",
+      sourceVariantIds: ["sample_shared::script::S001"],
+    }],
+    sourceVariants: [{
+      variantId: "sample_shared::script::S001",
+      sampleId: "sample_shared",
+      kind: "script",
+      sourceId: "S001",
+      label: "共享样例脚本",
+    }],
+  }, null, 2), "utf8");
+  const service = createRestructureDisplayOverlayService({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "runtime://debug.json" }),
+    },
+    now: () => "2026-05-30T00:00:00.000Z",
+  });
+  const sharedDisplay = {
+    ...validDisplayJson("SUB_shared_slot"),
+    atoms: [
+      { id: "source aliases", name: "来源短码：`A=sample_shared`。" },
+      { scriptAtom: "A::script::S001`：共享样例脚本" },
+    ],
+  };
+
+  const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "multi-shared");
+  await fs.mkdir(path.join(planDir, "versions", "V1_click"), { recursive: true });
+  await fs.mkdir(path.join(planDir, "versions", "V2_conversion"), { recursive: true });
+  await fs.writeFile(path.join(planDir, "restructure.final.md"), [
+    "# 多版本索引",
+    "",
+    "| versionId | versionName | path |",
+    "| --- | --- | --- |",
+    "| `V1_click` | 高点击版 | [restructure.final.md](versions/V1_click/restructure.final.md) |",
+    "| `V2_conversion` | 高转化版 | [restructure.final.md](versions/V2_conversion/restructure.final.md) |",
+    "",
+  ].join("\n"), "utf8");
+  await fs.writeFile(path.join(planDir, "versions", "V1_click", "restructure.final.md"), "# V1_click\n", "utf8");
+  await fs.writeFile(path.join(planDir, "versions", "V2_conversion", "restructure.final.md"), "# V2_conversion\n", "utf8");
+  await fs.writeFile(path.join(planDir, "versions", "V1_click", "restructure.display.json"), JSON.stringify(sharedDisplay), "utf8");
+  await fs.writeFile(path.join(planDir, "versions", "V2_conversion", "restructure.display.json"), JSON.stringify(sharedDisplay), "utf8");
+
+  const traceGraph = await service.readPlanTraceRecordGraph("multi-shared");
+  const sampleNodes = traceGraph.nodes.filter((node) => node.type === "sourceSample" && node.data.sampleVideoId === "sample_shared");
+
+  assert.equal(traceGraph.summary.planCount, 2);
+  assert.equal(sampleNodes.length, 1);
+  assert.deepEqual(sampleNodes[0].data.planIds.sort(), ["multi-shared--V1_click", "multi-shared--V2_conversion"]);
+  assert.equal(traceGraph.edges.filter((edge) => edge.type === "source_variant_to_sample" && edge.target === sampleNodes[0].id).length, 2);
+});
+
 test("display overlay rematerializes the same plan by replacing the prior confirmation", async () => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-reconfirm-"));
   const logger = {

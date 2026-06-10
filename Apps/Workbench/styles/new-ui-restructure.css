@@ -629,8 +629,9 @@
 .new-ui-material-gap-table td {
   vertical-align: top;
   border-bottom: 1px solid color-mix(in srgb, var(--new-ui-border) 60%, transparent);
-  padding: 10px 12px;
+  padding: 12px 16px;
   color: var(--new-ui-text);
+  text-align: left;
 }
 
 .new-ui-material-gap-table th {
@@ -639,9 +640,36 @@
   font-weight: 650;
 }
 
+.new-ui-material-gap-table th:nth-child(1),
+.new-ui-material-gap-table td:nth-child(1) {
+  width: 22%;
+}
+
+.new-ui-material-gap-table th:nth-child(2),
+.new-ui-material-gap-table td:nth-child(2) {
+  width: 12%;
+  text-align: center;
+}
+
+.new-ui-material-gap-table th:nth-child(3),
+.new-ui-material-gap-table td:nth-child(3) {
+  width: 18%;
+}
+
+.new-ui-material-gap-table th:nth-child(4),
+.new-ui-material-gap-table td:nth-child(4) {
+  width: 22%;
+}
+
+.new-ui-material-gap-table th:nth-child(5),
+.new-ui-material-gap-table td:nth-child(5) {
+  width: 26%;
+}
+
 .new-ui-material-gap-table td {
-  line-height: 1.45;
-  word-break: break-word;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .new-ui-material-gap-table td:first-child strong,
@@ -657,8 +685,8 @@
 .new-ui-material-gap-status {
   display: inline-flex;
   align-items: center;
-  min-width: 48px;
   justify-content: center;
+  min-width: 52px;
   border-radius: 999px;
   padding: 3px 8px;
   background: color-mix(in srgb, var(--new-ui-border) 45%, transparent);
@@ -2014,8 +2042,9 @@ button.new-ui-restructure-attachment-chip-main:focus-visible {
   --panel-2: color-mix(in srgb, var(--new-ui-text) 5%, var(--new-ui-surface));
   --field-bg: color-mix(in srgb, var(--new-ui-bg) 36%, var(--new-ui-surface));
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 14px;
+  grid-template-rows: auto auto auto;
+  align-content: start;
+  gap: 10px;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -2055,8 +2084,34 @@ button.new-ui-restructure-attachment-chip-main:focus-visible {
   white-space: nowrap;
 }
 
+.new-ui-restructure-slot-atom-panel .new-ui-slot-atom-version-bar {
+  padding: 0 0 2px;
+}
+
+.new-ui-restructure-slot-atom-panel .new-ui-slot-atom-version-bar button {
+  min-height: 30px;
+  max-width: 132px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
 .new-ui-restructure-slot-atom-panel .agent-chat-slot-atom-panel {
+  grid-template-rows: auto auto auto;
+  align-content: start;
+  align-self: start;
   min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-atom-summary,
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-list,
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-detail {
+  min-height: 0;
+}
+
+.new-ui-restructure-slot-atom-panel .agent-chat-slot-detail {
   overflow: visible;
 }
 

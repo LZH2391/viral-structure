@@ -475,13 +475,15 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
         onLayoutModeChange={setActiveLayoutMode}
         onRefresh={refresh}
       />
-      <GraphFilters
-        mode={mode}
-        filters={filters}
-        governancePresetMode={mode === "governance" ? governanceFilterPresetMode : undefined}
-        onGovernancePresetModeChange={mode === "governance" ? setGovernanceFilterPreset : undefined}
-        onChange={setActiveFilters}
-      />
+      {mode !== "planTrace" ? (
+        <GraphFilters
+          mode={mode}
+          filters={filters}
+          governancePresetMode={mode === "governance" ? governanceFilterPresetMode : undefined}
+          onGovernancePresetModeChange={mode === "governance" ? setGovernanceFilterPreset : undefined}
+          onChange={setActiveFilters}
+        />
+      ) : null}
       <GraphSourcePanel
         mode={mode}
         graph={graph}
@@ -866,9 +868,15 @@ function reconcileSelectedPlans(current: string[], graph: FunctionSlotLibraryGra
 function filterPlanTraceGraph(graph: FunctionSlotLibraryGraph | null, selectedPlanIds: string[]) {
   if (!graph || graph.schemaVersion !== "confirmed_plan_trace_graph.v1") return graph;
   const selected = new Set(selectedPlanIds);
-  const nodes = graph.nodes.filter((node) => selected.has(String(node.data?.planId ?? "")));
+  const nodes = graph.nodes.filter((node) => planTraceNodeMatchesSelectedPlans(node, selected));
   const nodeIds = new Set(nodes.map((node) => node.id));
   return { ...graph, nodes, edges: graph.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)) };
+}
+
+function planTraceNodeMatchesSelectedPlans(node: FunctionSlotGraphNode, selectedPlanIds: Set<string>) {
+  if (selectedPlanIds.has(String(node.data?.planId ?? ""))) return true;
+  const planIds = Array.isArray(node.data?.planIds) ? node.data.planIds : [];
+  return planIds.some((planId) => selectedPlanIds.has(String(planId)));
 }
 
 function getTracePlans(graph: FunctionSlotLibraryGraph | null) {

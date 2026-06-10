@@ -233,19 +233,26 @@ function pushSourceVariantTrace(nodes, edges, planId, ownerId, variantId, aliasM
     },
   }, (existing) => existing);
   pushGraphEdge(edges, planId, ownerId, nodeId, "traced_to_source_variant", parsed.variantKind ? `${parsed.variantKind} source` : "source variant");
-  const sampleNodeId = traceId(planId, "sourceSample", parsed.sampleId);
+  const sampleNodeId = traceId("sourceSample", parsed.sampleId);
   upsertGraphNode(nodes, {
     id: sampleNodeId,
     type: "sourceSample",
     label: aliasForSample(aliasMap, parsed.sampleId) ? `${aliasForSample(aliasMap, parsed.sampleId)} ${shortSampleLabel(parsed.sampleId)}` : shortSampleLabel(parsed.sampleId),
     group: "sourceSample",
     data: {
-      planId,
+      planIds: [planId],
       sampleVideoId: parsed.sampleId,
       sampleId: parsed.sampleId,
       sourceAlias: aliasForSample(aliasMap, parsed.sampleId),
     },
-  }, (existing) => existing);
+  }, (existing) => ({
+    ...existing,
+    data: {
+      ...existing.data,
+      planIds: uniqueStrings([...(asArray(existing.data?.planIds)), planId]),
+      sourceAlias: firstText(existing.data?.sourceAlias, aliasForSample(aliasMap, parsed.sampleId)),
+    },
+  }));
   pushGraphEdge(edges, planId, nodeId, sampleNodeId, "source_variant_to_sample", "sample");
 }
 
