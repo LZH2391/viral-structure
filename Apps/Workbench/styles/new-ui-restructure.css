@@ -517,9 +517,11 @@
 }
 
 .new-ui-material-gap-result {
-  display: grid;
+  align-self: start;
+  display: flow-root;
   width: min(960px, 100%);
   max-width: 100%;
+  min-height: 66px;
   margin: 8px 0 10px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--new-ui-border) 72%, transparent);
@@ -529,6 +531,10 @@
 
 .new-ui-material-gap-result.is-warning {
   border-color: color-mix(in srgb, var(--warning) 42%, var(--new-ui-border));
+}
+
+.new-ui-material-gap-result.is-expanded {
+  height: max-content;
 }
 
 .new-ui-material-gap-result.is-error {
@@ -544,6 +550,8 @@
 }
 
 .new-ui-material-gap-header {
+  position: relative;
+  z-index: 1;
   width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -1532,6 +1540,19 @@ button.new-ui-restructure-note-pill:disabled {
   font-weight: 650;
 }
 
+.new-ui-restructure-attachment-chip.is-pending {
+  background: color-mix(in srgb, var(--new-ui-text) 14%, transparent);
+}
+
+.new-ui-restructure-attachment-chip.is-danger {
+  background: color-mix(in srgb, #ef4444 18%, transparent);
+  color: color-mix(in srgb, #fecaca 80%, var(--new-ui-text));
+}
+
+.new-ui-restructure-attachment-chip.is-danger .new-ui-restructure-attachment-chip-main b {
+  color: color-mix(in srgb, #fecaca 82%, var(--new-ui-text-muted));
+}
+
 .new-ui-restructure-attachment-chip-main {
   display: inline-flex;
   align-items: center;
@@ -1656,6 +1677,20 @@ button.new-ui-restructure-attachment-chip-main:focus-visible {
 
 .new-ui-restructure-picker-card.is-pending {
   cursor: default;
+}
+
+.new-ui-restructure-picker-card.is-failed {
+  color: color-mix(in srgb, #fecaca 76%, var(--new-ui-text));
+}
+
+.new-ui-restructure-picker-card.is-failed .new-ui-restructure-picker-thumb,
+.new-ui-restructure-picker-card.is-failed .new-ui-restructure-picker-card-icon {
+  background: color-mix(in srgb, #ef4444 16%, transparent);
+  color: color-mix(in srgb, #fecaca 76%, var(--new-ui-text-muted));
+}
+
+.new-ui-restructure-picker-card.is-failed small {
+  color: color-mix(in srgb, #fecaca 72%, var(--new-ui-text-muted));
 }
 
 .new-ui-restructure-picker-card.is-pending .new-ui-restructure-picker-thumb,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import { createPortal } from "react-dom";
 import { archiveAgentChatConversation, autoRunShotStoryboardPrep, collectAgentChatTurn, compactAgentChatThread, confirmAgentChatConversation, getFunctionSlotLibraryItems, getMaterialRecognitionBatchRun, getSampleArtifact, listAgentChatConversations, previewFunctionSlotPlanTraceGraph, runtimeUrl, sendAgentChatMessage, startAgentChatAutoAdvance, startAgentChatThread, startMaterialRecognitionBatchRun, stopAgentChatTurn, submitAgentChatManualReplacement } from "../../api/client";
 import { useResizableThreePaneLayout } from "../../hooks/useResizableThreePaneLayout";
-import type { AgentChatConversation, AgentChatMaterialPackRef, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline, FullAnalysisBatchItem, FullAnalysisBatchRun, ReplacementDraft } from "../../types";
+import type { AgentChatConversation, AgentChatMaterialPackRef, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTurnTimeline, ErrorSummary, FullAnalysisBatchItem, FullAnalysisBatchRun, ReplacementDraft } from "../../types";
 import { extractRestructureFinalPath, normalizeRestructureFinalPath } from "../../utils/restructurePath";
 import type { NewUiTheme } from "../../utils/workbenchPreferences";
 import { AppErrorBoundary } from "../AppErrorBoundary";
@@ -61,6 +61,7 @@ const PANE_TRANSITION_GUARD_MS = 420;
 const LEFT_PANE_ANIMATION_MS = 280;
 const RESTRUCTURE_TURN_POLL_INTERVAL_MS = 1600;
 const RESTRUCTURE_CONVERSATION_PAGE_SIZE = 15;
+const RESTRUCTURE_MATERIAL_POLL_MAX_ATTEMPTS = 240;
 const analysisOpenRequestResolvers = new Map<number, (result: { ok: boolean; message?: string | null }) => void>();
 
 type NewUiThreePanePreference = {
@@ -848,13 +849,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         }
         const nextOption = materialPackPendingOptionFromAnalysisItem(analysisItem, fallbackTitle, uploadKey);
         setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, nextOption));
-        if (attempt < 60) {
+        if (attempt < RESTRUCTURE_MATERIAL_POLL_MAX_ATTEMPTS) {
           restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(refreshedHistoryItem ?? item), 2000);
         } else {
           delete restructureMaterialPollTimersRef.current[sampleVideoId];
         }
       } catch {
-        if (attempt < 60) {
+        if (attempt < RESTRUCTURE_MATERIAL_POLL_MAX_ATTEMPTS) {
           restructureMaterialPollTimersRef.current[sampleVideoId] = window.setTimeout(() => void poll(item), 3000);
         } else {
           delete restructureMaterialPollTimersRef.current[sampleVideoId];
@@ -883,6 +884,23 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           restructureMaterialUploadSampleKeysRef.current[queueItem.sampleVideoId] = uploadKey;
           const item = materialAnalysisItemFromBatchQueueItem(queueItem, batch, fallbackTitle);
           const historyItem = materialHistoryItemFromBatchQueueItem(queueItem, batch, fallbackTitle);
+          if (isTerminalFailedMaterialQueueItem(queueItem)) {
+            delete restructureMaterialPollTimersRef.current[timerKey];
+            const failedOption = materialPackFailedOptionFromBatchQueueItem(queueItem, batch, fallbackTitle, uploadKey);
+            setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(
+              current.filter((option) => !isSameMaterialUpload(option, uploadKey, pendingMaterialSampleId(batchRunId, queueItemId))),
+              failedOption,
+            ));
+            if (!isRestructureMaterialSelectionCancelled(failedOption, cancelledRestructureMaterialSamplesRef.current)) {
+              setRestructureMaterialPackSelectionForScope(selectionScope, (current) => {
+                if (!current) return failedOption;
+                if (current.pending && isSameMaterialPackOptionIdentity(current, failedOption)) return failedOption;
+                return current;
+              }, setSelectedRestructureMaterialPack, setDraftRestructureMaterialPack);
+            }
+            await refreshRestructureConversations(targetConversationId ?? activeRestructureConversationIdRef.current).catch(() => undefined);
+            return;
+          }
           const directArtifactItem = await loadMaterialPackItemFromSampleArtifact(queueItem.sampleVideoId, item);
           const refreshedItem = directArtifactItem ?? await refreshAnalysisDetailItem(historyItem).then((result) => result.item).catch(() => null);
           if (refreshedItem && materialPackReady(refreshedItem)) {
@@ -921,8 +939,29 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
                 : current;
             }, setSelectedRestructureMaterialPack, setDraftRestructureMaterialPack);
           }
+          if (String(queueItem.status ?? "").toLowerCase() === "processed") {
+            delete restructureMaterialPollTimersRef.current[timerKey];
+            pollRestructureMaterialPackUntilReady(historyItem, fallbackTitle, uploadKey, targetConversationId, selectionScope);
+            return;
+          }
+          if (attempt < RESTRUCTURE_MATERIAL_POLL_MAX_ATTEMPTS) {
+            restructureMaterialPollTimersRef.current[timerKey] = window.setTimeout(() => void poll(), 2000);
+          } else {
+            delete restructureMaterialPollTimersRef.current[timerKey];
+          }
+          return;
+        }
+        if (isTerminalFailedMaterialQueueItem(queueItem)) {
           delete restructureMaterialPollTimersRef.current[timerKey];
-          pollRestructureMaterialPackUntilReady(historyItem, fallbackTitle, uploadKey, targetConversationId, selectionScope);
+          const failedOption = materialPackFailedOptionFromBatchQueueItem(queueItem, batch, fallbackTitle, uploadKey);
+          setRestructureMaterialPackOptions((current) => upsertMaterialPackOption(current, failedOption));
+          if (!isRestructureMaterialSelectionCancelled(failedOption, cancelledRestructureMaterialSamplesRef.current)) {
+            setRestructureMaterialPackSelectionForScope(selectionScope, (current) => {
+              if (!current) return failedOption;
+              if (current.pending && isSameMaterialPackOptionIdentity(current, failedOption)) return failedOption;
+              return current;
+            }, setSelectedRestructureMaterialPack, setDraftRestructureMaterialPack);
+          }
           return;
         }
         const pendingOption = materialPackPendingOptionFromBatchQueueItem(queueItem, batch, fallbackTitle, uploadKey);
@@ -933,13 +972,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
           setSelectedRestructureMaterialPack,
           setDraftRestructureMaterialPack,
         );
-        if (attempt < 60) {
+        if (attempt < RESTRUCTURE_MATERIAL_POLL_MAX_ATTEMPTS) {
           restructureMaterialPollTimersRef.current[timerKey] = window.setTimeout(() => void poll(), 2000);
         } else {
           delete restructureMaterialPollTimersRef.current[timerKey];
         }
       } catch {
-        if (attempt < 60) {
+        if (attempt < RESTRUCTURE_MATERIAL_POLL_MAX_ATTEMPTS) {
           restructureMaterialPollTimersRef.current[timerKey] = window.setTimeout(() => void poll(), 3000);
         } else {
           delete restructureMaterialPollTimersRef.current[timerKey];
@@ -1251,8 +1290,9 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleOpenPlanTraceFromRestructureMessage = useCallback(async (message: AgentChatMessageSnapshot) => {
     const conversation = selectedRestructureConversation;
     if (!conversation?.conversationId || openingPlanTraceMessageId) return;
-    const displayJsonPath = message.slotAtomDisplay?.displayJsonPath ?? activeSlotAtomDisplay?.displayJsonPath ?? null;
-    const sourceRestructurePath = resolveCurrentRestructureFinalPath(conversation, message.turnId ?? selectedRestructureTurnTarget?.turnId ?? null);
+    const displayJsonPath = activeSlotAtomDisplay?.displayJsonPath ?? message.slotAtomDisplay?.displayJsonPath ?? null;
+    const sourceRestructurePath = activeSlotAtomDisplay?.sourceRestructureFinalPath
+      ?? resolveCurrentRestructureFinalPath(conversation, message.turnId ?? selectedRestructureTurnTarget?.turnId ?? null);
     if (!displayJsonPath || !sourceRestructurePath) {
       markRestructureConversationError(conversation.conversationId, new Error("当前方案缺少可预览的溯源图输入"));
       return;
@@ -1279,13 +1319,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     } finally {
       setOpeningPlanTraceMessageId(null);
     }
-  }, [activeSlotAtomDisplay?.displayJsonPath, clearRestructureConversationError, markRestructureConversationError, openingPlanTraceMessageId, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId]);
+  }, [activeSlotAtomDisplay?.displayJsonPath, activeSlotAtomDisplay?.sourceRestructureFinalPath, clearRestructureConversationError, markRestructureConversationError, openingPlanTraceMessageId, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId]);
 
   const handleConfirmPlanFromRestructureMessage = useCallback(async (message: AgentChatMessageSnapshot) => {
     const conversation = selectedRestructureConversation;
     if (!conversation?.conversationId || confirmingPlanMessageId) return;
       const currentTurnId = message.turnId ?? selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null;
-      const sourceRestructurePath = resolveCurrentRestructureFinalPath(conversation, currentTurnId);
+      const sourceRestructurePath = activeSlotAtomDisplay?.sourceRestructureFinalPath ?? resolveCurrentRestructureFinalPath(conversation, currentTurnId);
       const sourceShotDesignPath = resolveCurrentShotDesignFinalPath(conversation, currentTurnId, message);
     if (!sourceRestructurePath) {
       markRestructureConversationError(conversation.conversationId, new Error("未找到当前方案的 restructure.final.md 路径"));
@@ -1372,7 +1412,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     } finally {
       setConfirmingPlanMessageId(null);
     }
-  }, [clearRestructureConversationError, confirmingPlanMessageId, markRestructureConversationError, refreshRestructureConversations, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId]);
+  }, [activeSlotAtomDisplay?.sourceRestructureFinalPath, clearRestructureConversationError, confirmingPlanMessageId, markRestructureConversationError, refreshRestructureConversations, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId]);
 
   const handleAutoAdvanceFromCurrentSlot = useCallback(async (submissionKey?: string | null) => {
     const conversation = selectedRestructureConversation;
@@ -2440,6 +2480,15 @@ type RestructureMaterialAnalysisItem = {
   } | null;
 };
 
+function isTerminalFailedMaterialQueueItem(queueItem: FullAnalysisBatchItem) {
+  const status = String(queueItem.status ?? "").toLowerCase();
+  return status === "failed" || status === "partial_failed" || status === "canceled" || status === "cancelled";
+}
+
+function materialFailureMessage(errorSummary?: ErrorSummary | null) {
+  return errorSummary?.message?.trim() || "素材识别失败，请重新上传";
+}
+
 function materialAnalysisItemFromBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, fallbackTitle?: string | null): RestructureMaterialAnalysisItem {
   return {
     sampleVideoId: queueItem.sampleVideoId ?? pendingMaterialSampleId(batch.batchRunId, queueItem.queueItemId),
@@ -2555,6 +2604,20 @@ function materialPackPendingOptionFromBatchQueueItem(queueItem: FullAnalysisBatc
   };
 }
 
+function materialPackFailedOptionFromBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, fallbackTitle?: string | null, uploadKey?: string | null): NewUiMaterialPackOption {
+  return {
+    sampleVideoId: queueItem.sampleVideoId ?? pendingMaterialSampleId(batch.batchRunId, queueItem.queueItemId),
+    artifactId: null,
+    title: stripMediaExtension(fallbackTitle ?? queueItem.filename ?? "上传素材"),
+    traceId: null,
+    coverUrl: null,
+    durationSeconds: null,
+    uploadKey: uploadKey ?? materialUploadKey(batch.batchRunId, queueItem.queueItemId),
+    failed: true,
+    errorMessage: materialFailureMessage(queueItem.errorSummary ?? queueItem.lastFailure ?? null),
+  };
+}
+
 function materialPackOptionFromConversationDefault(ref: AgentChatMaterialPackRef | null | undefined): NewUiMaterialPackOption | null {
   if (!ref?.sampleVideoId && !ref?.resultUri) return null;
   return {
@@ -2648,6 +2711,7 @@ function preferMaterialPackOption(current: NewUiMaterialPackOption, next: NewUiM
 
 function materialPackOptionPriority(option: NewUiMaterialPackOption) {
   if (!option.pending && option.resultUri) return 4;
+  if (option.failed) return 3.5;
   if (option.pending) return 3;
   if (!option.pending) return 2;
   return 1;

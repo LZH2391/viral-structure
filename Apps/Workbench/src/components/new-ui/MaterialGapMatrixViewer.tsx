@@ -4,16 +4,24 @@ import type { AgentChatMaterialGapMatrix, AgentChatMaterialGapRow } from "../../
 
 type MaterialGapMatrixViewerProps = {
   matrix: AgentChatMaterialGapMatrix;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 };
 
-export function MaterialGapMatrixViewer({ matrix }: MaterialGapMatrixViewerProps) {
-  const [expanded, setExpanded] = useState(false);
+export function MaterialGapMatrixViewer({ matrix, expanded: controlledExpanded, onExpandedChange }: MaterialGapMatrixViewerProps) {
+  const [uncontrolledExpanded, setUncontrolledExpanded] = useState(false);
+  const expanded = controlledExpanded ?? uncontrolledExpanded;
   const rows = matrix.rows ?? [];
   const summary = matrix.summary ?? {};
   const issueCount = (summary.missingCount ?? 0) + (summary.partialCount ?? 0) + (summary.unsafeCount ?? 0);
   const warning = (summary.unsafeCount ?? 0) > 0 || (summary.missingCount ?? 0) >= 3;
   const statusLabel = formatStatus(matrix.status);
   const topMissing = useMemo(() => (summary.topMissingMaterialTypes ?? []).slice(0, 3).map(formatMaterialType).join(" / "), [summary.topMissingMaterialTypes]);
+  const toggleExpanded = () => {
+    const nextExpanded = !expanded;
+    setUncontrolledExpanded(nextExpanded);
+    onExpandedChange?.(nextExpanded);
+  };
 
   if (matrix.status && matrix.status !== "processed") {
     return (
@@ -24,12 +32,22 @@ export function MaterialGapMatrixViewer({ matrix }: MaterialGapMatrixViewerProps
   }
 
   return (
-    <section className={`new-ui-material-gap-result ${warning ? "is-warning" : ""}`.trim()} aria-label="素材缺口矩阵">
+    <section
+      className={`new-ui-material-gap-result ${expanded ? "is-expanded" : ""} ${warning ? "is-warning" : ""}`.trim()}
+      aria-label="素材缺口矩阵"
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest(".new-ui-material-gap-table-wrap")) return;
+        toggleExpanded();
+      }}
+    >
       <button
         className="new-ui-material-gap-header"
         type="button"
         aria-expanded={expanded}
-        onClick={() => setExpanded((current) => !current)}
+        onClick={(event) => {
+          event.stopPropagation();
+          toggleExpanded();
+        }}
       >
         <div>
           <span>素材缺口矩阵</span>

@@ -65,6 +65,8 @@ export type NewUiMaterialPackOption = AgentChatMaterialPackRef & {
   updatedAt?: string | null;
   uploadKey?: string | null;
   pending?: boolean;
+  failed?: boolean;
+  errorMessage?: string | null;
   cancelled?: boolean;
 };
 
@@ -142,6 +144,7 @@ export function NewUiRestructureWorkspace({
   const [activeAttachmentPanel, setActiveAttachmentPanel] = useState<"material" | "structure" | null>(null);
   const [uncontrolledSelectedMaterialPack, setUncontrolledSelectedMaterialPack] = useState<NewUiMaterialPackOption | null>(null);
   const [selectedStructure, setSelectedStructure] = useState<NewUiStructureOption | null>(null);
+  const [expandedMaterialGapMatrixByMessageId, setExpandedMaterialGapMatrixByMessageId] = useState<Record<string, boolean>>({});
   const [timelineActivityExpandedByScope, setTimelineActivityExpandedByScope] = useState<Record<string, boolean>>({});
   const [processMessageExpandedByScope, setProcessMessageExpandedByScope] = useState<Record<string, boolean>>({});
   const messageListRef = useRef<HTMLDivElement | null>(null);
@@ -332,8 +335,9 @@ export function NewUiRestructureWorkspace({
     <div className="new-ui-restructure-composer-attachments" aria-label="已选择的重组上下文">
       {selectedMaterialPack ? (
         <AttachmentChip
-          label={selectedMaterialPack.pending ? "识别中" : "素材包"}
+          label={selectedMaterialPack.failed ? "识别失败" : selectedMaterialPack.pending ? "识别中" : "素材包"}
           title={selectedMaterialPack.title ?? selectedMaterialPack.sampleVideoId ?? selectedMaterialPack.resultUri ?? "素材包"}
+          tone={selectedMaterialPack.failed ? "danger" : selectedMaterialPack.pending ? "pending" : "neutral"}
           onOpen={onOpenMaterialPackDetail ? () => onOpenMaterialPackDetail(selectedMaterialPack) : undefined}
           onRemove={() => setSelectedMaterialPack(null)}
         />
@@ -599,7 +603,16 @@ export function NewUiRestructureWorkspace({
                         }}
                       />
                     ) : renderItem.message.materialGapMatrix ? (
-                      <MaterialGapMatrixViewer matrix={renderItem.message.materialGapMatrix} />
+                      <MaterialGapMatrixViewer
+                        matrix={renderItem.message.materialGapMatrix}
+                        expanded={expandedMaterialGapMatrixByMessageId[renderItem.message.id] ?? false}
+                        onExpandedChange={(expanded) => {
+                          setExpandedMaterialGapMatrixByMessageId((current) => ({
+                            ...current,
+                            [renderItem.message.id]: expanded,
+                          }));
+                        }}
+                      />
                     ) : renderItem.message.storyboardResult && conversation?.conversationId ? (
                       <StoryboardResultViewer
                         conversationId={conversation.conversationId}
@@ -687,9 +700,9 @@ function RestructureSendErrorAlert({ message }: { message: string }) {
   );
 }
 
-function AttachmentChip({ label, title, onOpen, onRemove }: { label: string; title: string; onOpen?: () => void; onRemove: () => void }) {
+function AttachmentChip({ label, title, tone = "neutral", onOpen, onRemove }: { label: string; title: string; tone?: "neutral" | "pending" | "danger"; onOpen?: () => void; onRemove: () => void }) {
   return (
-    <span className="new-ui-restructure-attachment-chip">
+    <span className={`new-ui-restructure-attachment-chip is-${tone}`}>
       {onOpen ? (
         <button className="new-ui-restructure-attachment-chip-main" type="button" aria-label={`打开${label} ${title}`} onClick={onOpen}>
           <b>{label}</b>
@@ -737,7 +750,7 @@ function MaterialPackPickerPanel({
       {!loading ? options.map((option) => (
         <button
           key={`${option.sampleVideoId}:${option.artifactId ?? ""}`}
-          className={`new-ui-restructure-picker-card ${isSameMaterialPackOption(option, selected) ? "is-selected" : ""} ${option.pending ? "is-pending" : ""}`.trim()}
+          className={`new-ui-restructure-picker-card ${isSameMaterialPackOption(option, selected) ? "is-selected" : ""} ${option.failed ? "is-failed" : option.pending ? "is-pending" : ""}`.trim()}
           type="button"
           onClick={() => onSelect(option)}
         >
@@ -794,7 +807,7 @@ function PickerStateCard({ text }: { text: string }) {
 }
 
 function buildRestructureSendContext(materialPack: NewUiMaterialPackOption | null, structure: NewUiStructureOption | null): NewUiRestructureSendContext {
-  const readyMaterialPack = materialPack && !materialPack.pending ? materialPack : null;
+  const readyMaterialPack = materialPack && !materialPack.pending && !materialPack.failed ? materialPack : null;
   return {
     materialPackRef: readyMaterialPack ? {
       sampleVideoId: readyMaterialPack.sampleVideoId,
@@ -819,7 +832,7 @@ function buildRestructureSendContext(materialPack: NewUiMaterialPackOption | nul
 
 function isSameMaterialPackOption(left: NewUiMaterialPackOption | null, right: NewUiMaterialPackOption | null) {
   return Boolean(left && right && left.sampleVideoId === right.sampleVideoId && (
-    left.pending || right.pending || (left.artifactId ?? null) === (right.artifactId ?? null)
+    left.pending || right.pending || left.failed || right.failed || (left.artifactId ?? null) === (right.artifactId ?? null)
   ));
 }
 
@@ -828,6 +841,7 @@ function isSameStructureOption(left: NewUiStructureOption | null, right: NewUiSt
 }
 
 function formatMaterialPackOptionMeta(option: NewUiMaterialPackOption) {
+  if (option.failed) return option.errorMessage || "素材识别失败，请重新上传";
   if (option.pending) return "素材识别中，完成后自动附带";
   const counts = [
     option.shotCardCount != null ? `${option.shotCardCount} 镜头卡` : null,
@@ -923,13 +937,23 @@ function isMessagePlanConfirmed(message: AgentChatMessageSnapshot, conversation:
   const messageTurnId = message.turnId?.trim();
   const confirmedTurnId = confirmed.turnId?.trim();
   if (!messageTurnId || !confirmedTurnId || messageTurnId !== confirmedTurnId) return false;
-  const sourceRestructurePath = normalizeComparablePath(extractRestructureFinalPath(message.text)) || normalizeComparablePath(confirmed.sourceRestructurePath);
+  const sourceRestructurePath = resolveMessageConfirmedRestructurePath(message, confirmed.sourceRestructurePath);
   const sourceShotDesignPath = normalizeComparablePath(message.dialogueRoboticReview?.shotDesignFinalPath) || normalizeComparablePath(extractShotDesignFinalPath(message.text)) || normalizeComparablePath(confirmed.sourceShotDesignPath);
   const confirmedRestructurePath = normalizeComparablePath(confirmed.sourceRestructurePath);
   const confirmedShotDesignPath = normalizeComparablePath(confirmed.sourceShotDesignPath);
   if (confirmedRestructurePath && sourceRestructurePath && confirmedRestructurePath !== sourceRestructurePath) return false;
   if (confirmedShotDesignPath && sourceShotDesignPath && confirmedShotDesignPath !== sourceShotDesignPath) return false;
   return true;
+}
+
+function resolveMessageConfirmedRestructurePath(message: AgentChatMessageSnapshot, confirmedPath?: string | null) {
+  const confirmed = normalizeComparablePath(confirmedPath);
+  const displayPaths = [
+    message.slotAtomDisplay?.sourceRestructureFinalPath,
+    ...(message.slotAtomDisplay?.versionDisplays ?? []).map((display) => display?.sourceRestructureFinalPath),
+  ].map(normalizeComparablePath).filter((path): path is string => Boolean(path));
+  if (confirmed && displayPaths.includes(confirmed)) return confirmed;
+  return displayPaths[0] ?? normalizeComparablePath(extractRestructureFinalPath(message.text)) ?? confirmed;
 }
 
 function normalizeComparablePath(pathText?: string | null) {

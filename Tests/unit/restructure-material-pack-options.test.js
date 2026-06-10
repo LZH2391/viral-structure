@@ -65,6 +65,31 @@ test("material pack option merge keeps completed result over pending placeholder
   assert.equal(replacePendingMaterialPackSelection(pending, [ready]), ready);
 });
 
+test("material pack option merge keeps failed result over pending placeholder", () => {
+  const pending = {
+    sampleVideoId: "sample_failed",
+    artifactId: null,
+    title: "acc1-restructure-e2e-copy",
+    uploadKey: "upload:batch_808d:batch_item_63f",
+    pending: true,
+  };
+  const failed = {
+    sampleVideoId: "sample_failed",
+    artifactId: null,
+    title: "acc1-restructure-e2e-copy",
+    uploadKey: "upload:batch_808d:batch_item_63f",
+    failed: true,
+    errorMessage: "切镜 Agent 未返回明确切镜边界",
+  };
+
+  const upserted = upsertMaterialPackOption([pending], failed);
+
+  assert.equal(upserted.length, 1);
+  assert.equal(upserted[0].pending, undefined);
+  assert.equal(upserted[0].failed, true);
+  assert.equal(upserted[0].errorMessage, "切镜 Agent 未返回明确切镜边界");
+});
+
 test("conversation default material pack replaces pending upload selection", () => {
   const pending = {
     sampleVideoId: "pending:batch_7c2a:batch_item_3d3d",
