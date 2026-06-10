@@ -3,9 +3,17 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
+function sliceBetween(source, start, end) {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `expected to find ${start}`);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  assert.notEqual(endIndex, -1, `expected to find ${end}`);
+  return source.slice(startIndex, endIndex);
+}
+
 test("analysis workflow reveal key is stable across stage artifact updates", () => {
   const root = path.resolve(__dirname, "../..");
-  const source = fs.readFileSync(path.join(root, "Apps/Workbench/src/components/new-ui/NewUiLayout.tsx"), "utf8");
+  const source = fs.readFileSync(path.join(root, "Apps/Workbench/src/components/new-ui/NewUiLayoutRoot.tsx"), "utf8");
   const match = source.match(/const analysisWorkflowRevealKey =[\s\S]*?: null;/);
 
   assert.ok(match);
@@ -16,28 +24,24 @@ test("analysis workflow reveal key is stable across stage artifact updates", () 
 
 test("restructure plan actions prefer selected slot atom version paths", () => {
   const root = path.resolve(__dirname, "../..");
-  const source = fs.readFileSync(path.join(root, "Apps/Workbench/src/components/new-ui/NewUiLayout.tsx"), "utf8");
-  const planTraceHandler = source.match(/const handleOpenPlanTraceFromRestructureMessage =[\s\S]*?\n  \}, \[[^\n]+\]\);/);
-  const confirmHandler = source.match(/const handleConfirmPlanFromRestructureMessage =[\s\S]*?\n  \}, \[[^\n]+\]\);/);
+  const source = fs.readFileSync(path.join(root, "Apps/Workbench/src/components/new-ui/NewUiLayoutRoot.tsx"), "utf8");
+  const planTraceHandler = sliceBetween(source, "const handleOpenPlanTraceFromRestructureMessage", "const handleConfirmPlanFromRestructureMessage");
+  const confirmHandler = sliceBetween(source, "const handleConfirmPlanFromRestructureMessage", "const handleAutoAdvanceFromCurrentSlot");
 
-  assert.ok(planTraceHandler);
-  assert.ok(confirmHandler);
-  assert.match(planTraceHandler[0], /resolvePlanTracePreviewInput\(message\.slotAtomDisplay \?\? null/);
-  assert.match(planTraceHandler[0], /activeSlotAtomDisplay\?\.rootRestructureFinalPath/);
-  assert.match(planTraceHandler[0], /displayJsonPath: planTraceInput\.multiVersion \? null : displayJsonPath/);
-  assert.match(confirmHandler[0], /activeSlotAtomDisplay\?\.sourceRestructureFinalPath \?\? resolveCurrentRestructureFinalPath/);
+  assert.match(planTraceHandler, /resolvePlanTracePreviewInput\(message\.slotAtomDisplay \?\? null/);
+  assert.match(planTraceHandler, /activeSlotAtomDisplay\?\.rootRestructureFinalPath/);
+  assert.match(planTraceHandler, /displayJsonPath: planTraceInput\.multiVersion \? null : displayJsonPath/);
+  assert.match(confirmHandler, /activeSlotAtomDisplay\?\.sourceRestructureFinalPath \?\? resolveCurrentRestructureFinalPath/);
 });
 
 test("restructure confirmed state can match multi-version display paths", () => {
   const root = path.resolve(__dirname, "../..");
-  const source = fs.readFileSync(path.join(root, "Apps/Workbench/src/components/new-ui/NewUiRestructureWorkspace.tsx"), "utf8");
-  const resolver = source.match(/function resolveMessageConfirmedRestructurePath[\s\S]*?\n}\n\nfunction normalizeComparablePath/);
-  const confirmedCheck = source.match(/function isMessagePlanConfirmed[\s\S]*?\n}\n\nfunction resolveMessageConfirmedRestructurePath/);
+  const source = fs.readFileSync(path.join(root, "Apps/Workbench/src/components/new-ui/restructureWorkspaceStoryboard.ts"), "utf8");
+  const resolver = sliceBetween(source, "export function resolveMessageConfirmedRestructurePath", "function normalizeComparablePath");
+  const confirmedCheck = sliceBetween(source, "export function isMessagePlanConfirmed", "export function resolveMessageConfirmedRestructurePath");
 
-  assert.ok(resolver);
-  assert.ok(confirmedCheck);
-  assert.match(confirmedCheck[0], /resolveMessageConfirmedRestructurePath\(message, confirmed\.sourceRestructurePath\)/);
-  assert.match(resolver[0], /message\.slotAtomDisplay\?\.versionDisplays/);
-  assert.match(resolver[0], /display\?\.sourceRestructureFinalPath/);
-  assert.match(resolver[0], /displayPaths\.includes\(confirmed\)/);
+  assert.match(confirmedCheck, /resolveMessageConfirmedRestructurePath\(message, confirmed\.sourceRestructurePath\)/);
+  assert.match(resolver, /message\.slotAtomDisplay\?\.versionDisplays/);
+  assert.match(resolver, /display\?\.sourceRestructureFinalPath/);
+  assert.match(resolver, /displayPaths\.includes\(confirmed\)/);
 });

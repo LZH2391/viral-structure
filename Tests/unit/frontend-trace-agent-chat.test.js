@@ -188,7 +188,10 @@ test("agent chat page is routed through appserver with ThreadPool fork timeline"
 
 test("new UI restructure process pseudo streaming is scoped to the active turn", () => {
   const root = path.resolve(__dirname, "../..");
-  const restructure = read(root, "Apps/Workbench/src/components/new-ui/NewUiRestructureWorkspace.tsx");
+  const restructure = [
+    "Apps/Workbench/src/components/new-ui/NewUiRestructureWorkspace.tsx",
+    "Apps/Workbench/src/components/new-ui/restructureWorkspacePseudoStream.ts",
+  ].map((file) => read(root, file)).join("\n");
   const processHook = restructure.match(/function usePseudoStreamedProcessMessages[\s\S]*?function startPseudoStream/)?.[0] ?? "";
 
   assert.match(restructure, /usePseudoStreamedProcessMessages\([\s\S]*activeTurnId: activeTurnTarget\?\.turnId/);

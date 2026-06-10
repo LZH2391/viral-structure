@@ -118,7 +118,13 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   const view = read(root, "Apps/Workbench/src/utils/workbenchView.ts");
   const preferences = read(root, "Apps/Workbench/src/utils/workbenchPreferences.ts");
   const newUi = read(root, "Apps/Workbench/src/components/NewUiApp.tsx");
-  const newUiLayout = read(root, "Apps/Workbench/src/components/new-ui/NewUiLayout.tsx");
+  const newUiLayout = [
+    "Apps/Workbench/src/components/new-ui/NewUiLayout.tsx",
+    "Apps/Workbench/src/components/new-ui/NewUiLayoutRoot.tsx",
+    "Apps/Workbench/src/components/new-ui/NewUiLayoutTypes.ts",
+    "Apps/Workbench/src/components/new-ui/NewUiPaneChrome.tsx",
+    "Apps/Workbench/src/components/new-ui/NewUiSidebarNav.tsx",
+  ].map((file) => read(root, file)).join("\n");
   const styles = read(root, "Apps/Workbench/styles.css");
   const newUiThemeCss = read(root, "Apps/Workbench/styles/new-ui-theme.css");
   const newUiCss = read(root, "Apps/Workbench/styles/new-ui.css");
@@ -159,7 +165,7 @@ test("workbench defaults to new UI and persists new UI theme preference", () => 
   assert.match(newUiLayout, /leftRatio: \{ min: 0\.1, max: 0\.3 \}/);
   assert.match(newUiLayout, /rightRatio: showAnalysisWorkflow \? \{ min: 0\.18, max: 0\.34 \}/);
   assert.match(newUiLayout, /onLeftCollapsedChange\?\.\(leftCollapsed\)/);
-  assert.match(newUiLayout, /<ThemeToggle theme=\{theme\} onThemeChange=\{onThemeChange\} \/>/);
+  assert.match(newUiLayout, /<ThemeToggle theme=\{theme\} onThemeChange=\{onThemeChange\}\s*\/>/);
   assert.match(newUiLayout, /className="new-ui-pane-theme"/);
   assert.match(newUiLayout, /type NewUiSectionId = "analysis" \| "library" \| "restructure"/);
   assert.match(newUiLayout, /label: "分析"/);

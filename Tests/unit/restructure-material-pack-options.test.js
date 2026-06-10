@@ -28,7 +28,15 @@ function loadNewUiLayoutHelpers() {
 
 function readNewUiLayoutSource() {
   const root = path.resolve(__dirname, "../..");
-  return fs.readFileSync(path.join(root, "Apps/Workbench/src/components/new-ui/NewUiLayout.tsx"), "utf8");
+  return fs.readFileSync(path.join(root, "Apps/Workbench/src/components/new-ui/NewUiLayoutRoot.tsx"), "utf8");
+}
+
+function sliceBetween(source, start, end) {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `expected to find ${start}`);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  assert.notEqual(endIndex, -1, `expected to find ${end}`);
+  return source.slice(startIndex, endIndex);
 }
 
 const {
@@ -153,15 +161,13 @@ test("draft material selection updates stay isolated from conversation selection
 
 test("draft material upload does not create or select a conversation", () => {
   const source = readNewUiLayoutSource();
-  const match = source.match(/const handleRestructureMaterialUploadChange = useCallback[\s\S]+?\n  \}, \[[^\n]+\]\);/);
-  assert.ok(match, "expected to find restructure material upload handler");
-  const handlerSource = match[0];
+  const handlerSource = sliceBetween(source, "const handleRestructureMaterialUploadChange", "const handleSidebarRestructureConversationChange");
 
   assert.equal(handlerSource.includes("startAgentChatThread"), false);
   assert.equal(handlerSource.includes("selectRestructureConversation"), false);
   assert.equal(handlerSource.includes("upsertConversation"), false);
   assert.match(handlerSource, /uploadStartedInDraft \? null : selectedRestructureConversation\?\.conversationId \?\? null/);
   assert.match(handlerSource, /selectionScope: RestructureMaterialSelectionScope = uploadStartedInDraft \? "draft" : "conversation"/);
-  assert.match(handlerSource, /\btargetConversationId,\s*\n/);
+  assert.match(handlerSource, /\btargetConversationId,/);
   assert.match(handlerSource, /bindMaterialToConversation:\s*Boolean\(targetConversationId\)/);
 });
