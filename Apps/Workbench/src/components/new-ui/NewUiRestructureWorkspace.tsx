@@ -77,7 +77,7 @@ export type NewUiStructureOption = AgentChatStructureRef & {
 type RestructureTimelineActivityItem = {
   id: string;
   sourceKey: string;
-  kind: "reasoning" | "context_compacting" | "context_compacted" | "tool_call" | "dialogue_review";
+  kind: "reasoning" | "context_compacting" | "context_compacted" | "tool_call" | "dialogue_review" | "material_gap_matrix";
   label: string;
   detail: string | null;
   status: AgentTimelineItem["status"];
@@ -603,16 +603,23 @@ export function NewUiRestructureWorkspace({
                         }}
                       />
                     ) : renderItem.message.materialGapMatrix ? (
-                      <MaterialGapMatrixViewer
-                        matrix={renderItem.message.materialGapMatrix}
-                        expanded={expandedMaterialGapMatrixByMessageId[renderItem.message.id] ?? false}
-                        onExpandedChange={(expanded) => {
-                          setExpandedMaterialGapMatrixByMessageId((current) => ({
-                            ...current,
-                            [renderItem.message.id]: expanded,
-                          }));
-                        }}
-                      />
+                      <>
+                        <RestructureProcessMessageItem
+                          message={renderItem.message}
+                          displayText={getProcessDisplayText(renderItem.message)}
+                          pseudoStreaming={isProcessPseudoStreaming(renderItem.message)}
+                        />
+                        <MaterialGapMatrixViewer
+                          matrix={renderItem.message.materialGapMatrix}
+                          expanded={expandedMaterialGapMatrixByMessageId[renderItem.message.id] ?? false}
+                          onExpandedChange={(expanded) => {
+                            setExpandedMaterialGapMatrixByMessageId((current) => ({
+                              ...current,
+                              [renderItem.message.id]: expanded,
+                            }));
+                          }}
+                        />
+                      </>
                     ) : renderItem.message.storyboardResult && conversation?.conversationId ? (
                       <StoryboardResultViewer
                         conversationId={conversation.conversationId}
@@ -1051,7 +1058,9 @@ function RestructureMessage({
   const isThinking = message.role === "assistant" && message.status === "running" && !hasRenderableAssistantText(renderedText);
   const showDetails = !isThinking && !pseudoStreaming;
   const userInputOrigin = resolveUserInputOriginDisplay(message);
-  const planTraceDisabled = actionsDisabled || openingPlanTrace || !message.slotAtomDisplay?.displayJsonPath;
+  const planTraceDisplay = resolveMessagePlanTraceDisplay(message);
+  const slotAtomDisplay = shouldShowSlotAtomDisplayPills(message) ? message.slotAtomDisplay : null;
+  const planTraceDisabled = actionsDisabled || openingPlanTrace || !planTraceDisplay?.displayJsonPath;
   const confirmPlanDisabled = actionsDisabled || confirmingPlan || !isDialogueReviewPassed(message);
   const confirmPlanActionLabel = planAlreadyConfirmed ? "重跑方案" : "确认方案";
   const confirmingPlanActionLabel = planAlreadyConfirmed ? "重跑中" : "确认中";
@@ -1068,13 +1077,13 @@ function RestructureMessage({
             </RestructureNotePill>
           </div>
         ) : null}
-        {showDetails && message.slotAtomDisplay ? (
+        {showDetails && slotAtomDisplay ? (
           <div className="new-ui-restructure-message-note">
-            <RestructureNotePill icon="slot">槽位 {message.slotAtomDisplay.slotCount ?? 0}</RestructureNotePill>
-            <RestructureNotePill icon="atom">原子 {countSlotAtomDisplayAtoms(message.slotAtomDisplay)}</RestructureNotePill>
-            {message.slotAtomDisplay.status ? (
-              <RestructureNotePill icon="check" tone={slotAtomStatusTone(message.slotAtomDisplay.status)}>
-                {formatSlotAtomStatus(message.slotAtomDisplay.status)}
+            <RestructureNotePill icon="slot">槽位 {slotAtomDisplay.slotCount ?? 0}</RestructureNotePill>
+            <RestructureNotePill icon="atom">原子 {countSlotAtomDisplayAtoms(slotAtomDisplay)}</RestructureNotePill>
+            {slotAtomDisplay.status ? (
+              <RestructureNotePill icon="check" tone={slotAtomStatusTone(slotAtomDisplay.status)}>
+                {formatSlotAtomStatus(slotAtomDisplay.status)}
               </RestructureNotePill>
             ) : null}
             {onOpenPlanTrace ? (
@@ -1082,12 +1091,19 @@ function RestructureMessage({
                 icon="trace"
                 onClick={() => void onOpenPlanTrace(message)}
                 disabled={planTraceDisabled}
-                tooltip={message.slotAtomDisplay.displayJsonPath ? "预览当前方案溯源图" : "需要当前方案已生成 restructure.display.json"}
+                tooltip={planTraceDisplay?.displayJsonPath ? "预览当前方案溯源图" : "需要当前方案已生成 restructure.display.json"}
               >
                 {openingPlanTrace ? "预览中" : "查看溯源图"}
               </RestructureNotePill>
             ) : null}
           </div>
+        ) : null}
+        {showDetails && message.dialogueRoboticReview ? (
+          <RestructureProcessMessageItem
+            message={message}
+            displayText={formatProcessMessageDetail(message)}
+            pseudoStreaming={false}
+          />
         ) : null}
         {showDetails && message.dialogueRoboticReview ? (
           <div className="new-ui-restructure-message-note">
@@ -1150,19 +1166,30 @@ function RestructureProcessMessageGroup({
         {group.messages.map((message) => {
           const pseudoStreaming = isPseudoStreaming(message);
           return (
-            <article key={message.id} className={`new-ui-restructure-activity is-process-message ${pseudoStreaming ? "pseudo-streaming" : ""}`.trim()} aria-busy={pseudoStreaming || undefined}>
-              <span className="new-ui-restructure-activity-icon" aria-hidden="true">
-                <ProcessMessageIcon message={message} />
-              </span>
-              <p>
-                <span>{formatProcessMessageLabel(message)}</span>
-                <strong>{getDisplayText(message)}</strong>
-              </p>
-            </article>
+            <RestructureProcessMessageItem
+              key={message.id}
+              message={message}
+              displayText={getDisplayText(message)}
+              pseudoStreaming={pseudoStreaming}
+            />
           );
         })}
       </div>
     </section>
+  );
+}
+
+function RestructureProcessMessageItem({ message, displayText, pseudoStreaming }: { message: AgentChatMessageSnapshot; displayText: string; pseudoStreaming: boolean }) {
+  return (
+    <article className={`new-ui-restructure-activity is-process-message ${pseudoStreaming ? "pseudo-streaming" : ""}`.trim()} aria-busy={pseudoStreaming || undefined}>
+      <span className="new-ui-restructure-activity-icon" aria-hidden="true">
+        <ProcessMessageIcon message={message} />
+      </span>
+      <p>
+        <span>{formatProcessMessageLabel(message)}</span>
+        <strong>{displayText}</strong>
+      </p>
+    </article>
   );
 }
 
@@ -1381,6 +1408,8 @@ function isProcessOnlyAssistantMessage(message: AgentChatMessageSnapshot, timeli
 }
 
 function resolveProcessMessageKind(message: AgentChatMessageSnapshot) {
+  if (message.dialogueRoboticReview) return "dialogue_review";
+  if (message.materialGapMatrix) return "material_gap_matrix";
   const text = String(message.text ?? "").trim();
   if (/^reasoning\b/i.test(text)) return "reasoning";
   if (/^(?:tool call|tool_call|command|mcp tool|dynamic tool)\s*[:：]/i.test(text)) return "tool_call";
@@ -1403,7 +1432,8 @@ function formatProcessMessageLabel(message: AgentChatMessageSnapshot) {
     return match?.[1]?.trim() ? `Tool call: ${match[1].trim()}` : "Tool call";
   }
   if (kind === "context_compacted") return "上下文已压缩";
-  if (kind === "dialogue_review") return "台词质检";
+  if (kind === "dialogue_review") return "台词审查";
+  if (kind === "material_gap_matrix") return "素材缺口";
   return "reasoning";
 }
 
@@ -1414,9 +1444,26 @@ function formatProcessMessageDetail(message: AgentChatMessageSnapshot) {
     return text.replace(/^reasoning\s*/i, "").trim() || "Reasoning";
   }
   if (kind === "dialogue_review") {
-    return text.replace(/^(?:台词质检状态|台词审查状态|dialogue review status)\s*[:：]\s*/i, "").trim() || "等待质检";
+    const decision = message.dialogueRoboticReview?.decision ? formatDialogueReviewDecision(message.dialogueRoboticReview.decision) : null;
+    const issueCount = message.dialogueRoboticReview?.issueCount ?? 0;
+    if (message.dialogueRoboticReview) return decision ? `${decision} · ${issueCount} 项问题` : "等待审查";
+    return text.replace(/^(?:台词质检状态|台词审查状态|dialogue review status)\s*[:：]\s*/i, "").trim()
+      || (decision ? `${decision} · ${issueCount} 项问题` : "等待质检");
+  }
+  if (kind === "material_gap_matrix") {
+    const summary = message.materialGapMatrix?.summary ?? {};
+    const issueCount = (summary.missingCount ?? 0) + (summary.partialCount ?? 0) + (summary.unsafeCount ?? 0);
+    const slotCount = summary.slotCount ?? message.materialGapMatrix?.rows?.length ?? 0;
+    return `素材缺口矩阵已生成：${slotCount} 槽位 / ${issueCount} 需关注`;
   }
   return text.replace(/^(?:tool call|tool_call|command|mcp tool|dynamic tool)\s*[:：]\s*/i, "").trim() || text;
+}
+
+function shouldShowSlotAtomDisplayPills(message: AgentChatMessageSnapshot) {
+  if (!message.slotAtomDisplay) return false;
+  if (message.dialogueRoboticReview) return false;
+  if (extractShotDesignFinalPath(message.text)) return false;
+  return true;
 }
 
 function shouldRenderConversationMessage(
@@ -1486,6 +1533,16 @@ function isDialogueReviewPassed(message: AgentChatMessageSnapshot) {
   return message.dialogueRoboticReview?.decision?.trim().toLowerCase() === "pass";
 }
 
+function resolveMessagePlanTraceDisplay(message: AgentChatMessageSnapshot): AgentChatSlotAtomDisplay | null {
+  const display = message.slotAtomDisplay;
+  if (!display) return null;
+  if (display.displayJsonPath) return display;
+  const versionDisplays = display.versionDisplays?.filter(Boolean) ?? [];
+  return versionDisplays.find((version) => version.versionId && version.versionId === display.defaultVersionId && version.displayJsonPath)
+    ?? versionDisplays.find((version) => Boolean(version.displayJsonPath))
+    ?? null;
+}
+
 function RestructureTimelineItemGroup({
   items,
   scopeKey,
@@ -1505,7 +1562,7 @@ function RestructureTimelineItemGroup({
 }) {
   if (!items.length) return null;
   const activityItems = items.filter((item): item is RestructureTimelineActivityItem => item.kind !== "agent_message");
-  const latestActivity = activityItems[activityItems.length - 1] ?? null;
+  const latestActivity = running ? activityItems[activityItems.length - 1] ?? null : null;
   const panelId = scopeKey ? `new-ui-restructure-activity-${sanitizeDomId(scopeKey)}` : undefined;
 
   return (
@@ -1558,9 +1615,8 @@ function RestructureTimelineItem({ item, displayText, pseudoStreaming = false, h
     );
   }
 
-  const running = isTimelineItemRunning(item.status);
   const detailText = displayText ?? item.detail;
-  const thinking = running || pseudoStreaming || highlight;
+  const thinking = pseudoStreaming || highlight;
   return (
     <article className={`new-ui-restructure-activity is-${item.kind} ${item.status ?? ""}`.trim()} aria-busy={thinking || undefined}>
       <span className="new-ui-restructure-activity-icon" aria-hidden="true">
@@ -1717,6 +1773,7 @@ function usePseudoStreamedTimelineAgentMessages(scopeKey: string | null, items: 
   const queuedKeysRef = useRef<Set<string>>(new Set());
   const queueRef = useRef<string[]>([]);
   const activeKeyRef = useRef<string | null>(null);
+  const observedTimelineKeysRef = useRef<Set<string>>(new Set());
   const streamFrameByKeyRef = useRef<Record<string, number>>({});
   const streamTextByKeyRef = useRef<Record<string, string>>({});
   const previousScopeKeyRef = useRef<string | null | undefined>(undefined);
@@ -1731,6 +1788,7 @@ function usePseudoStreamedTimelineAgentMessages(scopeKey: string | null, items: 
     queuedKeysRef.current = new Set();
     queueRef.current = [];
     activeKeyRef.current = null;
+    observedTimelineKeysRef.current = new Set();
     streamTextByKeyRef.current = {};
     hasSeenRunningTargetRef.current = false;
   }
@@ -1748,12 +1806,20 @@ function usePseudoStreamedTimelineAgentMessages(scopeKey: string | null, items: 
     queuedKeysRef.current = new Set();
     queueRef.current = [];
     activeKeyRef.current = null;
+    observedTimelineKeysRef.current = new Set();
     streamTextByKeyRef.current = {};
     setStreamingTextByKey({});
   }, [scopeKey]);
 
   useEffect(() => {
     if (!scopeKey) return;
+    if (targetRunning) {
+      items.forEach((item) => {
+        if (isTimelineObservedBeforeCompletion(item)) {
+          observedTimelineKeysRef.current.add(createTimelineObservedPseudoStreamKey(item));
+        }
+      });
+    }
     if (!targetRunning && !hasSeenRunningTargetRef.current) {
       streamableItems.forEach((item) => {
         const key = createTimelinePseudoStreamKey(item);
@@ -1765,6 +1831,10 @@ function usePseudoStreamedTimelineAgentMessages(scopeKey: string | null, items: 
 
     streamableItems.forEach((item) => {
       const key = createTimelinePseudoStreamKey(item);
+      if (observedTimelineKeysRef.current.has(key)) {
+        seenKeysRef.current.add(key);
+        return;
+      }
       if (seenKeysRef.current.has(key) || queuedKeysRef.current.has(key) || activeKeyRef.current === key) return;
       streamTextByKeyRef.current[key] = getTimelineStreamText(item);
       queuedKeysRef.current.add(key);
@@ -1789,6 +1859,7 @@ function usePseudoStreamedTimelineAgentMessages(scopeKey: string | null, items: 
       queuedKeysRef.current = new Set();
       queueRef.current = [];
       activeKeyRef.current = null;
+      observedTimelineKeysRef.current = new Set();
       streamTextByKeyRef.current = {};
     };
   }, []);
@@ -1797,6 +1868,7 @@ function usePseudoStreamedTimelineAgentMessages(scopeKey: string | null, items: 
     getDisplayText: (item: RestructureTimelineDisplayItem) => {
       if (!isPseudoStreamableTimelineItem(item)) return getTimelineDisplayText(item);
       const key = createTimelinePseudoStreamKey(item);
+      if (!targetRunning) return getTimelineStreamText(item);
       if (key in streamingTextByKey) return streamingTextByKey[key];
       if (seenKeysRef.current.has(key)) return getTimelineStreamText(item);
       if (queuedKeysRef.current.has(key) || activeKeyRef.current === key) return "";
@@ -1805,7 +1877,7 @@ function usePseudoStreamedTimelineAgentMessages(scopeKey: string | null, items: 
     isPseudoStreaming: (item: RestructureTimelineDisplayItem) => {
       if (!isPseudoStreamableTimelineItem(item)) return false;
       const key = createTimelinePseudoStreamKey(item);
-      return activeKeyRef.current === key || queuedKeysRef.current.has(key) || key in streamingTextByKey;
+      return targetRunning && (activeKeyRef.current === key || queuedKeysRef.current.has(key) || key in streamingTextByKey);
     },
   };
 }
@@ -1957,6 +2029,7 @@ function usePseudoStreamedAssistantMessages(
     getDisplayText: (message: AgentChatMessageSnapshot) => {
       const key = isPseudoStreamableMessage(message) ? createStablePseudoStreamMessageKey(message) : null;
       if (!key) return message.text;
+      if (!isPseudoStreamTargetMessage(message, targetTurnIds, targetMessageIds)) return message.text;
       if (key in streamingTextByKey) return streamingTextByKey[key];
       if (seenMessageKeysRef.current.has(key)) return message.text;
       if (queuedMessageKeysRef.current.has(key) || activeKeyRef.current === key) return "";
@@ -1964,7 +2037,7 @@ function usePseudoStreamedAssistantMessages(
     },
     isPseudoStreaming: (message: AgentChatMessageSnapshot) => {
       const key = isPseudoStreamableMessage(message) ? createStablePseudoStreamMessageKey(message) : null;
-      return Boolean(key && (activeKeyRef.current === key || queuedMessageKeysRef.current.has(key) || key in streamingTextByKey));
+      return Boolean(key && isPseudoStreamTargetMessage(message, targetTurnIds, targetMessageIds) && (activeKeyRef.current === key || queuedMessageKeysRef.current.has(key) || key in streamingTextByKey));
     },
   };
 }
@@ -2070,6 +2143,7 @@ function usePseudoStreamedProcessMessages(
     getDisplayText: (message: AgentChatMessageSnapshot) => {
       const key = isPseudoStreamableProcessMessage(message) ? processMessageKeyByObject.get(message) ?? createProcessPseudoStreamMessageKey(message, 0) : null;
       if (!key) return formatProcessMessageDetail(message);
+      if (!targetRunning || !isPseudoStreamTargetMessage(message, targetTurnIds, targetMessageIds)) return formatProcessMessageDetail(message);
       if (key in streamingTextByKey) return streamingTextByKey[key];
       if (seenMessageKeysRef.current.has(key)) return formatProcessMessageDetail(message);
       if (queuedMessageKeysRef.current.has(key) || activeKeyRef.current === key) return "";
@@ -2077,7 +2151,7 @@ function usePseudoStreamedProcessMessages(
     },
     isPseudoStreaming: (message: AgentChatMessageSnapshot) => {
       const key = isPseudoStreamableProcessMessage(message) ? processMessageKeyByObject.get(message) ?? createProcessPseudoStreamMessageKey(message, 0) : null;
-      return Boolean(key && (activeKeyRef.current === key || queuedMessageKeysRef.current.has(key) || key in streamingTextByKey));
+      return Boolean(key && targetRunning && isPseudoStreamTargetMessage(message, targetTurnIds, targetMessageIds) && (activeKeyRef.current === key || queuedMessageKeysRef.current.has(key) || key in streamingTextByKey));
     },
   };
 }
@@ -2108,6 +2182,7 @@ function startPseudoStream(text: string, key: string, controls: { onText: (text:
 }
 
 function isPseudoStreamableMessage(message: AgentChatMessageSnapshot) {
+  if (message.dialogueRoboticReview || message.materialGapMatrix) return false;
   if (message.role === "assistant") return isPseudoStreamableAssistantMessage(message) && !isPseudoStreamableProcessMessage(message);
   return false;
 }
@@ -2174,14 +2249,13 @@ function isThinkingStatus(status: AgentChatMessageSnapshot["status"] | undefined
 }
 
 function createPseudoStreamMessageKey(message: AgentChatMessageSnapshot) {
-  return `${message.id}:${message.turnId ?? ""}:${message.text}`;
+  return `${message.id}:${message.turnId ?? ""}`;
 }
 
 function createStablePseudoStreamMessageKey(message: AgentChatMessageSnapshot) {
-  const text = String(message.text ?? "");
   const turnId = String(message.turnId ?? "").trim();
   if (turnId) {
-    return `${message.role}:${turnId}:${text}`;
+    return `${message.role}:${turnId}`;
   }
   return createPseudoStreamMessageKey(message);
 }
@@ -2218,6 +2292,19 @@ function createTimelinePseudoStreamKey(item: RestructureTimelineStreamableItem) 
   if (item.sourceKey) return item.sourceKey;
   const text = getTimelineStreamText(item);
   return item.kind === "agent_message" ? `agent_message:${normalizeTimelineText(text) ?? ""}` : `${item.kind}:${normalizeTimelineText(text) ?? ""}`;
+}
+
+function isTimelineObservedBeforeCompletion(item: RestructureTimelineDisplayItem) {
+  return item.kind !== "agent_message"
+    && item.kind !== "tool_call"
+    && isTimelineItemRunning(item.status)
+    && Boolean(item.detail);
+}
+
+function createTimelineObservedPseudoStreamKey(item: RestructureTimelineDisplayItem) {
+  if (item.sourceKey) return item.sourceKey;
+  if (item.kind === "agent_message") return `agent_message:${normalizeTimelineText(item.text) ?? ""}`;
+  return `${item.kind}:${normalizeTimelineText(item.detail) ?? ""}`;
 }
 
 function createTimelineItemSourceKey(item: AgentTimelineItem, sourceKeyCounts: Map<string, number>) {

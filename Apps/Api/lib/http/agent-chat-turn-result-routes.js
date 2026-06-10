@@ -85,6 +85,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
       });
       if (autoDialogueRoboticReview) payload.autoDialogueRoboticReview = autoDialogueRoboticReview;
       const activeText = normalizeActiveMessage(payload.activeThreadMessage);
+      const shouldAttachSlotAtomDisplay = !isShotDesignFinalMessage(payload.finalMessage || activeText);
       if (conversationId) {
         recorded = await handlers.agentConversationStore?.recordAssistantTurn?.({
           conversationId,
@@ -94,7 +95,7 @@ async function handleAgentChatTurnCollect(res, threadId, turnId, handlers = {}, 
           traceId: payload.traceId,
           runId: payload.runId,
           stageId: payload.stageId,
-          slotAtomDisplay: payload.autoDisplayTransform?.slotAtomDisplay ?? null,
+          slotAtomDisplay: shouldAttachSlotAtomDisplay ? payload.autoDisplayTransform?.slotAtomDisplay ?? null : null,
           dialogueRoboticReview: hasReusableDialogueReview(payload.autoDialogueRoboticReview)
             ? payload.autoDialogueRoboticReview
             : null,
@@ -302,6 +303,10 @@ async function hydrateResultActivityFromRollout(result, { handlers, threadId, tu
 function hasReusableDialogueReview(review) {
   if (!review?.decision) return false;
   return review.status === "processed" || review.status === "skipped_unchanged";
+}
+
+function isShotDesignFinalMessage(value) {
+  return /(?:^|[\\/])shot-design\.final\.md\b/i.test(String(value ?? ""));
 }
 
 module.exports = {

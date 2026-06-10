@@ -12,6 +12,9 @@ const MATERIAL_GAP_MATERIAL_TYPES = new Set([
   "usage_process_shot",
   "comparison_shot",
   "ending_cta_shot",
+  "material_capability_insufficient",
+  "critical_material_missing",
+  "material_usage_risk",
 ]);
 function normalizeState(value) {
   const conversations = Array.isArray(value?.conversations) ? value.conversations : [];
@@ -322,11 +325,46 @@ function normalizeMaterialGapMatrix(value) {
     role: value.role ? String(value.role) : null,
     turnId: value.turnId ? String(value.turnId) : null,
     promptTemplateVersion: value.promptTemplateVersion ? String(value.promptTemplateVersion) : null,
+    validation: normalizeMaterialGapValidation(value.validation),
+    repairAttemptCount: normalizeCount(value.repairAttemptCount),
+    repairTurns: Array.isArray(value.repairTurns) ? value.repairTurns.map(normalizeMaterialGapRepairTurn).filter(Boolean).slice(0, 4) : [],
     error: value.error ? String(value.error) : null,
     message: limitText(value.message),
     debugSnapshotUri: normalizePathText(value.debugSnapshotUri),
     createdAt: value.createdAt ?? null,
     updatedAt: value.updatedAt ?? null,
+  };
+}
+
+function normalizeMaterialGapValidation(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    status: value.status ? String(value.status) : null,
+    fallbackApplied: Boolean(value.fallbackApplied),
+    issueCount: normalizeCount(value.issueCount),
+    issues: Array.isArray(value.issues) ? value.issues.map(normalizeMaterialGapValidationIssue).filter(Boolean).slice(0, MATERIAL_GAP_ROWS_LIMIT) : [],
+  };
+}
+
+function normalizeMaterialGapValidationIssue(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    code: value.code ? String(value.code) : null,
+    path: value.path ? String(value.path) : null,
+    message: limitTextTo(value.message, MATERIAL_GAP_TEXT_LIMIT),
+  };
+}
+
+function normalizeMaterialGapRepairTurn(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    repairAttemptCount: normalizeCount(value.repairAttemptCount),
+    threadId: normalizeIdText(value.threadId),
+    turnId: normalizeIdText(value.turnId),
+    status: value.status ? String(value.status) : null,
+    validationStatus: value.validationStatus ? String(value.validationStatus) : null,
+    issueCount: normalizeCount(value.issueCount),
+    errorCode: value.errorCode ? String(value.errorCode) : null,
   };
 }
 

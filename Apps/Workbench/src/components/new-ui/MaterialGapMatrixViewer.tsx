@@ -93,11 +93,21 @@ function MaterialGapRowItem({ row }: { row: AgentChatMaterialGapRow }) {
         {row.slotFunction ? <small>{row.slotFunction}</small> : null}
       </td>
       <td><span className={`new-ui-material-gap-status is-${direct}`}>{formatSatisfaction(direct)}</span></td>
-      <td>{formatList(row.missingMaterialTypes, formatMaterialType) || formatList(row.requiredMaterialTypes, formatMaterialType) || "无明显缺口"}</td>
+      <td>{formatGapCell(row)}</td>
       <td>{row.impact || "暂无影响说明"}</td>
       <td>{row.handoffToShotDesign || "按槽位功能选择素材或补全策略"}</td>
     </tr>
   );
+}
+
+function formatGapCell(row: AgentChatMaterialGapRow) {
+  const missing = formatList(row.missingMaterialTypes, formatMaterialType);
+  if (missing) return missing;
+  const direct = row.directSatisfaction ?? "missing";
+  if (direct === "partial") return "素材能力不足";
+  if (direct === "missing") return "关键素材缺失";
+  if (direct === "unsafe") return "素材使用风险";
+  return "无明显缺口";
 }
 
 function formatList(values?: string[] | null, formatter: (value: string) => string = (value) => value) {
@@ -126,6 +136,9 @@ function formatMaterialType(value: string) {
     usage_process_shot: "使用过程",
     comparison_shot: "对比镜头",
     ending_cta_shot: "结尾 CTA",
+    material_capability_insufficient: "素材能力不足",
+    critical_material_missing: "关键素材缺失",
+    material_usage_risk: "素材使用风险",
   };
   return labels[value] ?? value;
 }

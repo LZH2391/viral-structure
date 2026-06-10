@@ -157,6 +157,26 @@ export type AgentChatMaterialGapMatrix = {
   role?: string | null;
   turnId?: string | null;
   promptTemplateVersion?: string | null;
+  validation?: {
+    status?: string | null;
+    fallbackApplied?: boolean;
+    issueCount?: number | null;
+    issues?: Array<{
+      code?: string | null;
+      path?: string | null;
+      message?: string | null;
+    }>;
+  } | null;
+  repairAttemptCount?: number | null;
+  repairTurns?: Array<{
+    repairAttemptCount?: number | null;
+    threadId?: string | null;
+    turnId?: string | null;
+    status?: string | null;
+    validationStatus?: string | null;
+    issueCount?: number | null;
+    errorCode?: string | null;
+  }>;
   error?: string | null;
   message?: string | null;
   debugSnapshotUri?: string | null;

@@ -22,8 +22,9 @@ test("restructure plan actions prefer selected slot atom version paths", () => {
 
   assert.ok(planTraceHandler);
   assert.ok(confirmHandler);
-  assert.match(planTraceHandler[0], /activeSlotAtomDisplay\?\.displayJsonPath \?\? message\.slotAtomDisplay\?\.displayJsonPath/);
-  assert.match(planTraceHandler[0], /activeSlotAtomDisplay\?\.sourceRestructureFinalPath\s*\?\?/);
+  assert.match(planTraceHandler[0], /resolvePlanTracePreviewInput\(message\.slotAtomDisplay \?\? null/);
+  assert.match(planTraceHandler[0], /activeSlotAtomDisplay\?\.rootRestructureFinalPath/);
+  assert.match(planTraceHandler[0], /displayJsonPath: planTraceInput\.multiVersion \? null : displayJsonPath/);
   assert.match(confirmHandler[0], /activeSlotAtomDisplay\?\.sourceRestructureFinalPath \?\? resolveCurrentRestructureFinalPath/);
 });
 

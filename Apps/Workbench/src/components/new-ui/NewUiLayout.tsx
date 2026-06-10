@@ -1290,10 +1290,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const handleOpenPlanTraceFromRestructureMessage = useCallback(async (message: AgentChatMessageSnapshot) => {
     const conversation = selectedRestructureConversation;
     if (!conversation?.conversationId || openingPlanTraceMessageId) return;
-    const displayJsonPath = activeSlotAtomDisplay?.displayJsonPath ?? message.slotAtomDisplay?.displayJsonPath ?? null;
-    const sourceRestructurePath = activeSlotAtomDisplay?.sourceRestructureFinalPath
+    const planTraceInput = resolvePlanTracePreviewInput(message.slotAtomDisplay ?? null, activeSlotAtomDisplay?.versionId ?? selectedSlotAtomVersionId);
+    const displayJsonPath = planTraceInput.displayJsonPath ?? activeSlotAtomDisplay?.displayJsonPath ?? null;
+    const sourceRestructurePath = planTraceInput.sourceRestructureFinalPath
+      ?? activeSlotAtomDisplay?.rootRestructureFinalPath
+      ?? activeSlotAtomDisplay?.sourceRestructureFinalPath
       ?? resolveCurrentRestructureFinalPath(conversation, message.turnId ?? selectedRestructureTurnTarget?.turnId ?? null);
-    if (!displayJsonPath || !sourceRestructurePath) {
+    if (!sourceRestructurePath || (!displayJsonPath && !planTraceInput.multiVersion)) {
       markRestructureConversationError(conversation.conversationId, new Error("当前方案缺少可预览的溯源图输入"));
       return;
     }
@@ -1301,7 +1304,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     try {
       const result = await previewFunctionSlotPlanTraceGraph({
         restructureFinalPath: sourceRestructurePath,
-        displayJsonPath,
+        displayJsonPath: planTraceInput.multiVersion ? null : displayJsonPath,
         sourceTurnId: message.turnId ?? selectedRestructureTurnTarget?.turnId ?? conversation.latestTurnId ?? null,
         parentArtifactId: message.turnId ?? selectedRestructureTurnTarget?.turnId ?? null,
         confirmationId: conversation.confirmedPlan?.confirmationId ?? undefined,
@@ -1319,7 +1322,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     } finally {
       setOpeningPlanTraceMessageId(null);
     }
-  }, [activeSlotAtomDisplay?.displayJsonPath, activeSlotAtomDisplay?.sourceRestructureFinalPath, clearRestructureConversationError, markRestructureConversationError, openingPlanTraceMessageId, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId]);
+  }, [activeSlotAtomDisplay?.displayJsonPath, activeSlotAtomDisplay?.rootRestructureFinalPath, activeSlotAtomDisplay?.sourceRestructureFinalPath, activeSlotAtomDisplay?.versionId, clearRestructureConversationError, markRestructureConversationError, openingPlanTraceMessageId, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId, selectedSlotAtomVersionId]);
 
   const handleConfirmPlanFromRestructureMessage = useCallback(async (message: AgentChatMessageSnapshot) => {
     const conversation = selectedRestructureConversation;
@@ -2857,6 +2860,35 @@ function selectSlotAtomVersionDisplay(displays: AgentChatSlotAtomDisplay[], sele
     ?? displays.find((display) => display.versionId && display.versionId === defaultVersionId)
     ?? displays[0]
     ?? null;
+}
+
+function resolvePlanTraceDisplay(display: AgentChatSlotAtomDisplay | null, selectedVersionId: string | null): AgentChatSlotAtomDisplay | null {
+  if (!display) return null;
+  if (display.displayJsonPath) return display;
+  const displays = resolveSlotAtomVersionDisplays(display).filter((candidate) => Boolean(candidate.displayJsonPath));
+  return displays.find((candidate) => candidate.versionId && candidate.versionId === selectedVersionId)
+    ?? displays.find((candidate) => candidate.versionId && candidate.versionId === display.defaultVersionId)
+    ?? displays[0]
+    ?? null;
+}
+
+function resolvePlanTracePreviewInput(display: AgentChatSlotAtomDisplay | null, selectedVersionId: string | null): { displayJsonPath: string | null; sourceRestructureFinalPath: string | null; multiVersion: boolean } {
+  if (!display) return { displayJsonPath: null, sourceRestructureFinalPath: null, multiVersion: false };
+  const versions = resolveSlotAtomVersionDisplays(display).filter((candidate) => Boolean(candidate.displayJsonPath || candidate.sourceRestructureFinalPath));
+  const multiVersion = versions.length > 1 || display.mode === "multi_version";
+  if (multiVersion) {
+    return {
+      displayJsonPath: null,
+      sourceRestructureFinalPath: display.rootRestructureFinalPath ?? display.sourceRestructureFinalPath ?? versions[0]?.rootRestructureFinalPath ?? null,
+      multiVersion: true,
+    };
+  }
+  const selected = resolvePlanTraceDisplay(display, selectedVersionId);
+  return {
+    displayJsonPath: selected?.displayJsonPath ?? display.displayJsonPath ?? null,
+    sourceRestructureFinalPath: selected?.sourceRestructureFinalPath ?? display.sourceRestructureFinalPath ?? null,
+    multiVersion: false,
+  };
 }
 
 function resolveCurrentRestructureFinalPath(conversation: AgentChatConversation | null, currentTurnId: string | null) {

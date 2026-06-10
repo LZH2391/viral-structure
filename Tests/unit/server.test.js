@@ -7,6 +7,7 @@ const path = require("node:path");
 const { createHash } = require("node:crypto");
 const { server: defaultServer, createServer } = require("../../Apps/Api/server");
 const { createAgentConversationStore } = require("../../Apps/Api/lib/agent-chat/conversation-store");
+const { maybeAutoAuditMaterialGaps } = require("../../Apps/Api/lib/agent-chat/material-gap-auto-audit");
 const { maybeAutoReviewShotDialogue, reviewShotDialogueForConversation } = require("../../Apps/Api/lib/agent-chat/shot-dialogue-auto-review");
 
 test.after(() => {
@@ -263,6 +264,75 @@ function makeMultipartFilesRequest(server, { path: requestPath, fields = {}, fil
     request.on("error", reject);
     request.end(body);
   });
+}
+
+function buildMaterialGapMatrixFixture({ directSatisfaction = "missing", missingMaterialTypes = [] } = {}) {
+  return {
+    schemaVersion: "material_gap_matrix.v1",
+    status: "processed",
+    summary: {
+      slotCount: 1,
+      satisfiedCount: directSatisfaction === "satisfied" ? 1 : 0,
+      partialCount: directSatisfaction === "partial" ? 1 : 0,
+      missingCount: directSatisfaction === "missing" ? 1 : 0,
+      unsafeCount: directSatisfaction === "unsafe" ? 1 : 0,
+      notRequiredCount: directSatisfaction === "not_required" ? 1 : 0,
+      topMissingMaterialTypes: missingMaterialTypes,
+      overallImpact: "",
+    },
+    rows: [{
+      slotId: "slot_1",
+      slotSubtype: "SUB_demo",
+      slotFunction: "演示使用过程",
+      requiredMaterialTypes: ["usage_process_shot"],
+      directSatisfaction,
+      missingMaterialTypes,
+      impact: "无法直接证明使用过程",
+      availableEvidenceRefs: [],
+      handoffToShotDesign: "需要补使用过程镜头",
+    }],
+  };
+}
+
+function buildMaterialGapAuditHandlers({ rootDir, createdMessages, turns }) {
+  let turnIndex = 0;
+  return {
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "debug://snapshot" }),
+    },
+    agentConversationStore: {
+      get: async () => ({
+        conversationId: "conversation_1",
+        role: "function-slot-restructure",
+        threadId: "parent_thread",
+        workspaceRoot: rootDir,
+        messages: [{
+          id: "user-turn_1",
+          role: "user",
+          turnId: "turn_1",
+          text: "brief",
+          materialPackRef: {
+            artifactId: "pack_1",
+            resultUri: path.join(rootDir, "material-pack.json"),
+          },
+        }],
+      }),
+      createMaterialGapMatrixMessage: async (payload) => {
+        createdMessages.push(payload);
+        return { conversationId: payload.conversationId, revision: createdMessages.length };
+      },
+    },
+    appServer: {
+      startThread: async () => ({ ok: true, threadId: "child_thread" }),
+      runTurnWithInputs: async () => {
+        const turn = turns[turnIndex] ?? turns[turns.length - 1];
+        turnIndex += 1;
+        return turn;
+      },
+    },
+  };
 }
 
 function closeServer(server) {
@@ -884,6 +954,100 @@ test("agent chat persists restructure conversations and archives them manually",
     assert.deepEqual(discardedThreads, [{ threadId: "thread_restructure", reason: "agent-chat-conversation-archived" }]);
   } finally {
     await closeServer(server);
+  }
+});
+
+test("material gap audit repairs invalid matrix before creating conversation message", async () => {
+  const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "material-gap-repair-"));
+  try {
+    const artifactDir = path.join(tempRoot, "Artifacts", "FunctionSlotRestructure", "case");
+    await fsPromises.mkdir(artifactDir, { recursive: true });
+    await fsPromises.writeFile(path.join(artifactDir, "restructure.final.md"), "# final\n", "utf8");
+    await fsPromises.writeFile(path.join(artifactDir, "restructure.display.json"), "{}\n", "utf8");
+    await fsPromises.writeFile(path.join(tempRoot, "material-pack.json"), JSON.stringify({ artifactId: "pack_1", schemaVersion: "user-material-pack.stable" }), "utf8");
+
+    const createdMessages = [];
+    const turns = [
+      {
+        status: "completed",
+        turnId: "audit_turn",
+        finalMessage: JSON.stringify(buildMaterialGapMatrixFixture({ missingMaterialTypes: [] })),
+      },
+      {
+        status: "completed",
+        turnId: "repair_turn",
+        finalMessage: JSON.stringify(buildMaterialGapMatrixFixture({ missingMaterialTypes: ["usage_process_shot"] })),
+      },
+    ];
+    const result = await maybeAutoAuditMaterialGaps({
+      payload: { status: "completed", turnId: "turn_1" },
+      traceContext: { runId: "run_1", traceId: "trace_1", stageId: "stage_1" },
+      conversationId: "conversation_1",
+      autoDisplayTransform: {
+        artifactId: "artifact_display",
+        restructureFinalPath: path.join(artifactDir, "restructure.final.md"),
+        displayJsonPath: path.join(artifactDir, "restructure.display.json"),
+        slotAtomDisplay: { status: "available" },
+      },
+      handlers: buildMaterialGapAuditHandlers({
+        rootDir: tempRoot,
+        createdMessages,
+        turns,
+      }),
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(createdMessages.length, 1);
+    assert.equal(result.materialGapMatrix.validation.status, "passed");
+    assert.equal(result.materialGapMatrix.validation.fallbackApplied, false);
+    assert.equal(result.materialGapMatrix.repairAttemptCount, 1);
+    assert.deepEqual(result.materialGapMatrix.rows[0].missingMaterialTypes, ["usage_process_shot"]);
+    assert.equal(result.materialGapMatrix.turnId, "repair_turn");
+  } finally {
+    await fsPromises.rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("material gap audit falls back after one failed repair", async () => {
+  const tempRoot = await fsPromises.mkdtemp(path.join(os.tmpdir(), "material-gap-fallback-"));
+  try {
+    const artifactDir = path.join(tempRoot, "Artifacts", "FunctionSlotRestructure", "case");
+    await fsPromises.mkdir(artifactDir, { recursive: true });
+    await fsPromises.writeFile(path.join(artifactDir, "restructure.final.md"), "# final\n", "utf8");
+    await fsPromises.writeFile(path.join(artifactDir, "restructure.display.json"), "{}\n", "utf8");
+    await fsPromises.writeFile(path.join(tempRoot, "material-pack.json"), JSON.stringify({ artifactId: "pack_1", schemaVersion: "user-material-pack.stable" }), "utf8");
+
+    const createdMessages = [];
+    const invalid = buildMaterialGapMatrixFixture({ directSatisfaction: "missing", missingMaterialTypes: [] });
+    const result = await maybeAutoAuditMaterialGaps({
+      payload: { status: "completed", turnId: "turn_1" },
+      traceContext: { runId: "run_1", traceId: "trace_1", stageId: "stage_1" },
+      conversationId: "conversation_1",
+      autoDisplayTransform: {
+        artifactId: "artifact_display",
+        restructureFinalPath: path.join(artifactDir, "restructure.final.md"),
+        displayJsonPath: path.join(artifactDir, "restructure.display.json"),
+        slotAtomDisplay: { status: "available" },
+      },
+      handlers: buildMaterialGapAuditHandlers({
+        rootDir: tempRoot,
+        createdMessages,
+        turns: [
+          { status: "completed", turnId: "audit_turn", finalMessage: JSON.stringify(invalid) },
+          { status: "completed", turnId: "repair_turn", finalMessage: JSON.stringify(invalid) },
+        ],
+      }),
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(createdMessages.length, 1);
+    assert.equal(result.materialGapMatrix.validation.status, "passed");
+    assert.equal(result.materialGapMatrix.validation.fallbackApplied, true);
+    assert.equal(result.materialGapMatrix.repairAttemptCount, 1);
+    assert.deepEqual(result.materialGapMatrix.rows[0].missingMaterialTypes, ["critical_material_missing"]);
+    assert.equal(result.materialGapMatrix.turnId, "audit_turn");
+  } finally {
+    await fsPromises.rm(tempRoot, { recursive: true, force: true });
   }
 });
 
@@ -2887,6 +3051,7 @@ test("agent chat collect auto reviews completed shot design dialogue in restruct
     assert.equal(artifact.review.decision, "rework");
     assert.equal(artifact.review.issues[0].shot, "shot_001");
     assert.equal(conversations.get("conversation_shot_design").messages[0].dialogueRoboticReview.decision, "rework");
+    assert.equal(conversations.get("conversation_shot_design").messages[0].slotAtomDisplay, undefined);
     assert.equal(conversations.get("conversation_shot_design").messages[1].id, "user-turn_dialogue_rework_auto_1");
     assert.equal(conversations.get("conversation_shot_design").messages[0].dialogueRoboticReview.fileFingerprint.path, "Artifacts/FunctionSlotRestructure/shot-demo/shot-design.final.md");
   } finally {
