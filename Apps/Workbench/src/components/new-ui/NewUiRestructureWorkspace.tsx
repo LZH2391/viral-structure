@@ -18,6 +18,14 @@ export type NewUiTurnTimelineTarget = {
   pending?: boolean;
 };
 
+export type NewUiPendingStoryboardConfirmation = {
+  conversationId?: string | null;
+  messageId?: string | null;
+  confirmationId?: string | null;
+  sourceRestructurePath?: string | null;
+  sourceShotDesignPath?: string | null;
+};
+
 type NewUiRestructureWorkspaceProps = {
   conversation: AgentChatConversation | null;
   creatingConversation: boolean;
@@ -52,6 +60,7 @@ type NewUiRestructureWorkspaceProps = {
   autoAdvanceBusy?: boolean;
   openingPlanTraceMessageId?: string | null;
   confirmingPlanMessageId?: string | null;
+  pendingStoryboardConfirmation?: NewUiPendingStoryboardConfirmation | null;
 };
 
 export type NewUiRestructureSendContext = {
@@ -136,6 +145,7 @@ export function NewUiRestructureWorkspace({
   autoAdvanceBusy = false,
   openingPlanTraceMessageId = null,
   confirmingPlanMessageId = null,
+  pendingStoryboardConfirmation = null,
 }: NewUiRestructureWorkspaceProps) {
   const messages = conversation?.messages ?? [];
   const displayTitle = resolveRestructureTitle(conversation?.title);
@@ -154,6 +164,7 @@ export function NewUiRestructureWorkspace({
   const contextUsageFallbackTimeline = useRestructureTurnTimeline(contextUsageFallbackTarget);
   const rawContextUsage = conversation ? timeline?.activity?.tokenUsage ?? contextUsageFallbackTimeline?.activity?.tokenUsage ?? null : null;
   const confirmedPlanStatusDisplay = resolveConfirmedPlanStatusDisplay(conversation?.confirmedPlan?.status);
+  const activeStoryboardConfirmation = resolveActiveStoryboardConfirmation(conversation, pendingStoryboardConfirmation);
   const hasStoryboardResultForConfirmedPlan = hasConversationStoryboardResultForConfirmedPlan(conversation);
   const contextUsageScopeKey = conversation?.conversationId ?? conversation?.threadId ?? null;
   const contextUsage = useLastKnownContextUsage(rawContextUsage, contextUsageScopeKey);
@@ -622,11 +633,13 @@ export function NewUiRestructureWorkspace({
                         />
                       </>
                     ) : renderItem.message.storyboardResult && conversation?.conversationId ? (
-                      <StoryboardResultViewer
-                        conversationId={conversation.conversationId}
-                        resultId={renderItem.message.id}
-                        statusLabel={resolveStoryboardResultStatusLabel(renderItem.message.storyboardResult.status)}
-                      />
+                      shouldShowStoryboardResultMessage(renderItem.message, conversation, activeStoryboardConfirmation) ? (
+                        <StoryboardResultViewer
+                          conversationId={conversation.conversationId}
+                          resultId={renderItem.message.id}
+                          statusLabel={resolveStoryboardResultStatusLabel(renderItem.message.storyboardResult.status)}
+                        />
+                      ) : null
                     ) : shouldRenderConversationMessage(renderItem.message, { timelineTurnId, timelineHasAgentMessages }) ? (
                       <RestructureMessageWithStoryboardState
                         message={renderItem.message}
@@ -639,6 +652,7 @@ export function NewUiRestructureWorkspace({
                         openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
                         confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
                         hasStoryboardResultForConfirmedPlan={hasStoryboardResultForConfirmedPlan}
+                        pendingStoryboardConfirmation={activeStoryboardConfirmation}
                       />
                     ) : null}
                   </Fragment>
@@ -963,13 +977,87 @@ function shouldShowConfirmedPlanStoryboardForMessage(
   message: AgentChatMessageSnapshot,
   conversation: AgentChatConversation | null,
   hasStoryboardResultForConfirmedPlan: boolean,
+  pendingStoryboardConfirmation: NewUiPendingStoryboardConfirmation | null = null,
 ) {
   if (!conversation?.conversationId || hasStoryboardResultForConfirmedPlan || message.storyboardResult) return false;
   if (!isMessagePlanConfirmed(message, conversation)) return false;
+  if (pendingStoryboardConfirmation && isPendingStoryboardConfirmationForMessage(message, pendingStoryboardConfirmation)) return false;
   const status = String(conversation.confirmedPlan?.status ?? "").trim();
   if (status === "completed") return true;
   if (status === "storyboard_failed") return true;
   return hasConfirmedPlanStoryboardArtifact(conversation.confirmedPlan);
+}
+
+function shouldShowStoryboardResultMessage(
+  message: AgentChatMessageSnapshot,
+  conversation: AgentChatConversation | null,
+  pendingStoryboardConfirmation: NewUiPendingStoryboardConfirmation | null,
+) {
+  const result = message.storyboardResult;
+  if (!result) return false;
+  if (pendingStoryboardConfirmation) {
+    return storyboardResultMatchesConfirmation(result, pendingStoryboardConfirmation);
+  }
+  const confirmed = conversation?.confirmedPlan;
+  if (!confirmed) return true;
+  const confirmedConfirmationId = normalizeComparableId(confirmed?.confirmationId);
+  const resultConfirmationId = normalizeComparableId(result.confirmationId);
+  if (confirmedConfirmationId && resultConfirmationId) return confirmedConfirmationId === resultConfirmationId;
+  const confirmedRestructurePath = normalizeComparablePath(confirmed?.sourceRestructurePath);
+  const resultRestructurePath = normalizeComparablePath(result.sourceRestructurePath);
+  const confirmedShotDesignPath = normalizeComparablePath(confirmed?.sourceShotDesignPath);
+  const resultShotDesignPath = normalizeComparablePath(result.sourceShotDesignPath);
+  return Boolean(
+    confirmedRestructurePath
+    && resultRestructurePath
+    && confirmedRestructurePath === resultRestructurePath
+    && (!confirmedShotDesignPath || !resultShotDesignPath || confirmedShotDesignPath === resultShotDesignPath),
+  );
+}
+
+function resolveActiveStoryboardConfirmation(
+  conversation: AgentChatConversation | null,
+  pendingStoryboardConfirmation: NewUiPendingStoryboardConfirmation | null,
+) {
+  if (!pendingStoryboardConfirmation) return null;
+  const pendingConversationId = normalizeComparableId(pendingStoryboardConfirmation.conversationId);
+  const conversationId = normalizeComparableId(conversation?.conversationId);
+  if (pendingConversationId && conversationId && pendingConversationId !== conversationId) return null;
+  return pendingStoryboardConfirmation;
+}
+
+function isPendingStoryboardConfirmationForMessage(
+  message: AgentChatMessageSnapshot,
+  pendingStoryboardConfirmation: NewUiPendingStoryboardConfirmation,
+) {
+  const pendingMessageId = normalizeComparableId(pendingStoryboardConfirmation.messageId);
+  if (pendingMessageId && normalizeComparableId(message.id) === pendingMessageId) return true;
+  const pendingRestructurePath = normalizeComparablePath(pendingStoryboardConfirmation.sourceRestructurePath);
+  const messageRestructurePath = resolveMessageConfirmedRestructurePath(message, pendingStoryboardConfirmation.sourceRestructurePath);
+  if (!pendingRestructurePath || !messageRestructurePath || pendingRestructurePath !== messageRestructurePath) return false;
+  const pendingShotDesignPath = normalizeComparablePath(pendingStoryboardConfirmation.sourceShotDesignPath);
+  const messageShotDesignPath = normalizeComparablePath(message.dialogueRoboticReview?.shotDesignFinalPath)
+    || normalizeComparablePath(extractShotDesignFinalPath(message.text));
+  return !pendingShotDesignPath || !messageShotDesignPath || pendingShotDesignPath === messageShotDesignPath;
+}
+
+function storyboardResultMatchesConfirmation(
+  result: NonNullable<AgentChatMessageSnapshot["storyboardResult"]>,
+  confirmation: NewUiPendingStoryboardConfirmation,
+) {
+  const confirmationId = normalizeComparableId(confirmation.confirmationId);
+  const resultConfirmationId = normalizeComparableId(result.confirmationId);
+  if (confirmationId && resultConfirmationId) return confirmationId === resultConfirmationId;
+  const confirmationRestructurePath = normalizeComparablePath(confirmation.sourceRestructurePath);
+  const resultRestructurePath = normalizeComparablePath(result.sourceRestructurePath);
+  const confirmationShotDesignPath = normalizeComparablePath(confirmation.sourceShotDesignPath);
+  const resultShotDesignPath = normalizeComparablePath(result.sourceShotDesignPath);
+  return Boolean(
+    confirmationRestructurePath
+    && resultRestructurePath
+    && confirmationRestructurePath === resultRestructurePath
+    && (!confirmationShotDesignPath || !resultShotDesignPath || confirmationShotDesignPath === resultShotDesignPath),
+  );
 }
 
 function hasConfirmedPlanStoryboardArtifact(confirmedPlan: AgentChatConversation["confirmedPlan"]) {
@@ -989,7 +1077,8 @@ function hasConversationStoryboardResultForConfirmedPlan(conversation: AgentChat
   return (conversation?.messages ?? []).some((message) => {
     const result = message.storyboardResult;
     if (!result) return false;
-    if (confirmationId && normalizeComparableId(result.confirmationId) === confirmationId) return true;
+    const resultConfirmationId = normalizeComparableId(result.confirmationId);
+    if (confirmationId && resultConfirmationId) return resultConfirmationId === confirmationId;
     const resultRestructurePath = normalizeComparablePath(result.sourceRestructurePath);
     const resultShotDesignPath = normalizeComparablePath(result.sourceShotDesignPath);
     return Boolean(
@@ -1111,6 +1200,7 @@ function RestructureMessageWithStoryboardState({
   openingPlanTrace = false,
   confirmingPlan = false,
   hasStoryboardResultForConfirmedPlan = false,
+  pendingStoryboardConfirmation = null,
 }: {
   message: AgentChatMessageSnapshot;
   displayText?: string;
@@ -1122,13 +1212,19 @@ function RestructureMessageWithStoryboardState({
   openingPlanTrace?: boolean;
   confirmingPlan?: boolean;
   hasStoryboardResultForConfirmedPlan?: boolean;
+  pendingStoryboardConfirmation?: NewUiPendingStoryboardConfirmation | null;
 }) {
   const showStoryboardPending = shouldShowStoryboardPendingForMessage(message, conversation, {
     confirmingPlan,
     hasStoryboardResultForConfirmedPlan,
   });
   const showConfirmedPlanStoryboard = !showStoryboardPending
-    && shouldShowConfirmedPlanStoryboardForMessage(message, conversation, hasStoryboardResultForConfirmedPlan);
+    && shouldShowConfirmedPlanStoryboardForMessage(
+      message,
+      conversation,
+      hasStoryboardResultForConfirmedPlan,
+      pendingStoryboardConfirmation,
+    );
 
   return (
     <>

@@ -11,7 +11,7 @@ import { AnalysisHome, type AnalysisHomeQueueItem, type AnalysisHomeQueueState }
 import { AnalysisWorkflowSidebar, type AnalysisDetailSidebarState } from "./AnalysisWorkflowSidebar";
 import { FunctionSlotGraphWorkspace, type GraphMode } from "../FunctionSlotGraphApp";
 import { buildReplacementDraftSummary, SlotAtomView } from "../agent-chat/SlotAtomReplacementPanel";
-import { NewUiRestructureWorkspace, type NewUiMaterialPackOption, type NewUiRestructureSendContext, type NewUiStructureOption, type NewUiTurnTimelineTarget } from "./NewUiRestructureWorkspace";
+import { NewUiRestructureWorkspace, type NewUiMaterialPackOption, type NewUiPendingStoryboardConfirmation, type NewUiRestructureSendContext, type NewUiStructureOption, type NewUiTurnTimelineTarget } from "./NewUiRestructureWorkspace";
 import { refreshAnalysisDetailItem } from "./analysisBackend";
 import { listAnalysisHistorySamples, type AnalysisHistoryItem } from "./analysisHistoryData";
 
@@ -164,6 +164,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
   const [selectedSlotAtomVersionId, setSelectedSlotAtomVersionId] = useState<string | null>(null);
   const [openingPlanTraceMessageId, setOpeningPlanTraceMessageId] = useState<string | null>(null);
   const [confirmingPlanMessageId, setConfirmingPlanMessageId] = useState<string | null>(null);
+  const [pendingStoryboardConfirmation, setPendingStoryboardConfirmation] = useState<NewUiPendingStoryboardConfirmation | null>(null);
   const [selectedRestructureContextUsage, setSelectedRestructureContextUsage] = useState<AgentTurnTimeline["activity"]["tokenUsage"] | null>(null);
   const [optimisticRestructureGeneration, setOptimisticRestructureGeneration] = useState<OptimisticRestructureGeneration | null>(null);
   const [restructureConversationErrors, setRestructureConversationErrors] = useState<Record<string, string>>(() => readStoredRestructureConversationErrors());
@@ -1336,6 +1337,13 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
     }
     setConfirmingPlanMessageId(message.id);
     const confirmationId = buildConfirmationId(currentTurnId);
+    setPendingStoryboardConfirmation({
+      conversationId: conversation.conversationId,
+      messageId: message.id,
+      confirmationId,
+      sourceRestructurePath,
+      sourceShotDesignPath,
+    });
     const confirmWithRevision = async (
       payload: NonNullable<Parameters<typeof confirmAgentChatConversation>[1]>,
       expectedRevision: number | null,
@@ -1412,8 +1420,12 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
         expectedRevision: gateRevision,
       });
       markRestructureConversationError(conversation.conversationId, error);
+      await refreshRestructureConversations(conversation.conversationId).catch(() => undefined);
     } finally {
       setConfirmingPlanMessageId(null);
+      setPendingStoryboardConfirmation((current) => (
+        current?.confirmationId === confirmationId ? null : current
+      ));
     }
   }, [activeSlotAtomDisplay?.sourceRestructureFinalPath, clearRestructureConversationError, confirmingPlanMessageId, markRestructureConversationError, refreshRestructureConversations, selectedRestructureConversation, selectedRestructureTurnTarget?.turnId]);
 
@@ -1896,6 +1908,7 @@ export function NewUiLayout({ active = true, theme, onThemeChange, onLeftCollaps
               stoppingTurn={stoppingRestructureTurn}
               openingPlanTraceMessageId={openingPlanTraceMessageId}
               confirmingPlanMessageId={confirmingPlanMessageId}
+              pendingStoryboardConfirmation={pendingStoryboardConfirmation}
             />
           ) : null}
         </div>
