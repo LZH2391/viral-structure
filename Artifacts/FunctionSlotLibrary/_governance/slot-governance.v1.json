@@ -1,6 +1,7 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.slots",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "updatedAt": "2026-06-10T09:59:02.393Z",
   "slotFamilies": [
     {
       "id": "FAM_attention_and_need_activation",
@@ -45,16 +46,16 @@
       "name": "方案进入与证据建立类",
       "coreViewerTransition": "已接受问题/价值 -> 理解解决对象、差异、机制或品质证据",
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F004",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F003",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F004",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F002",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F003",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F004",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F004",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F002",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F002",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F003",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F003",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F004",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F005",
@@ -62,13 +63,16 @@
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F004",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F005",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F003",
-        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004"
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
       ],
       "support": {
-        "variantCount": 18,
-        "sampleCount": 7,
+        "variantCount": 20,
+        "sampleCount": 8,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -77,16 +81,11 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "这些槽位都在把前置需求转成可相信的解决方案，但证明义务分化明显：有解决物识别、覆盖桥接、替代对比、机制说明、品质细节和低门槛步骤。",
+      "judgementReason": "该 family 聚合方案进入、机制解释、品质/感官证明、价值/信任补强、形态与用法证明等证据建立任务；family 仅表示高层证明阶段，不作为 archetype 合并依据。",
       "differenceNotes": [
-        "solution_entry 只建立后续论证对象，不应提前消耗完整卖点。",
-        "alternative_contrast 必须被后续 mechanism_proof 回应，不能作为孤立吐槽。",
-        "quality_trust_build/sensory_proof_peak 面向感官品质，mechanism_trust/mechanism_credibility/mechanism_proof 面向因果或结构可信。",
-        "low_barrier_operation 证明的是可执行门槛，不是机制可信本身。",
-        "attribute_sensing ????????????????????????????????????????",
-        "usage_demonstration ???????????????????????????????????????"
+        "同属 proof build 的槽位仍按 viewer transition、proof obligation 和 chain dependency 拆分 archetype。"
       ],
-      "riskIfMisclassified": "把证明槽混用会让机制证据、品质证据、步骤证据和解决物识别互相替代，导致重组方案看似完整但说服链断裂。"
+      "riskIfMisclassified": "会把不同证明义务合并，导致重组时用机制证明替代形态、用法或品质证明。"
     },
     {
       "id": "FAM_result_and_choice_closure",
@@ -96,13 +95,13 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F005",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::F005",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F005",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F006",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F006",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F006",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F005",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::F006",
-        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F006",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F005",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::F006"
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F006"
       ],
       "support": {
         "variantCount": 10,
@@ -117,15 +116,11 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "这些槽位都承担证明链闭合，但闭合对象不同：即时结果、使用场景、生活收益、长期信任和选择记忆。",
+      "judgementReason": "该 family 聚合结果兑现、选择记忆和转化收束任务，核心是把前置关切闭合到结果、生活状态或行动理由。",
       "differenceNotes": [
-        "usage_result_confirmation/result_confirmation 必须回到前文痛点或同一观众关切。",
-        "life_benefit_close/usage_scene_close 是低压生活化回落，不能新增复杂机制。",
-        "long_term_trust_close 额外要求时间维度或使用痕迹证据。",
-        "choice_close 是推荐和记忆锚点，不等于硬转化槽。",
-        "lifestyle_result_close ???????????????????????????????????"
+        "结果闭合、长期信任、推荐选择和转化理由仍是不同 archetype/subtype。"
       ],
-      "riskIfMisclassified": "如果把所有结尾槽合并，容易把结果兑现、长期信任和选择建议混成泛泛收尾，削弱闭环与转化判断。"
+      "riskIfMisclassified": "会把中段证明误当成结尾收束，造成链路提前关闭。"
     }
   ],
   "slotArchetypes": [
@@ -386,11 +381,9 @@
       },
       "judgementReason": "该 archetype 只承担回收前文关切并用结果、场景或反馈完成兑现的收束任务；它依赖上游激活或证明，不生成新的机制、价值或操作主证明。",
       "differenceNotes": [
-        "life_benefit_close、usage_scene_close、usage_result_confirmation、operation_result_confirmation 的差异在收束载体不同，但都必须回扣上游同一关切。",
-        "结果收束不能替代机制解释、品质峰值或低门槛操作步骤。",
-        "lifestyle_result_close ? life_benefit_close ???????????????????????? subtype????????? subtype?"
+        "life_benefit_close、usage_scene_close、usage_result_confirmation、operation_result_confirmation 和 lifestyle_result_close 都回扣前置关切，但结果载体不同。"
       ],
-      "riskIfMisclassified": "如果把收束槽当成证明槽，重组会跳过必要的因果、品质或步骤证据，只用结果画面硬收尾。",
+      "riskIfMisclassified": "如果误归入证明建立阶段，会让收束槽继续展开新主张；如果误归入转化关闭，会提前加入行动压力。",
       "primaryProofObligationClass": "activated_concern_result_closure",
       "chainDependencyClass": "result_closure_after_activation_or_proof",
       "excludes": [
@@ -513,14 +506,13 @@
     {
       "id": "ARCH_operation_barrier_reduction",
       "familyId": "FAM_solution_and_proof_build",
-      "name": "Operation barrier reduction archetype",
-      "viewerStateBeforeClass": "????????/??????????????????????????????",
-      "viewerStateAfterClass": "??????????????????????????????",
+      "name": "低门槛操作负担降低原型",
+      "viewerStateBeforeClass": "观众理解方案逻辑但担心执行复杂或不好完成",
+      "viewerStateAfterClass": "观众看到关键动作、等待或完成方式，认为执行门槛可接受",
       "commonProofObligation": [
-        "操作步骤或等待过程必须可见",
-        "完成动作与结果归因必须保持连续",
-        "操作证明不得替代因果机制解释、长期信任或结果闭合",
-        "???????????????"
+        "可见关键动作",
+        "低负担或少步骤说明",
+        "动作完成点或等待时间锚点"
       ],
       "sourceVariantIds": [
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003"
@@ -532,20 +524,17 @@
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
       },
-      "judgementReason": "? archetype ????????????????usage_demonstration ? low_barrier_operation ????????????????????????????????????????? archetype ????",
+      "judgementReason": "该原型锁定的是已经理解机制后的执行负担降低；它需要让观众相信操作不复杂，而不是单纯展示对象形态或结果。",
       "differenceNotes": [
-        "该 archetype 只处理步骤、等待、生效和完成动作，不解释完整机制原因。",
-        "低门槛操作可以承接 mechanism_credibility，但不能被 mechanism_credibility 吸收，也不能替代 operation_result_confirmation。",
-        "usage_demonstration ?????????????????????????????low_barrier_operation ???????/??????????????????? subtype ????"
+        "与 usage_method_proof 的差异在于前者回应执行负担，后者只证明对象如何进入使用路径。"
       ],
-      "riskIfMisclassified": "如果把操作门槛并入机制证明或结果收束，重组会缺少可执行步骤证据，或用步骤画面硬当结果。",
+      "riskIfMisclassified": "会把简单用法展示误当成低门槛操作闭环，导致后续重组缺少机制前提或执行负担回应。",
       "primaryProofObligationClass": "operation_barrier_reduction",
       "chainDependencyClass": "operation_after_state_or_mechanism_before_result",
       "excludes": [
-        "mechanism_explanation",
-        "contrast_gap_setup",
-        "problem_activation",
-        "long_term_trust_close"
+        "usage_method_proof_without_prior_mechanism",
+        "pure_result_close",
+        "material_form_only_proof"
       ]
     },
     {
@@ -935,35 +924,72 @@
       }
     },
     {
-      "id": "ARCH_attribute_state_sensing",
+      "id": "ARCH_material_form_observation_proof",
       "familyId": "FAM_solution_and_proof_build",
-      "name": "???????????",
-      "viewerStateBeforeClass": "?????????????????",
-      "viewerStateAfterClass": "?????????????????????",
-      "primaryProofObligationClass": "observable_attribute_state_evidence",
-      "chainDependencyClass": "state_evidence_before_usage_or_proof",
+      "name": "可见形态与基础质感证明原型",
+      "viewerStateBeforeClass": "尚未确认展示对象的可见状态与基础质感",
+      "viewerStateAfterClass": "已看到对象状态，并获得进入使用动作的认知前提",
+      "primaryProofObligationClass": "observable_material_form_evidence",
+      "chainDependencyClass": "form_state_before_usage_method_or_result_proof",
       "excludes": [
-        "problem_activation",
-        "mechanism_explanation",
-        "quality_objection_peak",
-        "result_closure"
+        "mechanism_or_causal_explanation",
+        "low_barrier_operation_after_mechanism",
+        "conversion_close"
       ],
       "commonProofObligation": [
-        "?????????????",
-        "???????????????????",
-        "?????????????????"
+        "物理状态可见",
+        "质感或形态主张有直接观察证据",
+        "解释层不抢占第一证明视线"
       ],
-      "sourceVariantIds": [],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001"
+      ],
       "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
       },
-      "judgementReason": "attribute_sensing ??????????????????????????????????????????????????????????????????????????????????",
+      "judgementReason": "该槽位的 viewer transition 是从未确认对象状态到已看清对象形态；证明义务是直接观察物理状态，不是机制解释、问题激活或结果收束。",
       "differenceNotes": [
-        "???????? archetype??????????????????????????????????????"
+        "当前为单样例 candidate archetype；可与未来所有“形态先证、用法后接”的短链路继续比较。"
       ],
-      "riskIfMisclassified": "?????????????????????????????????????????????????????????"
+      "riskIfMisclassified": "如果归入普通入口识别，会弱化质感/形态证明；如果归入机制证明，会错误要求复杂因果解释。"
+    },
+    {
+      "id": "ARCH_usage_method_demonstration_proof",
+      "familyId": "FAM_solution_and_proof_build",
+      "name": "使用路径动作证明原型",
+      "viewerStateBeforeClass": "已看到对象状态但尚未理解其如何进入实际使用场景",
+      "viewerStateAfterClass": "理解关键使用路径，并把前置形态证明与使用结果连接起来",
+      "primaryProofObligationClass": "visible_usage_path_demonstration",
+      "chainDependencyClass": "usage_action_after_form_state_proof",
+      "excludes": [
+        "multi_step_instruction",
+        "low_barrier_operation_after_mechanism",
+        "final_conversion_close"
+      ],
+      "commonProofObligation": [
+        "连续动作路径",
+        "目标使用场景落点",
+        "前后对象识别线索连续"
+      ],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "该槽位不是降低复杂操作顾虑，而是把已被看清的对象推进到实际使用动作中，证明用法路径成立。",
+      "differenceNotes": [
+        "当前为单样例 candidate archetype；未来若出现多步骤教学或复杂操作闭环，应拆成独立 subtype/archetype。"
+      ],
+      "riskIfMisclassified": "如果误归入结果收束，会过早要求转化闭合；如果误归入低门槛操作，会忽略前置形态到动作路径的连续证明。"
     }
   ],
   "slotSubtypes": [
@@ -2683,116 +2709,115 @@
       }
     },
     {
-      "id": "SUB_attribute_state_sensing",
-      "archetypeId": "ARCH_attribute_state_sensing",
-      "name": "?????????",
+      "id": "SUB_material_form_proof",
+      "archetypeId": "ARCH_material_form_observation_proof",
+      "name": "可见形态质感先证",
       "sourceSlotTypes": [
-        "attribute_sensing"
+        "material_form_proof"
       ],
-      "viewerTransition": "???????????? -> ??????????????????????",
+      "viewerTransition": "未确认对象状态 -> 已看到对象形态并获得使用前提",
       "proofObligation": [
-        "??????",
-        "??????????",
-        "???????",
-        "???????"
+        "可见物理状态",
+        "简短质感解释",
+        "低干扰识别线索"
       ],
-      "solutionVisibility": "state_evidence_before_usage_action",
+      "solutionVisibility": "解决/使用对象先以形态状态直接出现，使用动作延后承接",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "对象品类",
+          "质感角度",
+          "近景呈现方式",
+          "解释字幕形式"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task",
-          "viewerTransition",
-          "proofObligation"
+          "slotArchetype task"
         ]
       },
-      "sourceVariantIds": [],
-      "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
-      },
-      "judgementReason": "? subtype ?????????????????????????? archetype ??????????",
-      "differenceNotes": [
-        "?????? candidate subtype????????????????????????????????????????????????"
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001"
       ],
-      "riskIfMisclassified": "??????????????????????????????????????"
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "该 subtype 只表达形态/质感证明的实现差异，不改变“可见状态先证”的主任务。",
+      "differenceNotes": [
+        "当前证据来自单镜短促质感展示；后续可接收不同品类的可见形态先证样例。"
+      ],
+      "riskIfMisclassified": "会把形态证据错配成入口标题或机制证明，导致用法承接缺少对象状态前提。"
     },
     {
-      "id": "SUB_immediate_usage_demonstration",
-      "archetypeId": "ARCH_operation_barrier_reduction",
-      "name": "?????????",
+      "id": "SUB_usage_method_proof",
+      "archetypeId": "ARCH_usage_method_demonstration_proof",
+      "name": "连续动作使用路径证明",
       "sourceSlotTypes": [
-        "usage_demonstration"
+        "usage_method_proof"
       ],
-      "viewerTransition": "??????????????????? -> ????????????????????",
+      "viewerTransition": "已看到对象状态 -> 理解关键使用路径与目标场景落点",
       "proofObligation": [
-        "?????????",
-        "????????",
-        "?????????",
-        "???????????????"
+        "动作路径可见",
+        "目标场景承接",
+        "对象识别线索连续"
       ],
-      "solutionVisibility": "usage_action_after_state_sensing",
+      "solutionVisibility": "动作路径即时出现，转化信息不前置抢占动作理解",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "使用动作",
+          "承接容器或场景",
+          "操作主体",
+          "说明表达方式"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task",
-          "viewerTransition",
-          "proofObligation"
+          "slotArchetype task"
         ]
       },
-      "sourceVariantIds": [],
-      "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
-      },
-      "judgementReason": "? subtype ? low_barrier_operation ?????????????????????????????????????????????????",
-      "differenceNotes": [
-        "?????? candidate subtype???????????????????? subtype???????????????????? SUB_operation_barrier_reduction?"
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
       ],
-      "riskIfMisclassified": "?????????????????????????????????????????????"
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "该 subtype 的证明功能是动作路径兑现，而不是多步骤教学或结果收束。",
+      "differenceNotes": [
+        "当前为单样例 candidate subtype；未来若动作路径变成多步骤教学，应进入新的操作说明治理。"
+      ],
+      "riskIfMisclassified": "会让重组把促销包装或复杂教学压进简单用法证明，破坏动作理解。"
     },
     {
       "id": "SUB_lifestyle_result_state_close",
       "archetypeId": "ARCH_result_closure",
-      "name": "???????????",
+      "name": "生活状态结果收束",
       "sourceSlotTypes": [
         "lifestyle_result_close"
       ],
-      "viewerTransition": "???????????????????? -> ???????????????????",
+      "viewerTransition": "已理解效果和机制 -> 把功能结果记忆为轻松稳定的生活状态",
       "proofObligation": [
-        "????????",
-        "?????????",
-        "????????????????"
+        "结果状态可见",
+        "生活利益落点",
+        "前置效果和机制回扣"
       ],
-      "solutionVisibility": "lifestyle_result_after_mechanism_or_validation",
+      "solutionVisibility": "结果后置收束，保留生活状态作为记忆点",
       "subtypeBoundary": {
         "implementationDifferenceScope": [
-          "??",
-          "??",
-          "??",
-          "??"
+          "生活场景",
+          "结果状态表达",
+          "结尾记忆点包装"
         ],
         "mustNotChange": [
           "primaryProofObligationClass",
           "chainDependencyClass",
-          "slotArchetype task",
-          "viewerTransition",
-          "proofObligation"
+          "slotArchetype task"
         ]
       },
       "sourceVariantIds": [
@@ -2805,11 +2830,11 @@
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
         ]
       },
-      "judgementReason": "? subtype ?????????????????????????????? life_benefit_close ? archetype?? sourceSlotType???????????????",
+      "judgementReason": "该 subtype 属于结果兑现闭环，证明对象是前置机制和效果在生活状态中的落点。",
       "differenceNotes": [
-        "?????? candidate subtype???????????????????????????/????????????"
+        "不能与 usage_method_proof 合并；前者是最终生活状态，后者是用法路径。"
       ],
-      "riskIfMisclassified": "???????????????????????????????????????????????"
+      "riskIfMisclassified": "会把中段使用动作误当作结尾结果闭合，导致链路过早收束。"
     }
   ]
 }

@@ -98,6 +98,7 @@ async function handleJobCacheDecision(req, res, jobId, handlers = {}) {
   const cacheKind = job.cachePrompt?.cacheKind ?? inferCacheKindFromJob(job);
   const analysisResult = await handlers.moduleRegistry.resolveModuleCacheDecision({ cacheKind, jobId, decision: body.decision });
   const result = analysisResult ?? await handlers.shotBoundaryService.resolveCacheDecision({ jobId, decision: body.decision });
+  await advanceWorkflowRunsForJob(handlers, jobId);
   return sendJson(res, 200, result);
 }
 
@@ -105,6 +106,22 @@ function inferCacheKindFromJob(job) {
   const stage = String(job?.stage ?? "");
   if (stage.startsWith("shot.") || stage.startsWith("shot_boundary") || job?.cachePrompt?.cachedItem?.tags?.includes("切镜")) return "shot_boundary";
   return null;
+}
+
+async function advanceWorkflowRunsForJob(handlers, jobId) {
+  const runs = typeof handlers.workflowRunStore?.listRuns === "function" ? handlers.workflowRunStore.listRuns() : [];
+  const matched = runs.filter((run) => runHasChildJob(run, jobId));
+  for (const run of matched) {
+    const service = run.workflowKey === "material-recognition"
+      ? handlers.materialRecognitionWorkflowService
+      : handlers.fullAnalysisWorkflowService;
+    await service?.advance?.(run.workflowRunId)?.catch?.(() => undefined);
+  }
+}
+
+function runHasChildJob(run, jobId) {
+  if (!jobId || !Array.isArray(run?.stages)) return false;
+  return run.stages.some((stage) => stage?.childJobId === jobId);
 }
 
 async function bindCompletedMaterialRecognitionItem({ agentConversationStore, logger, batch, item, context }) {

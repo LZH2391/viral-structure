@@ -101,9 +101,20 @@ test("command dispatcher rejects unsupported commands", async () => {
 
 test("command dispatcher resolves job cache decisions through module registry", async () => {
   const calls = [];
+  const advances = [];
   const dispatcher = createCommandDispatcher({
     jobStore: {
       getJob: () => ({ jobId: "job_1", status: "cache_waiting", cachePrompt: { cacheKind: "script_segment" }, traceId: "trace_job" }),
+    },
+    workflowRunStore: {
+      listRuns: () => [
+        { workflowRunId: "workflow_1", workflowKey: "full-analysis", stages: [{ key: "scriptSegment", childJobId: "job_1" }] },
+      ],
+    },
+    fullAnalysisWorkflowService: {
+      advance: async (workflowRunId) => {
+        advances.push(workflowRunId);
+      },
     },
     moduleRegistry: {
       resolveModuleCacheDecision: async (payload) => {
@@ -120,6 +131,7 @@ test("command dispatcher resolves job cache decisions through module registry", 
   });
 
   assert.deepEqual(calls, [{ cacheKind: "script_segment", jobId: "job_1", decision: "refresh" }]);
+  assert.deepEqual(advances, ["workflow_1"]);
   assert.equal(result.ok, true);
   assert.equal(result.command, "job.cache.resolve");
   assert.equal(result.status, "processing");

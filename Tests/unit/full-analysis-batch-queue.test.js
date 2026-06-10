@@ -186,6 +186,47 @@ test("full analysis batch queue treats cache waiting as active for dispatch limi
   assert.equal(current.items[2].status, "queued");
 });
 
+test("full analysis batch queue does not close active cache waiting item from old final artifact", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-active-cache-"));
+  const workflowService = {
+    start: async () => ({
+      workflowRunId: "workflow_active_cache",
+      status: "cache_waiting",
+      sampleVideoId: "sample_reused",
+      currentStageKeys: ["shotBoundary"],
+      stages: [{ key: "shotBoundary", label: "切镜", status: "cache_waiting", childJobId: "job_cache" }],
+    }),
+    get: () => ({
+      workflowRunId: "workflow_active_cache",
+      status: "cache_waiting",
+      sampleVideoId: "sample_reused",
+      currentStageKeys: ["shotBoundary"],
+      stages: [{ key: "shotBoundary", label: "切镜", status: "cache_waiting", childJobId: "job_cache" }],
+    }),
+    advance: async () => undefined,
+  };
+  const queue = createFullAnalysisBatchQueue({
+    workflowService,
+    runtimeRoot: root,
+    terminalActiveGraceMs: 0,
+    loadSampleArtifact: async ({ sampleVideoId }) => sampleVideoId === "sample_reused"
+      ? { functionSlotAtomizationAnalysis: { artifactId: "artifact_old_atomization" } }
+      : null,
+  });
+  const batch = queue.createBatch({
+    workspaceId: "default-workspace",
+    files: [createFile("reused.mp4")],
+    fields: {},
+  });
+
+  await queue.advance(batch.batchRunId);
+  const current = queue.getBatch(batch.batchRunId);
+
+  assert.equal(current.items[0].status, "cache_waiting");
+  assert.equal(current.items[0].currentStageLabel, "切镜");
+  assert.equal(current.status, "cache_waiting");
+});
+
 test("full analysis batch queue notifies queue changes for terminal and retry transitions", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "full-analysis-batch-callback-"));
   const notifications = [];

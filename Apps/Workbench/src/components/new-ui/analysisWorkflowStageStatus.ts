@@ -117,9 +117,8 @@ function statusForStage(
 ): WorkflowStageStatus {
   const workflowStage = workflowStages.find((stage) => stage.key === stageKey);
   const workflowStatus = workflowStageStatus(workflowStage?.status);
+  if (workflowStage) return workflowStatus ?? "waiting";
   if (done) return "done";
-  if (workflowStatus) return workflowStatus;
-  if (workflowStage) return "waiting";
   return statusFor({ done, dependenciesDone, running });
 }
 

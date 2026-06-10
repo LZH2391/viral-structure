@@ -140,6 +140,7 @@ function createCommandDispatcher({
       throw commandError("job_cache_resolver_unavailable", "job cache decision resolver 不可用", 503, true, { target, cacheKind });
     }
     const nextJob = result.jobId ? result : jobStore?.getJob?.(target.resourceId) ?? result;
+    await advanceWorkflowRunsForJob(target.resourceId);
     return commandResult({
       command: "job.cache.resolve",
       target,
@@ -151,6 +152,17 @@ function createCommandDispatcher({
       parentArtifactId: nextJob.parentArtifactId ?? result.parentArtifactId ?? null,
       resourceRefs: [target],
     });
+  }
+
+  async function advanceWorkflowRunsForJob(jobId) {
+    const runs = typeof workflowRunStore?.listRuns === "function" ? workflowRunStore.listRuns() : [];
+    const matched = runs.filter((run) => runHasChildJob(run, jobId));
+    for (const run of matched) {
+      const service = run.workflowKey === "material-recognition"
+        ? materialRecognitionWorkflowService
+        : fullAnalysisWorkflowService;
+      await service?.advance?.(run.workflowRunId)?.catch?.(() => undefined);
+    }
   }
 
   async function stopActiveTurn(request) {
@@ -219,6 +231,11 @@ function inferCacheKindFromJob(job) {
   const stage = String(job?.stage ?? "");
   if (stage.startsWith("shot.") || stage.startsWith("shot_boundary") || job?.cachePrompt?.cachedItem?.tags?.includes("切镜")) return "shot_boundary";
   return null;
+}
+
+function runHasChildJob(run, jobId) {
+  if (!jobId || !Array.isArray(run?.stages)) return false;
+  return run.stages.some((stage) => stage?.childJobId === jobId);
 }
 
 function latestStageArtifactId(run) {

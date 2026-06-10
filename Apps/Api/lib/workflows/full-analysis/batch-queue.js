@@ -203,7 +203,7 @@ function createFullAnalysisBatchQueue({
       const run = workflowService.get?.(item.workflowRunId);
       if (!run) continue;
       syncItemFromRun(item, run);
-      await syncItemFromCompletedArtifact(batch, item);
+      await syncItemFromCompletedArtifact(batch, item, run);
       await maybeNotifyItemCompleted(batch, item, run);
     }
     assignQueuedPositions(batch);
@@ -244,7 +244,7 @@ function createFullAnalysisBatchQueue({
       await workflowService.advance?.(result.workflowRunId).catch(() => undefined);
       const latestRun = workflowService.get?.(result.workflowRunId) ?? result;
       syncItemFromRun(item, latestRun);
-      await syncItemFromCompletedArtifact(batch, item);
+      await syncItemFromCompletedArtifact(batch, item, latestRun);
       await maybeNotifyItemCompleted(batch, item, latestRun);
       return isActiveItem(item);
     } catch (error) {
@@ -285,8 +285,9 @@ function createFullAnalysisBatchQueue({
     }
   }
 
-  async function syncItemFromCompletedArtifact(batch, item) {
+  async function syncItemFromCompletedArtifact(batch, item, run = null) {
     if (!loadSampleArtifact || !isActiveItem(item) || !item.sampleVideoId) return;
+    if (!shouldTrustCompletedArtifactFallback(run)) return;
     const artifact = await loadSampleArtifact({ sampleVideoId: item.sampleVideoId }).catch(() => null);
     if (!artifact || !hasWorkflowCompletionArtifact(batch.workflowKey, artifact)) return;
     const now = new Date().toISOString();
@@ -416,6 +417,22 @@ function hasWorkflowCompletionArtifact(workflowKey, artifact) {
   if (!artifact || typeof artifact !== "object") return false;
   if (workflowKey === "material-recognition") return Boolean(artifact.userMaterialPack);
   return Boolean(artifact.functionSlotAtomizationAnalysis);
+}
+
+function shouldTrustCompletedArtifactFallback(run) {
+  if (!run) return false;
+  if (run.status === "processed") return true;
+  return run.status === CACHE_WAITING_STATUS && !hasActiveChildJob(run);
+}
+
+function hasActiveChildJob(run) {
+  if (!Array.isArray(run?.stages)) return false;
+  const currentKeys = new Set(Array.isArray(run.currentStageKeys) ? run.currentStageKeys : []);
+  return run.stages.some((stage) => (
+    stage?.childJobId
+    && ["pending", "running", CACHE_WAITING_STATUS].includes(String(stage.status ?? ""))
+    && (!currentKeys.size || currentKeys.has(stage.key))
+  ));
 }
 
 function isBatchTerminal(batch) {

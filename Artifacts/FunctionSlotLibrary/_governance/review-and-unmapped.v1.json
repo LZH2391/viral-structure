@@ -1,259 +1,24 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.review",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "updatedAt": "2026-06-10T09:59:02.397Z",
   "unmappedAtomVariants": [],
-  "unmappedBindingVariants": [
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B001",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B002",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B003",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B004",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B005",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B006",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B007",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B008",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B009",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B010",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B001",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B002",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B005",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B001",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B002",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B003",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B004",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B005",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B006",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B007",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B008",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B009",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B001",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B002",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B003",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B004",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B005",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B006",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B007",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B008",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B009",
-      "reason": "pending_agent_binding_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B002",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B003",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B001",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B003",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B004",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B006",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B007",
-      "reason": "local_binding_no_reusable_pattern_yet",
-      "suggestedAction": "keep_as_variant_until_more_support"
-    }
-  ],
+  "unmappedBindingVariants": [],
   "unmappedRuleVariants": [
     {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C001",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C002",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C003",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C004",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE001",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
       "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE002",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "reason": "local_sequence_policy_needs_more_support",
       "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE003",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "reason": "local_sequence_policy_needs_more_support",
       "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE004",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "reason": "local_sequence_policy_needs_more_support",
       "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE005",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE006",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::RULE007",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C002",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
     },
     {
       "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C003",
@@ -266,147 +31,32 @@
       "suggestedAction": "keep_for_local_audit_only"
     },
     {
-      "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE005",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C001",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C002",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C003",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C004",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE001",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE002",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE003",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
       "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE004",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "reason": "local_sequence_policy_needs_more_support",
       "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE005",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::RULE006",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C001",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C002",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C003",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "reason": "local_sequence_policy_needs_more_support",
       "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::C004",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "reason": "local_sequence_policy_needs_more_support",
       "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE001",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE002",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "reason": "local_sequence_policy_needs_more_support",
       "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
     },
     {
       "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE003",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
+      "reason": "local_sequence_policy_needs_more_support",
       "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE004",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE005",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE006",
-      "reason": "pending_agent_rule_pattern_governance_after_library_refresh",
-      "suggestedAction": "keep_as_unmapped_until_real_agent_semantic_governance_reviews_this_variant"
-    },
-    {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C001",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C003",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C004",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C005",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE002",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
-      "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE003",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
     },
     {
       "variantId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE004",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
-      "variantId": "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C002",
       "reason": "local_rule_no_cross_sample_support",
       "suggestedAction": "keep_for_local_audit_only"
     },
@@ -426,27 +76,12 @@
       "suggestedAction": "keep_for_local_audit_only"
     },
     {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C003",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C004",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE002",
       "reason": "local_rule_no_cross_sample_support",
       "suggestedAction": "keep_for_local_audit_only"
     },
     {
       "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE003",
-      "reason": "local_rule_no_cross_sample_support",
-      "suggestedAction": "keep_for_local_audit_only"
-    },
-    {
-      "variantId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE004",
       "reason": "local_rule_no_cross_sample_support",
       "suggestedAction": "keep_for_local_audit_only"
     }
@@ -589,65 +224,171 @@
       }
     },
     {
-      "id": "REVIEW_candidate_attribute_state_sensing_boundary",
+      "id": "REVIEW_candidate_material_form_proof_boundary",
       "severity": "medium",
-      "topic": "attribute_sensing ?????????????",
-      "sourceVariantIds": [],
-      "evidenceFor": [
-        "??????????????????????????????????",
-        "??????????????????????"
-      ],
-      "evidenceAgainst": [
-        "?????????????????/?????????????"
-      ],
-      "question": "????????????????? archetype??????????/?????????",
-      "recommendedAction": "???? 2 ????????????? proof obligation ???????????????????",
-      "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
-      }
-    },
-    {
-      "id": "REVIEW_candidate_immediate_usage_demo_vs_operation_barrier",
-      "severity": "medium",
-      "topic": "??????????????? subtype ??",
+      "topic": "material_form_proof candidate archetype boundary",
       "sourceVariantIds": [
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003"
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001"
       ],
       "evidenceFor": [
-        "???????????????????????????????"
+        "viewer transition 只完成对象形态与基础质感确认",
+        "proof obligation 是直接可见物理状态，不是机制因果或入口标题"
       ],
       "evidenceAgainst": [
-        "??????????/???????????????????? low_barrier_operation subtype?"
+        "当前只有单样例，尚不能判断它是否会与品质细节证明或入口对象识别稳定合并"
       ],
-      "question": "??????????????? subtype????????????????????????? subtype?",
-      "recommendedAction": "???????????????????????? solutionVisibility ? proofObligation?",
+      "question": "未来样例中的形态/质感先证是否应独立成 archetype，还是作为品质证据原型的 subtype？",
+      "recommendedAction": "补充至少 2 个不同品类的形态先证样例，再比较 viewer transition 和 proof obligation。",
       "support": {
         "variantCount": 1,
         "sampleCount": 1,
         "sampleIds": [
-          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
         ]
       }
     },
     {
-      "id": "REVIEW_candidate_continuous_demo_rule_support",
-      "severity": "low",
-      "topic": "??????????????????",
-      "sourceVariantIds": [],
+      "id": "REVIEW_candidate_usage_method_proof_boundary",
+      "severity": "medium",
+      "topic": "usage_method_proof versus operation_barrier_reduction",
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
+      ],
       "evidenceFor": [
-        "?? rule ???????????????????????"
+        "usage_method_proof 只证明动作路径和目标场景落点",
+        "operation_barrier_reduction 要回应观众对流程复杂或不好执行的顾虑"
       ],
       "evidenceAgainst": [
-        "??????? attribute_sensing > usage_demonstration ?????????????????????"
+        "当前只有单步短动作样例，尚缺多步骤用法和低门槛操作样例的对照"
       ],
-      "question": "?????????????????????????????????????????",
-      "recommendedAction": "?? candidate policy???????????????????????????",
+      "question": "简单用法路径证明是否需要长期独立于低门槛操作负担降低原型？",
+      "recommendedAction": "补充多步骤教学、单步用法和机制后操作三类样例，验证 parent archetype 粒度。",
       "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      }
+    },
+    {
+      "id": "REVIEW_candidate_object_continuity_policy_support",
+      "severity": "low",
+      "topic": "object continuity policy candidate support",
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE001"
+      ],
+      "evidenceFor": [
+        "形态证明到用法证明依赖同一对象识别线索连续",
+        "binding B003 明确指出断裂会造成片段不相关"
+      ],
+      "evidenceAgainst": [
+        "当前只有一个两槽极短链路支持，尚未跨样例稳定"
+      ],
+      "question": "对象连续性是否应升格为通用 carryover policy，还是仅用于形态到用法链路？",
+      "recommendedAction": "后续检索同一对象跨槽进入使用场景的样例，确认适用范围。",
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      }
+    },
+    {
+      "id": "REVIEW_009",
+      "severity": "medium",
+      "topic": "binding pattern ????????",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B003",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B004",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B006",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B007",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B008",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B009",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::binding::B010",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B002",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B005",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B001",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B002",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B003",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B004",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B005",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B006",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B007",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B008",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::binding::B009",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B001",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B002",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B003",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B004",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B005",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B006",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B007",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B008",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::binding::B009",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B002",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B003",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B006",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B007"
+      ],
+      "evidenceFor": [
+        "????? binding ??? sync?require?carryover?support?substitute?conflict ?????????? pattern?",
+        "???????????????????????? slotType ??? rule ?????"
+      ],
+      "evidenceAgainst": [
+        "????????????????????????????????????????????????"
+      ],
+      "question": "???? binding pattern ????????????????????????????????????? pattern?",
+      "recommendedAction": "?????????????/??????-??????????? binding ???????",
+      "support": {
+        "variantCount": 38,
+        "sampleCount": 7,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
+          "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
+          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+        ]
+      }
+    },
+    {
+      "id": "REVIEW_010",
+      "severity": "medium",
+      "topic": "?????????? pattern ?????",
+      "sourceVariantIds": [
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rule::C004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE005",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rule::C003",
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rule::RULE005"
+      ],
+      "evidenceFor": [
+        "????????????????????????????????????????????"
+      ],
+      "evidenceAgainst": [
+        "?????????????????????????????????????????????"
+      ],
+      "question": "????????????????????????????????? pattern?",
+      "recommendedAction": "??????????? rule pattern ????? soft close ? hard conversion close?",
+      "support": {
+        "variantCount": 4,
+        "sampleCount": 4,
+        "sampleIds": [
+          "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
+          "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
+          "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac"
+        ]
       }
     }
   ],
@@ -660,8 +401,10 @@
     "可信疑问加压与机制可信是否应合并？当前 credibility_question/objective_proof_release 是“提问-证据释放”关系，mechanism_credibility 是原因解释，暂按不同 archetype 处理。",
     "感官证据堆叠与品质放心背书是否应连续治理为固定链？当前只观察到常见相邻关系，不作为固定模板。",
     "服饰/穿搭样例中的场景价值扩展和转化收束是否适合迁移到食品、清洁、个护品类？当前只作为候选 pattern 使用，跨品类时必须检查证明载体。",
-    "attribute_sensing ??????????????????????????????/?????????",
-    "???????????/????? low_barrier_operation ????? subtype?????????????",
-    "???????????????????????????? sample_1ca ??????????"
+    "material_form_proof 是否应长期独立于品质细节证明，取决于后续样例是否仍只完成形态先证而不承载品质疑虑回应。",
+    "usage_method_proof 与 low_barrier_operation 的边界需要更多样例验证：前者证明路径，后者降低执行顾虑。",
+    "对象连续性 rule 当前是单样例 candidate，后续需要跨品类样例确认是否升格为通用 carryover policy。",
+    "binding pattern ?? 6 ????????????????????????????????????????????????? pattern??????????",
+    "??????????????????/??/??????????????????????????? pattern ?????"
   ]
 }

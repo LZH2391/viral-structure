@@ -1,6 +1,7 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.bundles",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "updatedAt": "2026-06-10T09:59:02.396Z",
   "implementationBundles": [
     {
       "id": "BUNDLE_result_first_reverse_need",
@@ -618,27 +619,28 @@
       ]
     },
     {
-      "id": "OBS_CHAIN_attribute_to_usage_demo",
-      "name": "???????????????",
-      "chainKey": "attribute_sensing > usage_demonstration",
+      "id": "OBS_CHAIN_material_form_to_usage_method",
+      "name": "形态证明到用法动作观察链路",
+      "chainKey": "material_form_proof > usage_method_proof",
       "sequence": [
-        "SUB_attribute_state_sensing",
-        "SUB_immediate_usage_demonstration"
+        "SUB_material_form_proof",
+        "SUB_usage_method_proof"
       ],
-      "sourceVariantIds": [],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
+      ],
       "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
+        "variantCount": 2,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
       },
       "useAs": "observed_order_and_carryover_evidence",
       "notUseAs": "archetype_merge_basis_or_fixed_template",
-      "judgementReason": "????????????????????????????????? carryover ? sequence integrity ?????????????",
-      "riskIfMisclassified": "???????????????????????????????????????????????",
-      "differenceNotes": [
-        "??????? sample_1ca ? attribute_sensing > usage_demonstration ???",
-        "????????????????????? slot archetype ??????????????"
-      ]
+      "judgementReason": "该链路只记录样例中形态先证后接使用动作的观察顺序和对象连续承接，不作为固定模板。",
+      "riskIfMisclassified": "若当作固定模板，会把所有形态或用法素材都强制绑定成两槽链；若当作 archetype 合并依据，会混淆形态证明与用法证明。"
     }
   ]
 }

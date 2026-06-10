@@ -85,6 +85,20 @@ C:\ByteDanceFullStack\ffmpeg-8.1.1-full_build-shared\bin
 
 ![新 UI 素材识别入口](Docs/Images/readme-new-ui-material.png)
 
+`库` 下面有三个图谱入口，分别服务于不同层级的结构查看和追踪。
+
+`样例结构图` 查看单个样例沉淀出的槽位、脚本原子、节奏原子、包装原子和绑定关系。它适合用来回答“这个样例到底拆出了什么结构”，也可以从分析结果回跳到对应样例。
+
+![新 UI 样例结构图](Docs/Images/readme-new-ui-library-structure.png)
+
+`语义治理库` 查看跨样例沉淀后的 slot subtype、原子模式、绑定治理和规则治理。它适合用来判断多个样例之间哪些结构可以归并，哪些命名或证据关系需要治理。
+
+![新 UI 语义治理库](Docs/Images/readme-new-ui-library-governance.png)
+
+`方案溯源图` 查看已确认重组方案如何连接到样例、槽位、原子和最终确定方案。它适合用来追踪“这个重组方案从哪些结构证据来”，也方便复盘和返工。
+
+![新 UI 方案溯源图](Docs/Images/readme-new-ui-library-trace.png)
+
 重组区用于选择已有会话、继续对话、替换槽位原子，并确认方案进入后续 Storyboard 流程。
 
 ![新 UI 重组工作区](Docs/Images/readme-new-ui-restructure.png)

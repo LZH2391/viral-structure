@@ -1,6 +1,7 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.atoms",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
+  "updatedAt": "2026-06-10T09:59:02.394Z",
   "atomArchetypes": [
     {
       "id": "ATOM_ARCH_script_demand_establishment",
@@ -19,18 +20,18 @@
         "SCRIPT_candidate_coverage_bridge_coverage_to_reliability"
       ],
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S002",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S001",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S001",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S002",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S001",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S004",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S002",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S001",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S002",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S002",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S002",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S003"
       ],
       "support": {
@@ -71,32 +72,35 @@
         "SCRIPT_candidate_sensory_evidence_deepening_sensory_claim_to_visible_evidence",
         "SCRIPT_candidate_trust_assurance_shift_sensory_to_trust_assurance",
         "SCRIPT_candidate_low_barrier_operation_operation_simplification",
-        "SCRIPT_candidate_visible_attribute_state_evidence",
-        "SCRIPT_candidate_immediate_usage_action_proof"
+        "SCRIPT_candidate_visible_material_form_evidence",
+        "SCRIPT_candidate_usage_path_action_proof"
       ],
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S004",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S004",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S002",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S003",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S004",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S002",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S003",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S005",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S002",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S003",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S004",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S003",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S004",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S005",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S002",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S003",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S004",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S002",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S003",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S004"
       ],
       "support": {
-        "variantCount": 16,
-        "sampleCount": 7,
+        "variantCount": 18,
+        "sampleCount": 8,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -125,16 +129,16 @@
         "SCRIPT_candidate_long_term_trust_close_trust_to_choice"
       ],
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S005",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S005",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S005",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S004",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S006",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::script::S006",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S005",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::script::S006",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::script::S006",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S005",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S005"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::script::S005",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S005",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::script::S006"
       ],
       "support": {
         "variantCount": 10,
@@ -164,24 +168,26 @@
         "RHYTHM_candidate_scene_problem_activation_fast_to_slow_setup",
         "RHYTHM_candidate_value_anchor_slow_hold",
         "RHYTHM_candidate_pain_backfill_compact_montage",
-        "RHYTHM_candidate_state_focus_entry"
+        "RHYTHM_candidate_compressed_detail_focus"
       ],
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R001",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R001",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R001",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R002",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R001",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R001",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R001",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R001",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002"
       ],
       "support": {
-        "variantCount": 9,
-        "sampleCount": 7,
+        "variantCount": 10,
+        "sampleCount": 8,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -205,27 +211,29 @@
         "RHYTHM_pattern_slow_explanation_or_observation",
         "RHYTHM_candidate_value_positioning_brief_pause_then_explain",
         "RHYTHM_candidate_coverage_bridge_held_dense_peak",
-        "RHYTHM_candidate_continuous_usage_action_bridge"
+        "RHYTHM_candidate_continuous_action_path_bridge"
       ],
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R004",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R003",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R002",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R002",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R003",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R002",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R004",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R002",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R004",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R003",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R002",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R003",
-        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R002",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003"
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R003",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R004"
       ],
       "support": {
-        "variantCount": 12,
-        "sampleCount": 7,
+        "variantCount": 13,
+        "sampleCount": 8,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -315,17 +323,17 @@
         "RHYTHM_candidate_scenario_value_close_long_dialogue_pressure"
       ],
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R005",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R005",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R004",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R006",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R005",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R006",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R006",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R007",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R005",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R006",
-        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::rhythm::R006",
-        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R006"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R004",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R005",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R005",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R005",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R006"
       ],
       "support": {
         "variantCount": 11,
@@ -359,14 +367,14 @@
         "PACK_candidate_pain_backfill_old_state_problem_proof"
       ],
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P001",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P001",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P001",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P002",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P001",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P001",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P001",
-        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P001",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P001",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P001",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P001",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P002",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P003"
       ],
@@ -402,16 +410,16 @@
         "PACK_candidate_coverage_bridge_coverage_reliability_proof"
       ],
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P005",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P004",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P002",
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P002",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P005",
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P004",
+        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P003",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P004",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P004",
-        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P005",
-        "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P003",
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P002",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P005",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004"
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P004",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P005"
       ],
       "support": {
         "variantCount": 10,
@@ -444,10 +452,11 @@
         "PACK_candidate_sensory_evidence_deepening_sensory_texture_experience_proof",
         "PACK_candidate_quality_trust_build_texture_objection_proof",
         "PACK_candidate_sensory_proof_peak_sensory_detail_proof",
-        "PACK_candidate_observable_state_proof"
+        "PACK_candidate_observable_material_state_proof"
       ],
       "sourceVariantIds": [
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P003",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P003",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P005",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P002",
@@ -456,10 +465,11 @@
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004"
       ],
       "support": {
-        "variantCount": 7,
-        "sampleCount": 5,
+        "variantCount": 8,
+        "sampleCount": 6,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -482,20 +492,23 @@
         "PACK_candidate_value_positioning_contextual_value_support",
         "PACK_candidate_scenario_value_close_usage_context_and_trust_close",
         "PACK_candidate_low_barrier_operation_pattern",
-        "PACK_candidate_quantity_value_confirmation_visible_quantity_proof"
+        "PACK_candidate_quantity_value_confirmation_visible_quantity_proof",
+        "PACK_candidate_usage_path_visual_proof"
       ],
       "sourceVariantIds": [
         "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P004",
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P002",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P002",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P006",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P002"
       ],
       "support": {
-        "variantCount": 5,
-        "sampleCount": 4,
+        "variantCount": 6,
+        "sampleCount": 5,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
+          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
@@ -517,13 +530,13 @@
         "PACK_candidate_identity_conversion_close_scarcity_conversion_wrap"
       ],
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P006",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P005",
+        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P006",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P005",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P004",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::packaging::P006",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P005",
-        "sample_1538315c-a8a4-443a-8d4e-8c0901794653::packaging::P006"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P004",
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P005",
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::packaging::P006"
       ],
       "support": {
         "variantCount": 7,
@@ -722,7 +735,7 @@
       "judgementReason": "四者共同要求结果不能脱离上游关切，是当前证据中最稳定的脚本治理模式。",
       "differenceNotes": [
         "购买对象绑定、生活利益和操作结果的证明对象不同。",
-        "lifestyle_result_close ????????????????????????????????????????????"
+        "lifestyle_result_close 只作为结果闭合 subtype，不应反向合并到使用方法证明。"
       ],
       "riskIfMisclassified": "收尾会变成泛泛好处。",
       "forSlotSubtypeIds": [
@@ -952,9 +965,8 @@
       },
       "judgementReason": "这些 rhythm atom 都承担证明后的兑现、记忆或冷却功能，差异是结果状态、推荐结论、商品终屏或低信息停留的具体落点不同。",
       "differenceNotes": [
-        "即时结果确认、推荐记忆、静止冷却和购买对象锚定都可以复用该收束功能。",
-        "不合并紧迫身份转化或对话二次加压；它们在末段仍制造压力峰值，不是纯回落收束。",
-        "lifestyle_result_close ???????????????????????? relaxed_light_motion/low_motion_result_density?"
+        "结果确认、选择建议、购买对象锚定和生活状态收束的载体不同，但注意力功能都是从证明峰值回落到低信息闭合。",
+        "不合并 usage_method_proof 的动作推进节奏；后者仍在证明用法路径。"
       ],
       "riskIfMisclassified": "若误用于仍需释放证据或制造压力的段落，会提前降速；若误用于新机制解释，会让证明链断在结尾包装上。",
       "forSlotSubtypeIds": [
@@ -2786,12 +2798,11 @@
     },
     {
       "id": "PACK_candidate_low_barrier_operation_pattern",
-      "name": "???????????? candidate pattern",
+      "name": "低门槛操作提示包装模式",
       "atomLayer": "packaging",
       "parentAtomArchetype": "ATOM_ARCH_packaging_value_context_operation_proof",
       "forSlotSubtypeIds": [
-        "SUB_operation_barrier_reduction",
-        "SUB_immediate_usage_demonstration"
+        "SUB_operation_barrier_reduction"
       ],
       "sourceVariantIds": [
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003"
@@ -2808,17 +2819,18 @@
         "Source atom: packaging/low_barrier_operation: 时间提示加完成动作演示",
         "Source slotType: low_barrier_operation",
         "候选 pattern；后续只在 viewer transition、proof obligation、rhythm function 或 packaging proof function 一致时才可合并。",
-        "P002 ?????????????? P003 ???????????????????/???????????????????????????????"
+        "usage_method_proof 的 P002 已拆到使用路径视觉化证明，不能因同为操作画面自动合并。"
       ],
-      "riskIfMisclassified": "如果只复制包装样式，会保留视觉皮肤却丢掉当前主张所需的证明功能。",
-      "proofType": "low_barrier_operation_or_usage_action_visual_proof",
-      "visualHierarchyClass": "??????????????????????????????????",
+      "riskIfMisclassified": "会把简单使用路径证明与执行负担降低混在一起，导致操作证明的前提和任务不清。",
+      "proofType": "operation_barrier_reduction_visual_proof",
+      "visualHierarchyClass": "等待或完成动作第一，步骤提示第二，解释信息辅助。",
       "replaceableFormClasses": [
-        "??????",
-        "????",
-        "???????????"
+        "步骤提示",
+        "动作完成演示",
+        "时间锚点",
+        "低干扰字幕"
       ],
-      "riskClass": "只说步骤不展示动作会增加执行顾虑；只展示完成动作不提示等待或生效时间会丢失操作闭环"
+      "riskClass": "包装过重或动作不清会让低门槛承诺变成抽象口播。"
     },
     {
       "id": "PACK_candidate_long_term_trust_close_pattern",
@@ -3410,145 +3422,208 @@
       ]
     },
     {
-      "id": "SCRIPT_candidate_visible_attribute_state_evidence",
-      "name": "????????? candidate pattern",
+      "id": "SCRIPT_candidate_visible_material_form_evidence",
+      "name": "可见物理形态先证脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
       "forSlotSubtypeIds": [
-        "SUB_attribute_state_sensing"
+        "SUB_material_form_proof"
       ],
-      "claimPattern": "attribute_claim_to_observable_state",
-      "proofNeedClass": "visible_attribute_state_with_low_interference_explanation",
+      "claimPattern": "先让观众看到对象的物理状态和基础质感，再用低干扰解释建立后续使用动作的可信前提。",
+      "proofNeedClass": "direct_observable_material_form",
       "mustKeepClasses": [
-        "???????",
-        "??????????",
-        "?????",
-        "???????"
+        "对象状态先出现",
+        "质感主张有可见细节",
+        "解释层低干扰"
       ],
-      "sourceVariantIds": [],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S001"
+      ],
       "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
       },
-      "judgementReason": "????? problem/value/mechanism/quality/result pattern?? atom ????????????????????????????????????????????????????????????????????? claim-proof ??????????",
+      "judgementReason": "先判断既有品质细节证明 pattern：该 atom 不处理品质疑虑转向，也不做机制因果说明，而是直接完成物理形态先证；parent 归入证据解释脚本原型足够准确。当前语义功能清晰但只有单样例，作为 candidate pattern。",
       "differenceNotes": [
-        "??? candidate??????????????????????????????? pattern ????????????? attribute_sensing slotType ???????? pattern?"
+        "可与未来“形态/质感先证”样例合并；如果后续样例出现品质疑虑上下文，需重新比较是否归入品质细节证明。"
       ],
-      "riskIfMisclassified": "???????????????????/?????????????????????????"
+      "riskIfMisclassified": "误归入入口识别会丢失质感证明义务；误归入机制证明会错误要求因果解释。"
     },
     {
-      "id": "SCRIPT_candidate_immediate_usage_action_proof",
-      "name": "?????????? candidate pattern",
+      "id": "SCRIPT_candidate_usage_path_action_proof",
+      "name": "使用路径动作兑现脚本模式",
       "atomLayer": "script",
       "parentAtomArchetype": "ATOM_ARCH_script_evidence_explanation",
       "forSlotSubtypeIds": [
-        "SUB_immediate_usage_demonstration"
+        "SUB_usage_method_proof"
       ],
-      "claimPattern": "visible_usage_action_to_low_barrier_proof",
-      "proofNeedClass": "continuous_action_and_object_carryover",
+      "claimPattern": "把已被看清的对象推进到实际使用路径中，用连续动作说明它如何进入目标场景。",
+      "proofNeedClass": "visible_usage_path_action",
       "mustKeepClasses": [
-        "??????",
-        "????",
-        "??????",
-        "????????"
+        "形态证明到动作路径的承接",
+        "动作指向目标场景",
+        "对象识别线索连续"
       ],
-      "sourceVariantIds": [],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S002"
+      ],
       "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
       },
-      "judgementReason": "??? existing low_barrier_operation script pattern?????????????? pattern ???/?????? atom ????????????????????????????????????????",
+      "judgementReason": "该 atom 不能归入低门槛操作简化，因为它不回应复杂执行顾虑；也不能归入结果闭合，因为主要任务是用法路径证明。parent 仍属于证据解释脚本原型。",
       "differenceNotes": [
-        "??? candidate?????????????/?????????????? proofNeed?????????????? pattern????? subtype ???"
+        "后续若出现多步骤教学，应考虑拆出使用教学 pattern；当前只覆盖单步或短动作路径兑现。"
       ],
-      "riskIfMisclassified": "???????????????????????????????????????"
+      "riskIfMisclassified": "会把简单用法证明误用为复杂教学或转化收束，导致动作理解被挤压。"
     },
     {
-      "id": "RHYTHM_candidate_state_focus_entry",
-      "name": "???????? candidate pattern",
+      "id": "RHYTHM_candidate_compressed_detail_focus",
+      "name": "短促细节聚焦节奏模式",
       "atomLayer": "rhythm",
       "parentAtomArchetype": "ATOM_ARCH_rhythm_entry_attention_capture",
       "forSlotSubtypeIds": [
-        "SUB_attribute_state_sensing"
+        "SUB_material_form_proof"
       ],
-      "rhythmFunction": "??????????????????????????????????????",
-      "paceClass": "compact_steady",
-      "densityClass": "single_action_visual_density",
+      "rhythmFunction": "在极短时间内把注意力压到单一可见细节，快速完成对象状态认知。",
+      "paceClass": "fast_compressed",
+      "densityClass": "single_detail_visual_density",
       "syncPointClasses": [
-        "??????",
-        "??????",
-        "?????"
+        "物理状态进入主视线",
+        "解释信息出现",
+        "细节证据被看清"
       ],
-      "sourceVariantIds": [],
+      "avoidFor": [
+        "complex_mechanism",
+        "multi_step_instruction",
+        "long_reasoning_claim"
+      ],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R001"
+      ],
       "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
       },
-      "judgementReason": "????????????????????? atom ????/????????????????????????????????????????????????????????",
+      "judgementReason": "先比较既有快入/峰值 rhythm：该 atom 不是情绪抓取或价值峰值，而是短镜内细节认知建立；parent 为入口注意力抓取准确，作为单例 candidate。",
       "differenceNotes": [
-        "??? candidate?????????????????????????????????????? hold pattern?"
+        "可能与未来短促质感/形态展示节奏合并；不应因 pace=fast 并入所有快节奏开场。"
       ],
-      "riskIfMisclassified": "?????????????????????????????"
+      "riskIfMisclassified": "会把复杂解释压进 1 秒内细节镜头，造成证明不可理解。"
     },
     {
-      "id": "RHYTHM_candidate_continuous_usage_action_bridge",
-      "name": "?????????? candidate pattern",
+      "id": "RHYTHM_candidate_continuous_action_path_bridge",
+      "name": "连续动作路径桥接节奏模式",
       "atomLayer": "rhythm",
       "parentAtomArchetype": "ATOM_ARCH_rhythm_explanation_and_observation_hold",
       "forSlotSubtypeIds": [
-        "SUB_immediate_usage_demonstration"
+        "SUB_usage_method_proof"
       ],
-      "rhythmFunction": "??????????????????????????????????????",
-      "paceClass": "compact_steady",
-      "densityClass": "action_continuity_density",
+      "rhythmFunction": "用连续动作推进把注意力从对象状态转移到用法路径和目标场景落点。",
+      "paceClass": "fast_continuous",
+      "densityClass": "action_progression_density",
       "syncPointClasses": [
-        "????",
-        "??????",
-        "??????"
+        "动作开始",
+        "动作指向目标场景",
+        "解释信息跟随动作"
       ],
-      "sourceVariantIds": [],
+      "avoidFor": [
+        "long_trust_building",
+        "detailed_comparison",
+        "abstract_value_explanation"
+      ],
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R002"
+      ],
       "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
       },
-      "judgementReason": "??????????????????????? atom ???????????????????????????????????????????????????????",
+      "judgementReason": "该 rhythm 不能按 fast 归入快入抓取；它的注意力功能是动作桥接和用法理解。parent 放在解释观察与理解停留，因为动作需要清楚可跟随。",
       "differenceNotes": [
-        "??? candidate????????????????????????????????????????? pattern?"
+        "可与未来单步动作路径证明合并；若动作拆成多步骤教学，则应转入更慢的步骤说明 pattern。"
       ],
-      "riskIfMisclassified": "?????????????????????????????????"
+      "riskIfMisclassified": "会让动作路径被当作普通快节奏刺激，削弱用法证明。"
     },
     {
-      "id": "PACK_candidate_observable_state_proof",
-      "name": "????????? candidate pattern",
+      "id": "PACK_candidate_observable_material_state_proof",
+      "name": "可见物理状态第一证明包装模式",
       "atomLayer": "packaging",
       "parentAtomArchetype": "ATOM_ARCH_packaging_experience_sensory_quality_proof",
       "forSlotSubtypeIds": [
-        "SUB_attribute_state_sensing"
+        "SUB_material_form_proof"
       ],
-      "proofType": "observable_attribute_state_visual_proof",
-      "visualHierarchyClass": "?????????????????????????????",
+      "proofType": "direct_visual_form_proof",
+      "visualHierarchyClass": "物理状态第一，操作承接第二，解释字幕和背景识别线索辅助。",
       "replaceableFormClasses": [
-        "????",
-        "???????",
-        "??????",
-        "????????"
+        "近景展示",
+        "局部特写",
+        "手部承托展示",
+        "桌面实拍展示",
+        "低位短字幕"
       ],
-      "riskClass": "???????????????????????????",
-      "sourceVariantIds": [],
+      "riskClass": "解释层或识别元素过强会削弱物理状态本身的第一证明作用。",
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P001"
+      ],
       "support": {
-        "variantCount": 0,
-        "sampleCount": 0,
-        "sampleIds": []
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
       },
-      "judgementReason": "?????????????????????????? atom ????????????????????????????????????????????????????????????????????????",
+      "judgementReason": "先比较既有入口识别和感官品质包装：该 atom 的视觉证明功能是让物理状态成为第一证明层，不是仅做对象入口。parent 归入体验感官与品质证明包装原型更准确。",
       "differenceNotes": [
-        "??? candidate????????????????????????????? pattern??????????????"
+        "可与未来物理状态/质感直接证明样例合并；不按低位字幕或近景载体命名。"
       ],
-      "riskIfMisclassified": "?????????????????????????????????????????"
+      "riskIfMisclassified": "会把可见状态证明误变成装饰式入口露出，导致质感主张悬空。"
+    },
+    {
+      "id": "PACK_candidate_usage_path_visual_proof",
+      "name": "使用路径视觉化证明包装模式",
+      "atomLayer": "packaging",
+      "parentAtomArchetype": "ATOM_ARCH_packaging_value_context_operation_proof",
+      "forSlotSubtypeIds": [
+        "SUB_usage_method_proof"
+      ],
+      "proofType": "direct_visual_usage_proof",
+      "visualHierarchyClass": "使用动作第一，目标场景第二，持续识别线索和解释字幕辅助。",
+      "replaceableFormClasses": [
+        "倾倒演示",
+        "放入演示",
+        "涂抹演示",
+        "组合操作演示",
+        "低位动作说明"
+      ],
+      "riskClass": "识别线索缺失会断开前后对象关系；包装过重会打断动作路径理解。",
+      "sourceVariantIds": [
+        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P002"
+      ],
+      "support": {
+        "variantCount": 1,
+        "sampleCount": 1,
+        "sampleIds": [
+          "sample_1ca41200-6c48-4338-b703-9513bab19371"
+        ]
+      },
+      "judgementReason": "该 packaging 不能归入结果收束或入口识别；它的视觉证明功能是动作路径和目标场景连接，parent 放在价值语境与操作可行包装原型。",
+      "differenceNotes": [
+        "后续若出现多步骤教程包装，可拆出步骤提示 pattern；当前只覆盖单步/短路径动作证明。"
+      ],
+      "riskIfMisclassified": "会让重组只保留动作画面，却丢失对象连续和目标场景落点。"
     }
   ]
 }

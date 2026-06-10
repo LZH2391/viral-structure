@@ -58,14 +58,19 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
   const selectedWorkflowStageKey = selectedTimelineSegment ? null : activeSelectedStageKey;
   const rerunnableStageKeys = detail.rerunnableStageKeys ?? [];
   const rerunningStageKey = detail.rerunningStageKey ?? null;
-  const rerunDisabled = Boolean(rerunningStageKey || detail.item?.isRunning);
   const structureStageKeys = ["scriptSegment", "rhythmStructure", "packagingStructure"];
   const structureGraphArtifactId = detail.item?.artifact?.functionSlotAtomizationAnalysis?.artifactId ?? null;
   const canOpenStructureGraph = Boolean(structureGraphArtifactId && onOpenStructureGraph);
   const canRerunStage = (stage: WorkflowStage) => Boolean(detail.onWorkflowStageRerun && rerunnableStageKeys.includes(stage.key));
   const canRerunStructure = Boolean(detail.onWorkflowStageRerun && structureStageKeys.every((stageKey) => rerunnableStageKeys.includes(stageKey)));
   const workflowStatus = String(detail.item?.workflowRun?.status ?? detail.item?.status ?? "").toLowerCase();
-  const workflowRunning = Boolean(detail.item?.isRunning || ["running", "queued", "pending", "processing", "cache_waiting"].includes(workflowStatus));
+  const runtimeStatus = String(detail.item?.runtimeState?.status ?? "").toLowerCase();
+  const workflowRunning = Boolean(
+    ["running", "queued", "pending", "processing", "cache_waiting"].includes(workflowStatus)
+      || ["queued", "running", "waiting", "blocked"].includes(runtimeStatus)
+      || (!detail.item?.workflowRun && !detail.item?.runtimeState && detail.item?.isRunning),
+  );
+  const rerunDisabled = Boolean(rerunningStageKey || workflowRunning);
   const workflowCanceled = workflowStatus === "canceled";
   const canCancelWorkflow = Boolean(detail.onWorkflowCancel && detail.item?.workflowRunId && workflowRunning && !detail.workflowActionBusy);
   const canResumeWorkflow = Boolean(detail.onWorkflowResume && detail.item?.workflowRunId && workflowCanceled && !detail.workflowActionBusy);

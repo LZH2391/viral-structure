@@ -1,5 +1,5 @@
-import { getLatestFullAnalysisBatchRun, getLatestMaterialRecognitionBatchRun, getSampleArtifact, runtimeUrl, type FunctionSlotGovernanceSchedulerState } from "../../api/client";
-import type { FullAnalysisBatchItem, FullAnalysisBatchRun, SampleArtifact } from "../../types";
+import { getLatestFullAnalysisBatchRun, getLatestMaterialRecognitionBatchRun, getSampleArtifact, getWorkflowRun, runtimeUrl, type FunctionSlotGovernanceSchedulerState } from "../../api/client";
+import type { FullAnalysisBatchItem, FullAnalysisBatchRun, SampleArtifact, WorkflowRun } from "../../types";
 import type { AnalysisWorkflowMode } from "./analysisBackend";
 import type { AnalysisHistoryItem, AnalysisHistoryMedia } from "./analysisHistoryData";
 
@@ -60,21 +60,26 @@ export async function loadLatestVideoProcessingQueue(mode: AnalysisWorkflowMode 
   const loadBatch = mode === "materialRecognition" ? getLatestMaterialRecognitionBatchRun : getLatestFullAnalysisBatchRun;
   const batch = await loadBatch({ active: true }).catch(() => null);
   if (!batch?.items?.length) return [];
-  const artifactEntries = await Promise.all(
+  const itemEntries = await Promise.all(
     batch.items.map(async (queueItem) => {
-      if (!queueItem.sampleVideoId) return [queueItem.queueItemId, null] as const;
-      const artifact = await getSampleArtifact(queueItem.sampleVideoId).catch(() => null);
-      return [queueItem.queueItemId, artifact] as const;
+      const [artifact, workflowRun] = await Promise.all([
+        queueItem.sampleVideoId ? getSampleArtifact(queueItem.sampleVideoId).catch(() => null) : Promise.resolve(null),
+        queueItem.workflowRunId ? getWorkflowRun(queueItem.workflowRunId).catch(() => null) : Promise.resolve(null),
+      ]);
+      return [queueItem.queueItemId, { artifact, workflowRun }] as const;
     }),
   );
-  const artifactByQueueItemId = new Map<string, SampleArtifact | null>(artifactEntries);
+  const itemDataByQueueItemId = new Map<string, { artifact: SampleArtifact | null; workflowRun: WorkflowRun | null }>(itemEntries);
   return batch.items
-    .map((queueItem) => resolveBatchQueueItem(queueItem, batch, artifactByQueueItemId.get(queueItem.queueItemId) ?? null))
+    .map((queueItem) => {
+      const data = itemDataByQueueItemId.get(queueItem.queueItemId) ?? { artifact: null, workflowRun: null };
+      return resolveBatchQueueItem(queueItem, batch, data.artifact, data.workflowRun);
+    })
     .filter((item) => shouldShowQueueItem(item));
 }
 
-function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): AnalysisHomeQueueItem {
-  const status = resolveBatchQueueStatus(queueItem, batch, artifact);
+function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null, workflowRun: WorkflowRun | null): AnalysisHomeQueueItem {
+  const status = resolveBatchQueueStatus(queueItem, batch, artifact, workflowRun);
   return {
     key: queueItem.queueItemId,
     status,
@@ -82,7 +87,7 @@ function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnal
     ratio: resolveBatchQueueThumbnailRatio(artifact),
     badgeLabel: resolveBatchQueueBadgeLabel(queueItem, batch, status),
     title: resolveBatchQueueTitle(queueItem, artifact),
-    historyItem: resolveBatchQueueHistoryItem(queueItem, batch, artifact, status),
+    historyItem: resolveBatchQueueHistoryItem(queueItem, batch, artifact, status, workflowRun),
     batchRunId: batch.batchRunId,
     queueItemId: queueItem.queueItemId,
     workflowRunId: queueItem.workflowRunId ?? null,
@@ -92,7 +97,8 @@ function resolveBatchQueueItem(queueItem: FullAnalysisBatchItem, batch: FullAnal
   };
 }
 
-function resolveBatchQueueStatus(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null): AnalysisHomeQueueItem["status"] {
+function resolveBatchQueueStatus(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null, workflowRun: WorkflowRun | null): AnalysisHomeQueueItem["status"] {
+  if (workflowRun) return normalizePlayerQueueStatus(workflowRun.status);
   const status = normalizePlayerQueueStatus(queueItem.status ?? artifact?.status);
   if (status === "running" || status === "waiting" || status === "failed" || status === "canceled") return status;
   if (batch.workflowKey === "material-recognition" && artifact?.userMaterialPack) return "done";
@@ -104,20 +110,20 @@ function resolveBatchQueueTitle(queueItem: FullAnalysisBatchItem, artifact: Samp
   return artifact?.sampleVideo.original.summary ?? queueItem.filename ?? queueItem.sampleVideoId ?? "队列视频";
 }
 
-export function resolveBatchQueueHistoryItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null, status: AnalysisHomeQueueItem["status"]): AnalysisHistoryItem | null {
+export function resolveBatchQueueHistoryItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null, status: AnalysisHomeQueueItem["status"], workflowRun: WorkflowRun | null = null): AnalysisHistoryItem | null {
   if (!queueItem.sampleVideoId) return null;
   return {
     sampleVideoId: queueItem.sampleVideoId,
-    workflowRunId: queueItem.workflowRunId ?? null,
+    workflowRunId: workflowRun?.workflowRunId ?? queueItem.workflowRunId ?? null,
     workflowKey: batch.workflowKey,
     title: resolveBatchQueueTitle(queueItem, artifact),
-    status: artifact?.status ?? queueItem.status,
-    updatedAt: queueItem.updatedAt,
-    createdAt: queueItem.createdAt,
-    artifactId: latestSampleAnalysisArtifactId(artifact),
-    traceId: artifact?.trace?.traceId ?? null,
-    runId: artifact?.trace?.runId ?? null,
-    stageId: artifact?.trace?.stageId ?? null,
+    status: workflowRun?.status ?? artifact?.status ?? queueItem.status,
+    updatedAt: workflowRun?.updatedAt ?? queueItem.updatedAt,
+    createdAt: workflowRun?.createdAt ?? queueItem.createdAt,
+    artifactId: latestWorkflowArtifactId(workflowRun) ?? latestSampleAnalysisArtifactId(artifact),
+    traceId: workflowRun?.traceId ?? artifact?.trace?.traceId ?? null,
+    runId: workflowRun?.runId ?? artifact?.trace?.runId ?? null,
+    stageId: latestWorkflowStageId(workflowRun) ?? artifact?.trace?.stageId ?? null,
     durationSeconds: artifact?.metadata.durationSeconds ?? null,
     width: artifact?.metadata.width ?? null,
     height: artifact?.metadata.height ?? null,
@@ -128,7 +134,7 @@ export function resolveBatchQueueHistoryItem(queueItem: FullAnalysisBatchItem, b
     isIncomplete: status !== "done" && status !== "running" && status !== "waiting",
     isRunning: status === "running" || status === "waiting",
     artifact,
-    workflowRun: null,
+    workflowRun,
     runtimeState: null,
   };
 }
@@ -141,6 +147,14 @@ function latestSampleAnalysisArtifactId(artifact: SampleArtifact | null) {
     ?? artifact?.scriptSegmentAnalysis?.artifactId
     ?? artifact?.shotBoundaryAnalysis?.artifactId
     ?? null;
+}
+
+function latestWorkflowArtifactId(workflowRun: WorkflowRun | null) {
+  return [...(workflowRun?.stages ?? [])].reverse().find((stage) => stage.artifactId)?.artifactId ?? null;
+}
+
+function latestWorkflowStageId(workflowRun: WorkflowRun | null) {
+  return [...(workflowRun?.stages ?? [])].reverse().find((stage) => stage.stageId)?.stageId ?? null;
 }
 
 function resolveArtifactThumbnailUrl(artifact: SampleArtifact | null) {
