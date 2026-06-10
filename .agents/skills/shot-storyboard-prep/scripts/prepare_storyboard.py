@@ -122,7 +122,7 @@ def detect_aspect(text: str) -> dict[str, str | None]:
         match = re.search(pattern, text, re.I)
         if match:
             return {"ratio": ratio, "orientation": orientation, "source": match.group(0)}
-    return {"ratio": None, "orientation": "未明确", "source": None}
+    return {"ratio": "9:16", "orientation": "竖屏", "source": None}
 
 
 def extract_shot_section(text: str) -> dict[str, Any]:
@@ -495,8 +495,8 @@ def build_cover_storyboard_group(cover: dict[str, Any]) -> dict[str, Any]:
 
 def render_storyboard_markdown(storyboard_plan: dict[str, Any], source_path: Path) -> str:
     aspect = storyboard_plan["aspect"]
-    ratio = aspect.get("ratio") or "未明确"
-    orientation = aspect.get("orientation") or "未明确"
+    ratio = aspect.get("ratio") or "9:16"
+    orientation = aspect.get("orientation") or "竖屏"
     reference_image_path = layout_reference_image_path(aspect)
     lines = [
         "# Shot Storyboard Prompts",
@@ -539,7 +539,7 @@ def render_storyboard_markdown(storyboard_plan: dict[str, Any], source_path: Pat
             "这是短视频分镜示例帧，不是广告海报、电商主图或最终包装成片；画面应像真实拍摄截图/样张，低设计感、自然光、轻量标注。",
             "overlayPackaging 是画面上的包装覆盖层/分镜标注参考，可轻量呈现；不要把整张图设计成宣传海报。",
             f"referenceImagePath: {reference_image_path}" if reference_image_path else "referenceImagePath: 未明确",
-            "参考图说明：只参考四格位置安排；最终画面不要出现红线、image1/image2/image3/image4 标签或任何参考图文字。",
+            "参考图说明：严格按照四格位置安排，shot不得超出所属红线框；最终画面不要出现红线、image1/image2/image3/image4 标签或任何参考图文字。",
             "",
         ])
         for row in group["shots"]:

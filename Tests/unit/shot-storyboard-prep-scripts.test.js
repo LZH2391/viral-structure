@@ -36,6 +36,8 @@ test("shot storyboard prep routes only self-designed shots into prompts and down
   assert.doesNotMatch(prompt, /### new_shot_01/);
   assert.doesNotMatch(prompt, /### new_shot_04/);
   assert.match(prompt, /### storyboard_blank_pad_04/);
+  assert.match(prompt, /参考图说明：严格按照四格位置安排，shot不得超出所属红线框；最终画面不要出现红线、image1\/image2\/image3\/image4 标签或任何参考图文字。/);
+  assert.doesNotMatch(prompt, /参考图说明：只参考四格位置安排/);
   assert.doesNotMatch(prompt, /商品记忆点/);
   assert.doesNotMatch(prompt, /目的：购买理由和商品锚定/);
 
@@ -90,6 +92,25 @@ test("shot storyboard prep routes only self-designed shots into prompts and down
   );
 });
 
+test("shot storyboard prep defaults missing aspect to portrait 9:16", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "bd-shot-storyboard-aspect-default-"));
+  const shotDesignPath = path.join(root, "shot-design.final.md");
+  const promptPath = path.join(root, "shot-storyboard-prompts.md");
+  const manifestPath = path.join(root, "shot-storyboard-manifest.json");
+  await fs.writeFile(shotDesignPath, sampleShotDesignWithoutAspect(), "utf8");
+
+  const prepare = runPython(["prepare_storyboard.py", "--input", shotDesignPath, "--output", promptPath, "--manifest-output", manifestPath, "--no-write-back"]);
+  assert.equal(prepare.status, 0, prepare.stderr || prepare.stdout);
+  const prompt = await fs.readFile(promptPath, "utf8");
+  const manifest = await readJson(manifestPath);
+  assert.match(prompt, /画幅：9:16 竖屏/);
+  assert.match(prompt, /以故事板呈现以下镜头，比例为9:16，竖屏。/);
+  assert.match(prompt, /storyboard-layout-9x16-4grid\.png/);
+  assert.doesNotMatch(prompt, /画幅：未明确/);
+  assert.equal(manifest.aspect.ratio, "9:16");
+  assert.equal(manifest.aspect.orientation, "竖屏");
+});
+
 function sampleShotDesign() {
   return `# Shot 设计方案
 
@@ -118,6 +139,10 @@ function sampleShotDesign() {
 | 生图提示词 | 竖版短视频封面，明亮桌面场景，手拿产品居中展示，产品状态清晰，人物自然微笑，构图干净 |
 | 避免项 | 不要四格故事板，不要遮挡产品 |
 `;
+}
+
+function sampleShotDesignWithoutAspect() {
+  return sampleShotDesign().replace("\n画幅：9:16 竖屏\n", "\n");
 }
 
 async function writeStoryboardArtifact(root) {

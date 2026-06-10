@@ -628,28 +628,18 @@ export function NewUiRestructureWorkspace({
                         statusLabel={resolveStoryboardResultStatusLabel(renderItem.message.storyboardResult.status)}
                       />
                     ) : shouldRenderConversationMessage(renderItem.message, { timelineTurnId, timelineHasAgentMessages }) ? (
-                      <>
-                        <RestructureMessage
-                          message={renderItem.message}
-                          displayText={getDisplayText(renderItem.message)}
-                          pseudoStreaming={isPseudoStreaming(renderItem.message)}
-                          onOpenPlanTrace={onOpenPlanTrace}
-                          onConfirmPlan={onConfirmPlan}
-                          actionsDisabled={sendingMessage}
-                          openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
-                          confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
-                          planAlreadyConfirmed={isMessagePlanConfirmed(renderItem.message, conversation)}
-                        />
-                        {shouldShowStoryboardPendingForMessage(renderItem.message, conversation, {
-                          confirmingPlan: confirmingPlanMessageId === renderItem.message.id,
-                          hasStoryboardResultForConfirmedPlan,
-                        }) ? (
-                          <StoryboardResultSkeleton
-                            message={confirmingPlanMessageId === renderItem.message.id ? "故事板准备启动中" : "故事板准备中"}
-                            statusLabel={resolveStoryboardPendingStatusLabel(conversation?.confirmedPlan?.status)}
-                          />
-                        ) : null}
-                      </>
+                      <RestructureMessageWithStoryboardState
+                        message={renderItem.message}
+                        displayText={getDisplayText(renderItem.message)}
+                        pseudoStreaming={isPseudoStreaming(renderItem.message)}
+                        conversation={conversation}
+                        onOpenPlanTrace={onOpenPlanTrace}
+                        onConfirmPlan={onConfirmPlan}
+                        actionsDisabled={sendingMessage}
+                        openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
+                        confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
+                        hasStoryboardResultForConfirmedPlan={hasStoryboardResultForConfirmedPlan}
+                      />
                     ) : null}
                   </Fragment>
                 ))}
@@ -969,6 +959,27 @@ function shouldShowStoryboardPendingForMessage(
   return isMessagePlanConfirmed(message, conversation);
 }
 
+function shouldShowConfirmedPlanStoryboardForMessage(
+  message: AgentChatMessageSnapshot,
+  conversation: AgentChatConversation | null,
+  hasStoryboardResultForConfirmedPlan: boolean,
+) {
+  if (!conversation?.conversationId || hasStoryboardResultForConfirmedPlan || message.storyboardResult) return false;
+  if (!isMessagePlanConfirmed(message, conversation)) return false;
+  const status = String(conversation.confirmedPlan?.status ?? "").trim();
+  if (status === "completed") return true;
+  if (status === "storyboard_failed") return true;
+  return hasConfirmedPlanStoryboardArtifact(conversation.confirmedPlan);
+}
+
+function hasConfirmedPlanStoryboardArtifact(confirmedPlan: AgentChatConversation["confirmedPlan"]) {
+  if (!confirmedPlan) return false;
+  if (confirmedPlan.storyboardArtifact?.artifactId || confirmedPlan.storyboardArtifact?.processingJobId) return true;
+  return (confirmedPlan.storyboardVersions ?? []).some((version) => (
+    Boolean(version.storyboardArtifact?.artifactId || version.storyboardArtifact?.processingJobId)
+  ));
+}
+
 function hasConversationStoryboardResultForConfirmedPlan(conversation: AgentChatConversation | null) {
   const confirmed = conversation?.confirmedPlan;
   if (!confirmed) return false;
@@ -1087,6 +1098,65 @@ function formatContextUsageTitle(usage: AgentTurnTimeline["activity"]["tokenUsag
     usage.modelContextWindow != null ? `window ${usage.modelContextWindow}` : null,
     usage.contextThresholdTokens != null ? `threshold ${usage.contextThresholdTokens}` : null,
   ].filter(Boolean).join(" / ") || "上下文使用未知";
+}
+
+function RestructureMessageWithStoryboardState({
+  message,
+  displayText,
+  pseudoStreaming = false,
+  conversation,
+  onOpenPlanTrace,
+  onConfirmPlan,
+  actionsDisabled = false,
+  openingPlanTrace = false,
+  confirmingPlan = false,
+  hasStoryboardResultForConfirmedPlan = false,
+}: {
+  message: AgentChatMessageSnapshot;
+  displayText?: string;
+  pseudoStreaming?: boolean;
+  conversation: AgentChatConversation | null;
+  onOpenPlanTrace?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
+  onConfirmPlan?: (message: AgentChatMessageSnapshot) => Promise<void> | void;
+  actionsDisabled?: boolean;
+  openingPlanTrace?: boolean;
+  confirmingPlan?: boolean;
+  hasStoryboardResultForConfirmedPlan?: boolean;
+}) {
+  const showStoryboardPending = shouldShowStoryboardPendingForMessage(message, conversation, {
+    confirmingPlan,
+    hasStoryboardResultForConfirmedPlan,
+  });
+  const showConfirmedPlanStoryboard = !showStoryboardPending
+    && shouldShowConfirmedPlanStoryboardForMessage(message, conversation, hasStoryboardResultForConfirmedPlan);
+
+  return (
+    <>
+      <RestructureMessage
+        message={message}
+        displayText={displayText}
+        pseudoStreaming={pseudoStreaming}
+        onOpenPlanTrace={onOpenPlanTrace}
+        onConfirmPlan={onConfirmPlan}
+        actionsDisabled={actionsDisabled}
+        openingPlanTrace={openingPlanTrace}
+        confirmingPlan={confirmingPlan}
+        planAlreadyConfirmed={isMessagePlanConfirmed(message, conversation)}
+      />
+      {showConfirmedPlanStoryboard && conversation?.conversationId ? (
+        <StoryboardResultViewer
+          conversationId={conversation.conversationId}
+          resultId={null}
+          statusLabel={resolveStoryboardResultStatusLabel(conversation.confirmedPlan?.status)}
+        />
+      ) : showStoryboardPending ? (
+        <StoryboardResultSkeleton
+          message={confirmingPlan ? "故事板准备启动中" : "故事板准备中"}
+          statusLabel={resolveStoryboardPendingStatusLabel(conversation?.confirmedPlan?.status)}
+        />
+      ) : null}
+    </>
+  );
 }
 
 function RestructureMessage({
@@ -1786,33 +1856,15 @@ function buildRestructureTimelineDisplayItems(items: AgentTimelineItem[]): Restr
 }
 
 function appendTimelineActivity(result: RestructureTimelineDisplayItem[], next: RestructureTimelineDisplayItem) {
-  const sameSourceIndex = result.findIndex((item) => item.sourceKey === next.sourceKey);
-  if (sameSourceIndex >= 0) {
-    const current = result[sameSourceIndex];
-    result[sameSourceIndex] = {
-      ...current,
-      ...next,
-      id: current.id,
-      sourceKey: current.sourceKey,
-      status: preferTimelineActivityStatus(current.status, next.status),
-    } as RestructureTimelineDisplayItem;
-    return;
-  }
-
-  if (next.kind === "tool_call") {
-    result.push(next);
-    return;
-  }
-
   const previous = result[result.length - 1];
-  if (previous && previous.kind !== "tool_call" && isSameTimelineActivity(previous, next)) {
+  if (previous && isSameTimelineActivity(previous, next)) {
     result[result.length - 1] = {
       ...previous,
       status: preferTimelineActivityStatus(previous.status, next.status),
     };
     return;
   }
-  const duplicateIndex = result.findIndex((item) => item.kind !== "tool_call" && isSameTimelineActivity(item, next));
+  const duplicateIndex = result.findIndex((item) => isSameTimelineActivity(item, next));
   if (duplicateIndex >= 0) {
     const duplicate = result[duplicateIndex];
     result[duplicateIndex] = {
