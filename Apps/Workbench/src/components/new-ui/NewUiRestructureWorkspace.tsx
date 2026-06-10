@@ -4,7 +4,7 @@ import { getAgentChatTurnTimeline, type AgentChatMaterialPackRef, type AgentChat
 import type { AgentChatConversation, AgentChatMessageSnapshot, AgentChatSlotAtomDisplay, AgentTimelineItem, AgentTurnTimeline } from "../../types";
 import { formatSecondsCompact, shortId } from "../../utils/format";
 import { MaterialGapMatrixViewer } from "./MaterialGapMatrixViewer";
-import { StoryboardResultViewer } from "./StoryboardResultViewer";
+import { StoryboardResultSkeleton, StoryboardResultViewer } from "./StoryboardResultViewer";
 
 const PSEUDO_STREAM_CHAR_INTERVAL_MS = 15;
 const PSEUDO_STREAM_MAX_DURATION_MS = 4000;
@@ -154,6 +154,7 @@ export function NewUiRestructureWorkspace({
   const contextUsageFallbackTimeline = useRestructureTurnTimeline(contextUsageFallbackTarget);
   const rawContextUsage = conversation ? timeline?.activity?.tokenUsage ?? contextUsageFallbackTimeline?.activity?.tokenUsage ?? null : null;
   const confirmedPlanStatusDisplay = resolveConfirmedPlanStatusDisplay(conversation?.confirmedPlan?.status);
+  const hasStoryboardResultForConfirmedPlan = hasConversationStoryboardResultForConfirmedPlan(conversation);
   const contextUsageScopeKey = conversation?.conversationId ?? conversation?.threadId ?? null;
   const contextUsage = useLastKnownContextUsage(rawContextUsage, contextUsageScopeKey);
   const canStopTurn = Boolean(activeTurnTarget?.running && activeTurnTarget.threadId && activeTurnTarget.turnId && !stoppingTurn);
@@ -627,17 +628,28 @@ export function NewUiRestructureWorkspace({
                         statusLabel={resolveStoryboardResultStatusLabel(renderItem.message.storyboardResult.status)}
                       />
                     ) : shouldRenderConversationMessage(renderItem.message, { timelineTurnId, timelineHasAgentMessages }) ? (
-                      <RestructureMessage
-                        message={renderItem.message}
-                        displayText={getDisplayText(renderItem.message)}
-                        pseudoStreaming={isPseudoStreaming(renderItem.message)}
-                        onOpenPlanTrace={onOpenPlanTrace}
-                        onConfirmPlan={onConfirmPlan}
-                        actionsDisabled={sendingMessage}
-                        openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
-                        confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
-                        planAlreadyConfirmed={isMessagePlanConfirmed(renderItem.message, conversation)}
-                      />
+                      <>
+                        <RestructureMessage
+                          message={renderItem.message}
+                          displayText={getDisplayText(renderItem.message)}
+                          pseudoStreaming={isPseudoStreaming(renderItem.message)}
+                          onOpenPlanTrace={onOpenPlanTrace}
+                          onConfirmPlan={onConfirmPlan}
+                          actionsDisabled={sendingMessage}
+                          openingPlanTrace={openingPlanTraceMessageId === renderItem.message.id}
+                          confirmingPlan={confirmingPlanMessageId === renderItem.message.id}
+                          planAlreadyConfirmed={isMessagePlanConfirmed(renderItem.message, conversation)}
+                        />
+                        {shouldShowStoryboardPendingForMessage(renderItem.message, conversation, {
+                          confirmingPlan: confirmingPlanMessageId === renderItem.message.id,
+                          hasStoryboardResultForConfirmedPlan,
+                        }) ? (
+                          <StoryboardResultSkeleton
+                            message={confirmingPlanMessageId === renderItem.message.id ? "故事板准备启动中" : "故事板准备中"}
+                            statusLabel={resolveStoryboardPendingStatusLabel(conversation?.confirmedPlan?.status)}
+                          />
+                        ) : null}
+                      </>
                     ) : null}
                   </Fragment>
                 ))}
@@ -938,6 +950,46 @@ function resolveStoryboardResultStatusLabel(status: string | null | undefined) {
   return null;
 }
 
+function resolveStoryboardPendingStatusLabel(status: string | null | undefined) {
+  const value = String(status ?? "").trim();
+  if (value === "storyboard_processing") return "生成中";
+  if (value === "confirmed") return "已确认";
+  return "准备中";
+}
+
+function shouldShowStoryboardPendingForMessage(
+  message: AgentChatMessageSnapshot,
+  conversation: AgentChatConversation | null,
+  options: { confirmingPlan: boolean; hasStoryboardResultForConfirmedPlan: boolean },
+) {
+  if (message.storyboardResult) return false;
+  if (options.confirmingPlan) return true;
+  if (String(conversation?.confirmedPlan?.status ?? "").trim() !== "storyboard_processing") return false;
+  if (options.hasStoryboardResultForConfirmedPlan) return false;
+  return isMessagePlanConfirmed(message, conversation);
+}
+
+function hasConversationStoryboardResultForConfirmedPlan(conversation: AgentChatConversation | null) {
+  const confirmed = conversation?.confirmedPlan;
+  if (!confirmed) return false;
+  const confirmationId = normalizeComparableId(confirmed.confirmationId);
+  const confirmedRestructurePath = normalizeComparablePath(confirmed.sourceRestructurePath);
+  const confirmedShotDesignPath = normalizeComparablePath(confirmed.sourceShotDesignPath);
+  return (conversation?.messages ?? []).some((message) => {
+    const result = message.storyboardResult;
+    if (!result) return false;
+    if (confirmationId && normalizeComparableId(result.confirmationId) === confirmationId) return true;
+    const resultRestructurePath = normalizeComparablePath(result.sourceRestructurePath);
+    const resultShotDesignPath = normalizeComparablePath(result.sourceShotDesignPath);
+    return Boolean(
+      confirmedRestructurePath
+      && resultRestructurePath
+      && confirmedRestructurePath === resultRestructurePath
+      && (!confirmedShotDesignPath || !resultShotDesignPath || confirmedShotDesignPath === resultShotDesignPath),
+    );
+  });
+}
+
 function isMessagePlanConfirmed(message: AgentChatMessageSnapshot, conversation: AgentChatConversation | null) {
   const confirmed = conversation?.confirmedPlan;
   if (!confirmed?.status) return false;
@@ -965,6 +1017,10 @@ function resolveMessageConfirmedRestructurePath(message: AgentChatMessageSnapsho
 
 function normalizeComparablePath(pathText?: string | null) {
   return String(pathText ?? "").trim().replace(/\\/g, "/").toLowerCase() || null;
+}
+
+function normalizeComparableId(value?: string | null) {
+  return String(value ?? "").trim() || null;
 }
 
 function extractRestructureFinalPath(text?: string | null) {
@@ -1730,15 +1786,33 @@ function buildRestructureTimelineDisplayItems(items: AgentTimelineItem[]): Restr
 }
 
 function appendTimelineActivity(result: RestructureTimelineDisplayItem[], next: RestructureTimelineDisplayItem) {
+  const sameSourceIndex = result.findIndex((item) => item.sourceKey === next.sourceKey);
+  if (sameSourceIndex >= 0) {
+    const current = result[sameSourceIndex];
+    result[sameSourceIndex] = {
+      ...current,
+      ...next,
+      id: current.id,
+      sourceKey: current.sourceKey,
+      status: preferTimelineActivityStatus(current.status, next.status),
+    } as RestructureTimelineDisplayItem;
+    return;
+  }
+
+  if (next.kind === "tool_call") {
+    result.push(next);
+    return;
+  }
+
   const previous = result[result.length - 1];
-  if (previous && isSameTimelineActivity(previous, next)) {
+  if (previous && previous.kind !== "tool_call" && isSameTimelineActivity(previous, next)) {
     result[result.length - 1] = {
       ...previous,
       status: preferTimelineActivityStatus(previous.status, next.status),
     };
     return;
   }
-  const duplicateIndex = result.findIndex((item) => isSameTimelineActivity(item, next));
+  const duplicateIndex = result.findIndex((item) => item.kind !== "tool_call" && isSameTimelineActivity(item, next));
   if (duplicateIndex >= 0) {
     const duplicate = result[duplicateIndex];
     result[duplicateIndex] = {

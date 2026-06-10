@@ -53,7 +53,7 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
     [selectableShots, selectedShotKey],
   );
   if (error) return <StoryboardResultShell state="error" message={error} />;
-  if (!result) return <StoryboardResultShell state="loading" message="故事板结果读取中" />;
+  if (!result) return <StoryboardResultSkeleton message="故事板结果读取中" statusLabel={statusLabel} />;
   if (!groups.length && !result.cover) return null;
 
   return (
@@ -113,6 +113,29 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
             </article>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+export function StoryboardResultSkeleton({ message = "故事板准备中", statusLabel = null }: { message?: string; statusLabel?: string | null }) {
+  return (
+    <section className="new-ui-storyboard-result is-loading is-skeleton" aria-label="故事板结果" aria-busy="true">
+      <header className="new-ui-storyboard-result-head">
+        <div>
+          <span>故事板结果</span>
+          <strong>{message}</strong>
+        </div>
+        <small>{statusLabel || "生成中"}</small>
+      </header>
+      <div className="new-ui-storyboard-skeleton-grid" aria-hidden="true">
+        <span className="new-ui-storyboard-skeleton-line is-short" />
+        <span className="new-ui-storyboard-skeleton-line" />
+        <div className="new-ui-storyboard-skeleton-cards">
+          <span />
+          <span />
+          <span />
+        </div>
       </div>
     </section>
   );

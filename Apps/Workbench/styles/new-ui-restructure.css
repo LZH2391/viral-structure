@@ -516,6 +516,70 @@
   line-height: 1.5;
 }
 
+.new-ui-storyboard-result.is-skeleton {
+  padding: 0;
+}
+
+.new-ui-storyboard-skeleton-grid {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.new-ui-storyboard-skeleton-line,
+.new-ui-storyboard-skeleton-cards span {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-text-muted) 13%, transparent);
+}
+
+.new-ui-storyboard-skeleton-line {
+  width: min(620px, 100%);
+  height: 14px;
+}
+
+.new-ui-storyboard-skeleton-line.is-short {
+  width: min(360px, 72%);
+}
+
+.new-ui-storyboard-skeleton-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: min(620px, 100%);
+}
+
+.new-ui-storyboard-skeleton-cards span {
+  aspect-ratio: 9 / 12;
+  min-height: 108px;
+}
+
+.new-ui-storyboard-skeleton-line::after,
+.new-ui-storyboard-skeleton-cards span::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--new-ui-text) 18%, transparent),
+    transparent
+  );
+  animation: new-ui-restructure-skeleton-sheen 1.35s ease-in-out infinite;
+}
+
+.new-ui-storyboard-skeleton-line:nth-child(2)::after,
+.new-ui-storyboard-skeleton-cards span:nth-child(2)::after {
+  animation-delay: 0.12s;
+}
+
+.new-ui-storyboard-skeleton-cards span:nth-child(3)::after {
+  animation-delay: 0.24s;
+}
+
 .new-ui-material-gap-result {
   align-self: start;
   display: flow-root;
@@ -1443,7 +1507,9 @@
 @media (prefers-reduced-motion: reduce) {
   .new-ui-restructure-message.pseudo-streaming .new-ui-restructure-message-body p::after,
   .new-ui-restructure-activity.pseudo-streaming strong::after,
-  .new-ui-restructure-thinking-skeleton span::after {
+  .new-ui-restructure-thinking-skeleton span::after,
+  .new-ui-storyboard-skeleton-line::after,
+  .new-ui-storyboard-skeleton-cards span::after {
     animation: none;
   }
 }
