@@ -20,6 +20,17 @@ function loadQueueModel(api) {
     exports: module.exports,
     require: (request) => {
       if (request === "../../api/client") return api;
+      if (request === "./analysisHistoryData") {
+        return {
+          filterArtifactForWorkflowRun: (artifact, workflowRun) => {
+            if (!workflowRun?.workflowRunId || !Array.isArray(workflowRun.stages)) return artifact;
+            const visible = { ...artifact };
+            const owns = (key, id) => workflowRun.stages.some((stage) => stage.key === key && stage.status === "processed" && stage.artifactId === id);
+            if (!owns("functionSlotAtomization", artifact.functionSlotAtomizationAnalysis?.artifactId)) delete visible.functionSlotAtomizationAnalysis;
+            return visible;
+          },
+        };
+      }
       return {};
     },
     Date,
@@ -82,4 +93,6 @@ test("analysis home queue status follows current workflow over old final artifac
   assert.equal(items[0].historyItem.status, "cache_waiting");
   assert.equal(items[0].historyItem.traceId, "trace_current");
   assert.equal(items[0].historyItem.workflowRun.status, "cache_waiting");
+  assert.equal(items[0].historyItem.hasFunctionSlotAtomization, false);
+  assert.equal(items[0].historyItem.artifact.functionSlotAtomizationAnalysis, undefined);
 });

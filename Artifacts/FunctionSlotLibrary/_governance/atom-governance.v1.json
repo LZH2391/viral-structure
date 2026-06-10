@@ -1,7 +1,7 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.atoms",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
-  "updatedAt": "2026-06-10T09:59:02.394Z",
+  "updatedAt": "2026-06-10T10:37:03.723Z",
   "atomArchetypes": [
     {
       "id": "ATOM_ARCH_script_demand_establishment",

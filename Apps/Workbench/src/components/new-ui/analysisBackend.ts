@@ -94,7 +94,7 @@ export async function loadAnalysisDetailItem(
   const workflowRun = options.workflowRun ?? await loadWorkflowRun(item);
   const sampleVideoId = workflowRun?.sampleVideoId ?? item.sampleVideoId;
   const artifact = sampleVideoId ? await getSampleArtifact(sampleVideoId).catch(() => null) : null;
-  const loadedItem = withLoadedAnalysisHistoryArtifact({ ...item, sampleVideoId, workflowRunId: workflowRun?.workflowRunId ?? item.workflowRunId ?? null }, artifact);
+  const loadedItem = withLoadedAnalysisHistoryArtifact({ ...item, sampleVideoId, workflowRunId: workflowRun?.workflowRunId ?? item.workflowRunId ?? null, workflowRun }, artifact);
   const enrichedItem = await enrichAnalysisItem({ ...loadedItem, workflowRun });
   return {
     item: enrichedItem,

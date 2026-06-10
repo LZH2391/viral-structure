@@ -2,6 +2,7 @@ import { getLatestFullAnalysisBatchRun, getLatestMaterialRecognitionBatchRun, ge
 import type { FullAnalysisBatchItem, FullAnalysisBatchRun, SampleArtifact, WorkflowRun } from "../../types";
 import type { AnalysisWorkflowMode } from "./analysisBackend";
 import type { AnalysisHistoryItem, AnalysisHistoryMedia } from "./analysisHistoryData";
+import { filterArtifactForWorkflowRun } from "./analysisHistoryData";
 
 export type AnalysisHomeQueueItem = {
   key: string;
@@ -112,28 +113,29 @@ function resolveBatchQueueTitle(queueItem: FullAnalysisBatchItem, artifact: Samp
 
 export function resolveBatchQueueHistoryItem(queueItem: FullAnalysisBatchItem, batch: FullAnalysisBatchRun, artifact: SampleArtifact | null, status: AnalysisHomeQueueItem["status"], workflowRun: WorkflowRun | null = null): AnalysisHistoryItem | null {
   if (!queueItem.sampleVideoId) return null;
+  const visibleArtifact = artifact ? filterArtifactForWorkflowRun(artifact, workflowRun) : null;
   return {
     sampleVideoId: queueItem.sampleVideoId,
     workflowRunId: workflowRun?.workflowRunId ?? queueItem.workflowRunId ?? null,
     workflowKey: batch.workflowKey,
-    title: resolveBatchQueueTitle(queueItem, artifact),
+    title: resolveBatchQueueTitle(queueItem, visibleArtifact),
     status: workflowRun?.status ?? artifact?.status ?? queueItem.status,
     updatedAt: workflowRun?.updatedAt ?? queueItem.updatedAt,
     createdAt: workflowRun?.createdAt ?? queueItem.createdAt,
-    artifactId: latestWorkflowArtifactId(workflowRun) ?? latestSampleAnalysisArtifactId(artifact),
+    artifactId: latestWorkflowArtifactId(workflowRun) ?? latestSampleAnalysisArtifactId(visibleArtifact),
     traceId: workflowRun?.traceId ?? artifact?.trace?.traceId ?? null,
     runId: workflowRun?.runId ?? artifact?.trace?.runId ?? null,
     stageId: latestWorkflowStageId(workflowRun) ?? artifact?.trace?.stageId ?? null,
-    durationSeconds: artifact?.metadata.durationSeconds ?? null,
-    width: artifact?.metadata.width ?? null,
-    height: artifact?.metadata.height ?? null,
-    coverUri: artifact?.cover?.uri ?? artifact?.frames?.[0]?.imageUri ?? null,
-    videoUri: artifact?.sampleVideo.normalized.uri ?? artifact?.sampleVideo.original.uri ?? null,
-    hasFunctionSlotAtomization: Boolean(artifact?.functionSlotAtomizationAnalysis),
-    hasUserMaterialPack: Boolean(artifact?.userMaterialPack),
+    durationSeconds: visibleArtifact?.metadata.durationSeconds ?? null,
+    width: visibleArtifact?.metadata.width ?? null,
+    height: visibleArtifact?.metadata.height ?? null,
+    coverUri: visibleArtifact?.cover?.uri ?? visibleArtifact?.frames?.[0]?.imageUri ?? null,
+    videoUri: visibleArtifact?.sampleVideo.normalized.uri ?? visibleArtifact?.sampleVideo.original.uri ?? null,
+    hasFunctionSlotAtomization: Boolean(visibleArtifact?.functionSlotAtomizationAnalysis),
+    hasUserMaterialPack: Boolean(visibleArtifact?.userMaterialPack),
     isIncomplete: status !== "done" && status !== "running" && status !== "waiting",
     isRunning: status === "running" || status === "waiting",
-    artifact,
+    artifact: visibleArtifact,
     workflowRun,
     runtimeState: null,
   };

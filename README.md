@@ -27,6 +27,9 @@ python -m pip install pydantic websocket-client fastapi uvicorn
 Config\app.config.jsonc
 ```
 
+同时确认本机 Codex 已登录。启动脚本会使用 Codex AppServer，如果未登录，请先完成登录。
+
+
 启动完整本地栈：
 
 ```bat

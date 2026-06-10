@@ -36,33 +36,58 @@ export function shouldShowAnalysisHistoryItem(item: AnalysisHistoryItem) {
 
 export function withLoadedAnalysisHistoryArtifact(item: AnalysisHistoryItem, artifact: SampleArtifact | null): AnalysisHistoryItem {
   if (!artifact) return item;
-  const latestAnalysis = artifact.functionSlotAtomizationAnalysis
-    ?? artifact.userMaterialPack
-    ?? artifact.packagingStructureAnalysis
-    ?? artifact.rhythmStructureAnalysis
-    ?? artifact.scriptSegmentAnalysis
-    ?? artifact.shotBoundaryAnalysis
+  const visibleArtifact = filterArtifactForWorkflowRun(artifact, item.workflowRun ?? null);
+  const latestAnalysis = visibleArtifact.functionSlotAtomizationAnalysis
+    ?? visibleArtifact.userMaterialPack
+    ?? visibleArtifact.packagingStructureAnalysis
+    ?? visibleArtifact.rhythmStructureAnalysis
+    ?? visibleArtifact.scriptSegmentAnalysis
+    ?? visibleArtifact.shotBoundaryAnalysis
     ?? null;
   return {
     ...item,
-    artifact,
-    title: normalizeMediaTitle(artifact.sampleVideo.original.summary ?? item.title ?? item.sampleVideoId),
-    status: artifact.status ?? item.status,
+    artifact: visibleArtifact,
+    title: normalizeMediaTitle(visibleArtifact.sampleVideo.original.summary ?? item.title ?? item.sampleVideoId),
+    status: item.workflowRun?.status ?? visibleArtifact.status ?? item.status,
     artifactId: latestAnalysis?.artifactId ?? item.artifactId,
-    traceId: analysisTraceField(latestAnalysis, "traceId") ?? artifact.trace?.traceId ?? item.traceId,
-    runId: analysisTraceField(latestAnalysis, "runId") ?? artifact.trace?.runId ?? item.runId,
-    stageId: analysisTraceField(latestAnalysis, "stageId") ?? artifact.trace?.stageId ?? item.stageId,
-    workflowKey: resolveLoadedWorkflowKey(item, artifact),
-    durationSeconds: positiveNumber(artifact.metadata.durationSeconds) ?? item.durationSeconds,
-    width: positiveNumber(artifact.metadata.width) ?? item.width,
-    height: positiveNumber(artifact.metadata.height) ?? item.height,
-    coverUri: artifact.cover?.uri ?? artifact.frames?.[0]?.imageUri ?? item.coverUri,
-    videoUri: artifact.sampleVideo.normalized.uri ?? artifact.sampleVideo.original.uri ?? item.videoUri,
-    hasFunctionSlotAtomization: Boolean(artifact.functionSlotAtomizationAnalysis),
-    hasUserMaterialPack: Boolean(artifact.userMaterialPack),
-    isIncomplete: isIncompleteAnalysisArtifact(artifact),
-    isRunning: isRunningStatus(artifact.status),
+    traceId: analysisTraceField(latestAnalysis, "traceId") ?? item.workflowRun?.traceId ?? visibleArtifact.trace?.traceId ?? item.traceId,
+    runId: analysisTraceField(latestAnalysis, "runId") ?? item.workflowRun?.runId ?? visibleArtifact.trace?.runId ?? item.runId,
+    stageId: analysisTraceField(latestAnalysis, "stageId") ?? latestWorkflowStageId(item.workflowRun) ?? visibleArtifact.trace?.stageId ?? item.stageId,
+    workflowKey: item.workflowRun?.workflowKey ?? resolveLoadedWorkflowKey(item, visibleArtifact),
+    durationSeconds: positiveNumber(visibleArtifact.metadata.durationSeconds) ?? item.durationSeconds,
+    width: positiveNumber(visibleArtifact.metadata.width) ?? item.width,
+    height: positiveNumber(visibleArtifact.metadata.height) ?? item.height,
+    coverUri: visibleArtifact.cover?.uri ?? visibleArtifact.frames?.[0]?.imageUri ?? item.coverUri,
+    videoUri: visibleArtifact.sampleVideo.normalized.uri ?? visibleArtifact.sampleVideo.original.uri ?? item.videoUri,
+    hasFunctionSlotAtomization: Boolean(visibleArtifact.functionSlotAtomizationAnalysis),
+    hasUserMaterialPack: Boolean(visibleArtifact.userMaterialPack),
+    isIncomplete: isIncompleteAnalysisArtifact(visibleArtifact),
+    isRunning: isRunningStatus(item.workflowRun?.status ?? visibleArtifact.status),
   };
+}
+
+export function filterArtifactForWorkflowRun(artifact: SampleArtifact, workflowRun: WorkflowRun | null | undefined): SampleArtifact {
+  if (!workflowRun?.workflowRunId || !Array.isArray(workflowRun.stages)) return artifact;
+  const visible = { ...artifact };
+  if (!stageOwnsArtifact(workflowRun, "shotBoundary", artifact.shotBoundaryAnalysis?.artifactId)) {
+    delete visible.shotBoundaryAnalysis;
+  }
+  if (!stageOwnsArtifact(workflowRun, "scriptSegment", artifact.scriptSegmentAnalysis?.artifactId)) {
+    delete visible.scriptSegmentAnalysis;
+  }
+  if (!stageOwnsArtifact(workflowRun, "rhythmStructure", artifact.rhythmStructureAnalysis?.artifactId)) {
+    delete visible.rhythmStructureAnalysis;
+  }
+  if (!stageOwnsArtifact(workflowRun, "packagingStructure", artifact.packagingStructureAnalysis?.artifactId)) {
+    delete visible.packagingStructureAnalysis;
+  }
+  if (!stageOwnsArtifact(workflowRun, "functionSlotAtomization", artifact.functionSlotAtomizationAnalysis?.artifactId)) {
+    delete visible.functionSlotAtomizationAnalysis;
+  }
+  if (!stageOwnsArtifact(workflowRun, "userMaterialTagger", artifact.userMaterialPack?.artifactId)) {
+    delete visible.userMaterialPack;
+  }
+  return visible;
 }
 
 export function resolveAnalysisHistoryMedia(item: AnalysisHistoryItem): AnalysisHistoryMedia {
@@ -157,6 +182,17 @@ function isIncompleteAnalysisArtifact(artifact: SampleArtifact) {
       || artifact.shotBoundaryAnalysis,
   );
   return hasIntermediateResult && !hasCompleteResult && !isRunningStatus(artifact.status);
+}
+
+function stageOwnsArtifact(workflowRun: WorkflowRun, stageKey: string, artifactId: string | null | undefined) {
+  const id = stringOrNull(artifactId);
+  if (!id) return false;
+  const stage = workflowRun.stages?.find((item) => item.key === stageKey);
+  return String(stage?.status ?? "").toLowerCase() === "processed" && stringOrNull(stage?.artifactId) === id;
+}
+
+function latestWorkflowStageId(workflowRun: WorkflowRun | null | undefined) {
+  return [...(workflowRun?.stages ?? [])].reverse().find((stage) => stringOrNull(stage.stageId))?.stageId ?? null;
 }
 
 function isRunningStatus(status: string | null | undefined) {

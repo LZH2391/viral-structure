@@ -15,6 +15,7 @@ import {
 } from "./analysisWorkflowModel";
 
 type RerunTarget = string | string[];
+type CacheDecision = "reuse" | "refresh";
 
 export type AnalysisDetailSidebarState = {
   visible: boolean;
@@ -27,6 +28,8 @@ export type AnalysisDetailSidebarState = {
   workflowActionBusy?: "cancel" | "resume" | null;
   onWorkflowCancel?: () => void;
   onWorkflowResume?: () => void;
+  cacheDecisionBusyKey?: string | null;
+  onWorkflowCacheDecision?: (target: { stageKey: string; jobId: string; decision: CacheDecision }) => void;
   onWorkflowDetailCardSelect?: (target: AnalysisTimelineSegmentDetail) => void;
 };
 
@@ -77,6 +80,16 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
   const requestRerun = (stage: WorkflowStage, target: RerunTarget = stage.key) => {
     setPendingRerun({ label: stage.label, target, grouped: Array.isArray(target) });
   };
+  const cacheDecisionForStage = (stageKey: WorkflowStageKey) => {
+    const workflowStage = detail.item?.workflowRun?.stages?.find((stage) => stage.key === stageKey);
+    const jobId = workflowStage?.childJobId ?? null;
+    if (!jobId || String(workflowStage?.status ?? "").toLowerCase() !== "cache_waiting") return null;
+    return {
+      jobId,
+      busy: detail.cacheDecisionBusyKey === jobId,
+      onResolve: (decision: CacheDecision) => detail.onWorkflowCacheDecision?.({ stageKey, jobId, decision }),
+    };
+  };
   const confirmRerun = () => {
     if (!pendingRerun) return;
     const target = pendingRerun.target;
@@ -121,9 +134,9 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
         <ol className="new-ui-analysis-workflow-list">
           {materialWorkflow ? (
             <>
-              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} canRerun={canRerunStage(upload)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === upload.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
-              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} canRerun={canRerunStage(shotBoundary)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === shotBoundary.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
-              <WorkflowStep stage={userMaterialTagger} connectorDone={userMaterialTagger.status === "done"} selected={selectedWorkflowStageKey === userMaterialTagger.key} canRerun={canRerunStage(userMaterialTagger)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === userMaterialTagger.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} canRerun={canRerunStage(upload)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === upload.key} cacheDecision={cacheDecisionForStage(upload.key)} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} canRerun={canRerunStage(shotBoundary)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === shotBoundary.key} cacheDecision={cacheDecisionForStage(shotBoundary.key)} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={userMaterialTagger} connectorDone={userMaterialTagger.status === "done"} selected={selectedWorkflowStageKey === userMaterialTagger.key} canRerun={canRerunStage(userMaterialTagger)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === userMaterialTagger.key} cacheDecision={cacheDecisionForStage(userMaterialTagger.key)} onRerun={requestRerun} onSelect={selectWorkflowStage} />
               <WorkflowStep
                 stage={aggregate}
                 isLast
@@ -133,8 +146,8 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
             </>
           ) : (
             <>
-              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} canRerun={canRerunStage(upload)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === upload.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
-              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} canRerun={canRerunStage(shotBoundary)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === shotBoundary.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={upload} connectorDone={upload.status === "done"} selected={selectedWorkflowStageKey === upload.key} canRerun={canRerunStage(upload)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === upload.key} cacheDecision={cacheDecisionForStage(upload.key)} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={shotBoundary} connectorDone={shotBoundary.status === "done"} selected={selectedWorkflowStageKey === shotBoundary.key} canRerun={canRerunStage(shotBoundary)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === shotBoundary.key} cacheDecision={cacheDecisionForStage(shotBoundary.key)} onRerun={requestRerun} onSelect={selectWorkflowStage} />
               <WorkflowStep
                 stage={{
                   key: "structureAnalysis",
@@ -153,12 +166,12 @@ export function AnalysisWorkflowSidebar({ detail, onOpenStructureGraph, onWorkfl
                 onSelect={selectWorkflowStage}
               >
                 <div className="new-ui-analysis-workflow-parallel" aria-label="结构分析并行子任务">
-                  <ParallelStage stage={scriptSegment} selected={selectedWorkflowStageKey === scriptSegment.key} canRerun={canRerunStage(scriptSegment)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === scriptSegment.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
-                  <ParallelStage stage={rhythmStructure} selected={selectedWorkflowStageKey === rhythmStructure.key} canRerun={canRerunStage(rhythmStructure)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === rhythmStructure.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
-                  <ParallelStage stage={packagingStructure} selected={selectedWorkflowStageKey === packagingStructure.key} canRerun={canRerunStage(packagingStructure)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === packagingStructure.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+                  <ParallelStage stage={scriptSegment} selected={selectedWorkflowStageKey === scriptSegment.key} canRerun={canRerunStage(scriptSegment)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === scriptSegment.key} cacheDecision={cacheDecisionForStage(scriptSegment.key)} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+                  <ParallelStage stage={rhythmStructure} selected={selectedWorkflowStageKey === rhythmStructure.key} canRerun={canRerunStage(rhythmStructure)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === rhythmStructure.key} cacheDecision={cacheDecisionForStage(rhythmStructure.key)} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+                  <ParallelStage stage={packagingStructure} selected={selectedWorkflowStageKey === packagingStructure.key} canRerun={canRerunStage(packagingStructure)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === packagingStructure.key} cacheDecision={cacheDecisionForStage(packagingStructure.key)} onRerun={requestRerun} onSelect={selectWorkflowStage} />
                 </div>
               </WorkflowStep>
-              <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedWorkflowStageKey === atomization.key} canRerun={canRerunStage(atomization)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === atomization.key} onRerun={requestRerun} onSelect={selectWorkflowStage} />
+              <WorkflowStep stage={atomization} connectorDone={atomization.status === "done"} selected={selectedWorkflowStageKey === atomization.key} canRerun={canRerunStage(atomization)} rerunDisabled={rerunDisabled} rerunning={rerunningStageKey === atomization.key} cacheDecision={cacheDecisionForStage(atomization.key)} onRerun={requestRerun} onSelect={selectWorkflowStage} />
               <WorkflowStep
                 stage={aggregate}
                 isLast
@@ -206,6 +219,7 @@ function WorkflowStep({
   rerunDisabled = false,
   rerunning = false,
   rerunStageKey,
+  cacheDecision,
   graphAvailable = false,
   onRerun,
   onOpenGraph,
@@ -220,6 +234,7 @@ function WorkflowStep({
   rerunDisabled?: boolean;
   rerunning?: boolean;
   rerunStageKey?: RerunTarget;
+  cacheDecision?: { jobId: string; busy: boolean; onResolve: (decision: CacheDecision) => void } | null;
   graphAvailable?: boolean;
   onRerun?: (stage: WorkflowStage, stageKey?: RerunTarget) => void;
   onOpenGraph?: () => void;
@@ -272,6 +287,7 @@ function WorkflowStep({
             </button>
           ) : null}
         </div>
+        {cacheDecision ? <CacheDecisionActions stageLabel={stage.label} busy={cacheDecision.busy} onResolve={cacheDecision.onResolve} /> : null}
         {children}
       </div>
     </li>
@@ -284,6 +300,7 @@ function ParallelStage({
   canRerun = false,
   rerunDisabled = false,
   rerunning = false,
+  cacheDecision = null,
   onRerun,
   onSelect,
 }: {
@@ -292,6 +309,7 @@ function ParallelStage({
   canRerun?: boolean;
   rerunDisabled?: boolean;
   rerunning?: boolean;
+  cacheDecision?: { jobId: string; busy: boolean; onResolve: (decision: CacheDecision) => void } | null;
   onRerun?: (stage: WorkflowStage, stageKey?: RerunTarget) => void;
   onSelect: (stageKey: WorkflowStageKey) => void;
 }) {
@@ -321,6 +339,42 @@ function ParallelStage({
           <RerunIcon />
         </button>
       ) : null}
+      {cacheDecision ? <CacheDecisionActions compact stageLabel={stage.label} busy={cacheDecision.busy} onResolve={cacheDecision.onResolve} /> : null}
+    </div>
+  );
+}
+
+function CacheDecisionActions({
+  stageLabel,
+  busy,
+  compact = false,
+  onResolve,
+}: {
+  stageLabel: string;
+  busy: boolean;
+  compact?: boolean;
+  onResolve: (decision: CacheDecision) => void;
+}) {
+  return (
+    <div className={`new-ui-analysis-cache-actions ${compact ? "is-compact" : ""}`.trim()} aria-label={`${stageLabel}缓存决策`}>
+      <button
+        className="new-ui-analysis-cache-action"
+        type="button"
+        disabled={busy}
+        data-tooltip={`重新生成${stageLabel}`}
+        onClick={() => onResolve("refresh")}
+      >
+        重新生成
+      </button>
+      <button
+        className="new-ui-analysis-cache-action is-primary"
+        type="button"
+        disabled={busy}
+        data-tooltip={`复用${stageLabel}缓存`}
+        onClick={() => onResolve("reuse")}
+      >
+        {busy ? "处理中" : "复用缓存"}
+      </button>
     </div>
   );
 }

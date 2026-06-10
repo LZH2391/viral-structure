@@ -2248,6 +2248,68 @@
   animation: new-ui-workflow-spin 0.7s linear infinite;
 }
 
+.new-ui-analysis-cache-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(100%, 420px);
+  margin: 2px 0 10px;
+  padding-left: 10px;
+}
+
+.new-ui-analysis-cache-actions.is-compact {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 0;
+  padding: 0 8px 8px;
+}
+
+.new-ui-analysis-cache-action {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--new-ui-border) 70%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--new-ui-surface) 72%, transparent);
+  color: var(--new-ui-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.new-ui-analysis-cache-action.is-primary {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 52%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 18%, var(--new-ui-surface));
+  color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 78%, var(--new-ui-text));
+}
+
+.new-ui-analysis-cache-action:hover,
+.new-ui-analysis-cache-action:focus-visible {
+  border-color: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 60%, var(--new-ui-border));
+  background: color-mix(in srgb, var(--new-ui-analysis-workflow-status-running) 12%, var(--new-ui-surface));
+  outline: 0;
+}
+
+.new-ui-analysis-cache-action:focus-visible {
+  box-shadow: 0 0 0 2px var(--new-ui-focus-ring);
+}
+
+.new-ui-analysis-cache-action:active {
+  transform: translateY(1px);
+}
+
+.new-ui-analysis-cache-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .new-ui-analysis-workflow-graph-button {
   color: color-mix(in srgb, var(--new-ui-text-muted) 82%, transparent);
 }

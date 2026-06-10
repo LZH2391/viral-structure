@@ -17,6 +17,7 @@ type AnalysisHomeSidebarSyncOptions = {
   handleQueueItemCancel: (item: AnalysisHomeQueueItem) => void;
   handleQueueItemRetry: (item: AnalysisHomeQueueItem) => void;
   handleWorkflowCancel: () => void;
+  handleWorkflowCacheDecision: (target: { stageKey: string; jobId: string; decision: "reuse" | "refresh" }) => void;
   handleWorkflowResume: () => void;
   handleWorkflowStageRerun: (stageKey: string | string[]) => void;
   homeQueueItems: AnalysisHomeQueueItem[];
@@ -26,6 +27,7 @@ type AnalysisHomeSidebarSyncOptions = {
   onQueueStateChange?: (state: AnalysisHomeQueueState) => void;
   openHistoryDetail: (item: AnalysisHistoryItem) => void;
   queueActionBusyKey: string | null;
+  cacheDecisionBusyKey: string | null;
   rerunnableStageKeys: string[];
   rerunningStageKey: string | null;
   selectedTimelineSegment: AnalysisTimelineSegmentDetail | null;
@@ -46,6 +48,7 @@ export function useAnalysisHomeSidebarSync({
   handleQueueItemCancel,
   handleQueueItemRetry,
   handleWorkflowCancel,
+  handleWorkflowCacheDecision,
   handleWorkflowResume,
   handleWorkflowStageRerun,
   homeQueueItems,
@@ -55,6 +58,7 @@ export function useAnalysisHomeSidebarSync({
   onQueueStateChange,
   openHistoryDetail,
   queueActionBusyKey,
+  cacheDecisionBusyKey,
   rerunnableStageKeys,
   rerunningStageKey,
   selectedTimelineSegment,
@@ -105,8 +109,10 @@ export function useAnalysisHomeSidebarSync({
       workflowActionBusy: actionBusyKey,
       onWorkflowCancel: handleWorkflowCancel,
       onWorkflowResume: handleWorkflowResume,
+      cacheDecisionBusyKey,
+      onWorkflowCacheDecision: handleWorkflowCacheDecision,
     });
-  }, [actionBusyKey, detailHeavyReady, detailItem, detailTitle, handleWorkflowCancel, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, setSelectedTimelineSegment, view]);
+  }, [actionBusyKey, cacheDecisionBusyKey, detailHeavyReady, detailItem, detailTitle, handleWorkflowCacheDecision, handleWorkflowCancel, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, setSelectedTimelineSegment, view]);
 
   const handleWorkflowDetailCardSelect = useCallback((target: AnalysisTimelineSegmentDetail) => {
     selectTimelineSegment(target);
@@ -128,9 +134,11 @@ export function useAnalysisHomeSidebarSync({
       workflowActionBusy: actionBusyKey,
       onWorkflowCancel: handleWorkflowCancel,
       onWorkflowResume: handleWorkflowResume,
+      cacheDecisionBusyKey,
+      onWorkflowCacheDecision: handleWorkflowCacheDecision,
       onWorkflowDetailCardSelect: handleWorkflowDetailCardSelect,
     });
-  }, [actionBusyKey, detailItem, detailTimelineReady, detailTitle, handleWorkflowCancel, handleWorkflowDetailCardSelect, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view]);
+  }, [actionBusyKey, cacheDecisionBusyKey, detailItem, detailTimelineReady, detailTitle, handleWorkflowCacheDecision, handleWorkflowCancel, handleWorkflowDetailCardSelect, handleWorkflowResume, handleWorkflowStageRerun, onDetailStateChange, rerunnableStageKeys, rerunningStageKey, selectedTimelineSegment, view]);
 
   return { handleWorkflowDetailCardSelect, selectTimelineSegment };
 }

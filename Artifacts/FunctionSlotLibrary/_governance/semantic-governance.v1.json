@@ -175,6 +175,7 @@
     }
   },
   "governanceFormat": "split_manifest.v1",
+  "updatedAt": "2026-06-10T10:36:32.142Z",
   "files": {
     "source": {
       "path": "source-variants.v1.json",

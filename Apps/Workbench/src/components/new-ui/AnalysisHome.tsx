@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cancelFullAnalysisBatchItem, cancelMaterialRecognitionBatchItem, getFunctionSlotGovernanceSchedulerState, retryFullAnalysisBatchItem, retryMaterialRecognitionBatchItem, startFullAnalysisBatchRun, startMaterialRecognitionBatchRun, type FunctionSlotGovernanceSchedulerState } from "../../api/client";
+import { cancelFullAnalysisBatchItem, cancelMaterialRecognitionBatchItem, getFunctionSlotGovernanceSchedulerState, resolveCacheDecision, retryFullAnalysisBatchItem, retryMaterialRecognitionBatchItem, startFullAnalysisBatchRun, startMaterialRecognitionBatchRun, type FunctionSlotGovernanceSchedulerState } from "../../api/client";
 import type { TimelineSeekRequest } from "./AnalysisDetailPage";
 import { AnalysisHomeView } from "./AnalysisHomeView";
 import { loadAnalysisDetailItem, refreshAnalysisDetailItem } from "./analysisDetailData";
@@ -41,6 +41,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
   const [rerunnableStageKeys, setRerunnableStageKeys] = useState<string[]>([]);
   const [rerunningStageKey, setRerunningStageKey] = useState<string | null>(null);
   const [workflowActionBusy, setWorkflowActionBusy] = useState<"cancel" | "resume" | null>(null);
+  const [cacheDecisionBusyKey, setCacheDecisionBusyKey] = useState<string | null>(null);
   const [queueActionBusyKey, setQueueActionBusyKey] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [homeQueueItems, setHomeQueueItems] = useState<AnalysisHomeQueueItem[]>([]);
@@ -317,6 +318,29 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     }
   }, [detailItem, refreshHomeQueue, startDetailPolling, stopPolling, workflowActionBusy]);
 
+  const handleWorkflowCacheDecision = useCallback(async ({ jobId, decision }: { stageKey: string; jobId: string; decision: "reuse" | "refresh" }) => {
+    if (!detailItem || cacheDecisionBusyKey) return;
+    const token = operationTokenRef.current + 1;
+    operationTokenRef.current = token;
+    stopPolling();
+    detailPollingKeyRef.current = null;
+    setCacheDecisionBusyKey(jobId);
+    setSelectedTimelineSegment(null);
+    try {
+      await resolveCacheDecision(jobId, decision);
+      const { item: nextItem, media: nextMedia } = await refreshAnalysisDetailItem(detailItem);
+      if (token !== operationTokenRef.current) return;
+      setDetailItem(nextItem);
+      setDetailMedia(nextMedia);
+      setDetailTitle(nextMedia.title);
+      setHistoryRefreshKey((value) => value + 1);
+      startDetailPolling(nextItem, token);
+      await refreshHomeQueue().catch(() => undefined);
+    } finally {
+      if (token === operationTokenRef.current) setCacheDecisionBusyKey(null);
+    }
+  }, [cacheDecisionBusyKey, detailItem, refreshHomeQueue, startDetailPolling, stopPolling]);
+
   const handleQueueItemCancel = useCallback(async (item: AnalysisHomeQueueItem) => {
     if (!item.batchRunId || !item.queueItemId || queueActionBusyKey) return;
     const busyKey = `cancel:${item.key}`;
@@ -438,6 +462,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     handleQueueItemCancel,
     handleQueueItemRetry,
     handleWorkflowCancel,
+    handleWorkflowCacheDecision,
     handleWorkflowResume,
     handleWorkflowStageRerun,
     homeQueueItems,
@@ -447,6 +472,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     onQueueStateChange,
     openHistoryDetail,
     queueActionBusyKey,
+    cacheDecisionBusyKey,
     rerunnableStageKeys,
     rerunningStageKey,
     selectedTimelineSegment,

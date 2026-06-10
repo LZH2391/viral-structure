@@ -29,7 +29,7 @@ function loadAnalysisHistoryData() {
   return module.exports;
 }
 
-const { resolveAnalysisHistoryMedia } = loadAnalysisHistoryData();
+const { filterArtifactForWorkflowRun, resolveAnalysisHistoryMedia, withLoadedAnalysisHistoryArtifact } = loadAnalysisHistoryData();
 
 test("analysis history badge prefers running material recognition over completed material pack", () => {
   const media = resolveAnalysisHistoryMedia({
@@ -117,4 +117,89 @@ test("analysis history badge keeps completed pack over cache waiting residue", (
   });
 
   assert.equal(media.badgeLabel, "已完成");
+});
+
+test("loaded analysis detail hides old artifact outputs that do not belong to current workflow", () => {
+  const loaded = withLoadedAnalysisHistoryArtifact({
+    sampleVideoId: "sample_reused",
+    title: "reused.mp4",
+    status: "cache_waiting",
+    updatedAt: "2026-06-10T00:00:00.000Z",
+    createdAt: "2026-06-10T00:00:00.000Z",
+    artifactId: null,
+    traceId: "trace_current",
+    runId: "run_current",
+    stageId: "stage_current",
+    durationSeconds: null,
+    width: null,
+    height: null,
+    coverUri: null,
+    videoUri: null,
+    hasFunctionSlotAtomization: false,
+    hasUserMaterialPack: false,
+    isIncomplete: false,
+    isRunning: true,
+    workflowKey: "full-analysis",
+    workflowRun: {
+      workflowRunId: "workflow_current",
+      workflowKey: "full-analysis",
+      status: "cache_waiting",
+      traceId: "trace_current",
+      runId: "run_current",
+      stages: [
+        { key: "upload", status: "processed" },
+        { key: "shotBoundary", status: "cache_waiting", childJobId: "job_shot" },
+        { key: "scriptSegment", status: "pending" },
+      ],
+    },
+    runtimeState: null,
+    artifact: null,
+  }, {
+    status: "processed",
+    sampleVideo: {
+      artifactId: "artifact_sample",
+      original: { summary: "reused.mp4", uri: "/runtime/original.mp4" },
+      normalized: { uri: "/runtime/video.mp4" },
+    },
+    metadata: { durationSeconds: 27, width: 1920, height: 1080 },
+    frames: [],
+    shotBoundaryAnalysis: { artifactId: "artifact_old_shot" },
+    scriptSegmentAnalysis: { artifactId: "artifact_old_script", segments: [{ segmentId: "s1" }] },
+    functionSlotAtomizationAnalysis: { artifactId: "artifact_old_atomization" },
+    trace: { traceId: "trace_old", runId: "run_old", stageId: "stage_old" },
+  });
+
+  assert.equal(loaded.status, "cache_waiting");
+  assert.equal(loaded.hasFunctionSlotAtomization, false);
+  assert.equal(loaded.artifact.shotBoundaryAnalysis, undefined);
+  assert.equal(loaded.artifact.scriptSegmentAnalysis, undefined);
+  assert.equal(loaded.artifact.functionSlotAtomizationAnalysis, undefined);
+  assert.equal(loaded.traceId, "trace_current");
+});
+
+test("artifact filter keeps outputs owned by processed workflow stages", () => {
+  const artifact = filterArtifactForWorkflowRun({
+    status: "processed",
+    sampleVideo: {
+      artifactId: "artifact_sample",
+      original: { summary: "owned.mp4", uri: "/runtime/original.mp4" },
+      normalized: { uri: "/runtime/video.mp4" },
+    },
+    metadata: { durationSeconds: 27, width: 1920, height: 1080 },
+    frames: [],
+    shotBoundaryAnalysis: { artifactId: "artifact_shot" },
+    scriptSegmentAnalysis: { artifactId: "artifact_script" },
+    rhythmStructureAnalysis: { artifactId: "artifact_old_rhythm" },
+  }, {
+    workflowRunId: "workflow_current",
+    stages: [
+      { key: "shotBoundary", status: "processed", artifactId: "artifact_shot" },
+      { key: "scriptSegment", status: "processed", artifactId: "artifact_script" },
+      { key: "rhythmStructure", status: "pending", artifactId: null },
+    ],
+  });
+
+  assert.equal(artifact.shotBoundaryAnalysis.artifactId, "artifact_shot");
+  assert.equal(artifact.scriptSegmentAnalysis.artifactId, "artifact_script");
+  assert.equal(artifact.rhythmStructureAnalysis, undefined);
 });
