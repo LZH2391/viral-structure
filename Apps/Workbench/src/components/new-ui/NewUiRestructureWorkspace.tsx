@@ -1620,8 +1620,9 @@ function useRestructureTurnTimeline(target: NewUiTurnTimelineTarget | null) {
 
 function buildRestructureTimelineDisplayItems(items: AgentTimelineItem[]): RestructureTimelineDisplayItem[] {
   const result: RestructureTimelineDisplayItem[] = [];
+  const sourceKeyCounts = new Map<string, number>();
   items.forEach((item) => {
-    const sourceKey = createTimelineItemSourceKey(item);
+    const sourceKey = createTimelineItemSourceKey(item, sourceKeyCounts);
     if (item.kind === "reasoning") {
       appendTimelineActivity(result, {
         id: sourceKey,
@@ -2219,8 +2220,21 @@ function createTimelinePseudoStreamKey(item: RestructureTimelineStreamableItem) 
   return item.kind === "agent_message" ? `agent_message:${normalizeTimelineText(text) ?? ""}` : `${item.kind}:${normalizeTimelineText(text) ?? ""}`;
 }
 
-function createTimelineItemSourceKey(item: AgentTimelineItem) {
-  return `timeline-${item.id}-${item.index}-${item.kind}`;
+function createTimelineItemSourceKey(item: AgentTimelineItem, sourceKeyCounts: Map<string, number>) {
+  const rawId = String(item.id ?? "").trim();
+  const kind = String(item.kind ?? "unknown").trim() || "unknown";
+  const stableId = rawId && !/^item_\d+$/i.test(rawId) ? rawId : null;
+  const timestamp = normalizeTimelineText(item.createdAt);
+  if (!stableId && !timestamp) {
+    const orderKey = `__order:${kind}`;
+    const order = sourceKeyCounts.get(orderKey) ?? 0;
+    sourceKeyCounts.set(orderKey, order + 1);
+    return `timeline:${kind}:order:${order}`;
+  }
+  const baseKey = stableId ? `timeline:${kind}:id:${stableId}` : `timeline:${kind}:at:${timestamp}`;
+  const count = sourceKeyCounts.get(baseKey) ?? 0;
+  sourceKeyCounts.set(baseKey, count + 1);
+  return count > 0 ? `${baseKey}:${count}` : baseKey;
 }
 
 function resolveTimelineItemText(item: AgentTimelineItem) {
