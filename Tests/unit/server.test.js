@@ -3453,7 +3453,7 @@ test("agent chat collect auto reviews remembered shot design when dialogue chang
   }
 });
 
-test("agent chat collect reuses remembered review when only non-dialogue fields change", async () => {
+test("agent chat collect does not attach remembered review when later replies leave dialogue unchanged", async () => {
   const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "bd-agent-chat-shot-packaging-changed-"));
   const planDir = path.join(rootDir, "Artifacts", "FunctionSlotRestructure", "shot-demo");
   await fsPromises.mkdir(planDir, { recursive: true });
@@ -3534,11 +3534,9 @@ test("agent chat collect reuses remembered review when only non-dialogue fields 
     const collected = await makeRequest(server, "GET", "/api/agent-chat/threads/thread_shot_design/turns/turn_packaging_changed?conversationId=conversation_shot_design");
 
     assert.equal(collected.statusCode, 200);
-    assert.equal(collected.body.autoDialogueRoboticReview.status, "skipped_unchanged");
-    assert.equal(collected.body.autoDialogueRoboticReview.trigger, "dialogue_unchanged");
-    assert.equal(collected.body.autoDialogueRoboticReview.decision, "pass");
+    assert.equal(collected.body.autoDialogueRoboticReview, undefined);
     assert.equal(reviewTurns.length, 0);
-    assert.equal(conversations.get("conversation_shot_design").messages.at(-1).dialogueRoboticReview.decision, "pass");
+    assert.equal(conversations.get("conversation_shot_design").messages.at(-1).dialogueRoboticReview, null);
   } finally {
     await closeServer(server);
   }

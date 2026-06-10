@@ -68,6 +68,7 @@ async function maybeAutoReviewShotDialogue({
   const dialogueFingerprint = await readDialogueFingerprint(shotDesignFinalPath, rootDir).catch(() => null);
   if (!currentOutputPath && !previousDialogueFingerprint) return null;
   if (fingerprintsEqual(dialogueFingerprint, previousDialogueFingerprint)) {
+    if (!currentOutputPath) return null;
     const reused = buildReusedDialogueReviewResult({
       previousReview,
       payload,
@@ -167,6 +168,7 @@ async function maybeAutoReviewShotDialogue({
 
     const fileFingerprint = await readFileFingerprint(shotDesignFinalPath, rootDir);
     if (fingerprintsEqual(fileFingerprint, previousFingerprint)) {
+      if (!currentOutputPath) return null;
       const outputSummary = {
         artifactId,
         status: "skipped_unchanged",

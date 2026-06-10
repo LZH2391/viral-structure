@@ -204,7 +204,7 @@ export function SlotAtomView({
             onClick={() => setSelectedSlotId(slot.slotSubtypeId ?? null)}
           >
             <small>{String(slot.index ?? index + 1).padStart(2, "0")}</small>
-            <b>{slot.functionText || stripBacktickLabel(slot.slotSubtype) || slot.slotSubtypeId || "未命名槽位"}</b>
+            <b>{stripBacktickLabel(slot.slotSubtype) || slot.slotSubtypeId || slot.functionText || "未命名槽位"}</b>
             <i
               role="button"
               tabIndex={0}
@@ -226,7 +226,7 @@ export function SlotAtomView({
       </div>
       <div className="agent-chat-slot-detail">
         <div className="agent-chat-slot-detail-head">
-          <b>{selectedSlot?.functionText || stripBacktickLabel(selectedSlot?.slotSubtype) || selectedSlot?.slotSubtypeId || "槽位"}</b>
+          <b>{stripBacktickLabel(selectedSlot?.slotSubtype) || selectedSlot?.slotSubtypeId || selectedSlot?.functionText || "槽位"}</b>
         </div>
         {slotInvalidated ? <div className="agent-chat-replacement-warning">槽位已预选替换，原绑定原子将交给 Agent 重新评估。</div> : null}
         <AtomCard label="脚本" value={selectedAtoms?.scriptAtom} tone="script" onReplace={() => openAtomDrawer("script")} />
@@ -324,7 +324,7 @@ function replacementDrawerTitle(drawer: DrawerState) {
 }
 
 function currentReplacementLabel(drawer: DrawerState, slot: AgentChatSlotSummary | null, atoms: AgentChatAtomSummary | null) {
-  if (drawer.kind === "slot") return slot?.functionText || stripBacktickLabel(slot?.slotSubtype) || slot?.slotSubtypeId || "未知槽位";
+  if (drawer.kind === "slot") return stripBacktickLabel(slot?.slotSubtype) || slot?.slotSubtypeId || slot?.functionText || "未知槽位";
   return stripBacktickLabel(atomValueFor(atoms, drawer.atomKind)) || atomValueFor(atoms, drawer.atomKind) || `未知${atomKindLabel(drawer.atomKind)}原子`;
 }
 
