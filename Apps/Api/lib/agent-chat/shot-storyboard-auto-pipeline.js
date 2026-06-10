@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs/promises");
 const { randomUUID } = require("crypto");
 const { SAMPLE_STATUS } = require("../../../../Core/Workspace/sample-video-contracts");
 const { createTraceIds, nextStage } = require("../../../../Infrastructure/Observability/trace");
@@ -72,7 +73,7 @@ function createShotStoryboardAutoPipelineService({
   function startPipelineJob(options = {}) {
     const sampleVideoId = normalizeText(options.sampleVideoId) || "function-slot-workflow";
     const traceContext = nextStage(createTraceIds());
-    const artifactId = options.artifactId || `artifact_${randomUUID()}`;
+    const artifactId = normalizeStoryboardArtifactId(options.artifactId) || `artifact_${randomUUID()}`;
     const parentArtifactId = normalizeText(options.parentArtifactId || options.restructureArtifactId) || null;
     const job = jobStore.createJob({ sampleVideoId, traceId: traceContext.traceId });
     job.options = { ...options, sampleVideoId, parentArtifactId };
@@ -159,7 +160,7 @@ function createShotStoryboardAutoPipelineService({
       inputSummary,
     });
 
-    const resolved = await resolveInputs(options, shotDesignPathOverride);
+    const resolved = await resolveInputs(options, shotDesignPathOverride, artifactId);
     const prepare = await runPrepareStage({ resolved, traceContext, artifactId, parentArtifactId, repairAttemptCount, job });
     if (options.runImageGeneration === false) {
       return await finishProcessed({
@@ -286,7 +287,7 @@ function createShotStoryboardAutoPipelineService({
     });
   }
 
-  async function resolveInputs(options, shotDesignPathOverride) {
+  async function resolveInputs(options, shotDesignPathOverride, artifactId) {
     const restructureFinalPath = resolveInsideRoot(options.restructureFinalPath);
     if (!restructureFinalPath) throw pipelineError("storyboard_prep_restructure_required", "需要 restructureFinalPath", { retryable: false });
     await assertFile(restructureFinalPath, "storyboard_prep_restructure_missing", false);
@@ -294,15 +295,21 @@ function createShotStoryboardAutoPipelineService({
       ? resolveInsideRoot(shotDesignPathOverride)
       : resolveInsideRoot(options.shotDesignFinalPath) || path.join(path.dirname(restructureFinalPath), "shot-design.final.md");
     await assertFile(shotDesignFinalPath, "storyboard_prep_shot_design_missing", true);
+    const safeArtifactId = normalizeStoryboardArtifactId(artifactId);
+    if (!safeArtifactId) throw pipelineError("storyboard_prep_artifact_id_invalid", "artifactId 不合法", { retryable: false });
+    const sourceBaseDir = path.dirname(shotDesignFinalPath);
+    const outputBaseDir = path.join(sourceBaseDir, "storyboard-runs", safeArtifactId);
     return {
       restructureFinalPath,
       shotDesignFinalPath,
-      baseDir: path.dirname(shotDesignFinalPath),
+      sourceBaseDir,
+      baseDir: outputBaseDir,
     };
   }
 
   async function runPrepareStage({ resolved, traceContext, artifactId, parentArtifactId, repairAttemptCount, job }) {
     const stageTrace = nextStage(traceContext);
+    await fs.mkdir(resolved.baseDir, { recursive: true });
     const promptPath = path.join(resolved.baseDir, "shot-storyboard-prompts.md");
     const manifestPath = path.join(resolved.baseDir, "shot-storyboard-manifest.json");
     jobStore.updateJob(job.jobId, { stage: "function.slot.shot_storyboard_prep.prepare", progress: 25 });
@@ -398,6 +405,7 @@ function createShotStoryboardAutoPipelineService({
   async function runCropStage({ prepare, image, resolved, traceContext, artifactId, parentArtifactId, job }) {
     const stageTrace = nextStage(traceContext);
     const outputDir = path.join(resolved.baseDir, "shot-storyboard-frames");
+    await fs.mkdir(outputDir, { recursive: true });
     jobStore.updateJob(job.jobId, { stage: "function.slot.shot_storyboard_prep.crop", progress: 70 });
     return runLoggedStage({
       stageName: "function.slot.shot_storyboard_prep.crop",
@@ -432,7 +440,7 @@ function createShotStoryboardAutoPipelineService({
 
   async function runPdfAgentStage({ resolved, prepare, crop, options, traceContext, artifactId, parentArtifactId, job }) {
     const stageTrace = nextStage(traceContext);
-    const materialFrameMaps = collectMaterialFrameMaps(options, resolved.baseDir);
+    const materialFrameMaps = collectMaterialFrameMaps(options, resolved.baseDir, resolved.sourceBaseDir);
     jobStore.updateJob(job.jobId, { stage: PDF_STAGE_NAME, progress: 88 });
     return runLoggedStage({
       stageName: PDF_STAGE_NAME,
@@ -558,7 +566,7 @@ function createShotStoryboardAutoPipelineService({
     await store.ensureRuntimeDirs?.();
     const sampleVideoId = normalizeText(options.sampleVideoId) || "function-slot-workflow";
     const traceContext = nextStage(createTraceIds());
-    const artifactId = options.artifactId || `artifact_${randomUUID()}`;
+    const artifactId = normalizeStoryboardArtifactId(options.artifactId) || `artifact_${randomUUID()}`;
     const parentArtifactId = normalizeText(options.parentArtifactId || options.restructureArtifactId) || null;
     const versions = Array.isArray(options.versions) ? options.versions.filter((item) => normalizeText(item?.versionId)) : [];
     const defaultVersionId = normalizeText(options.defaultVersionId) || versions[0]?.versionId || null;
@@ -917,7 +925,7 @@ function createShotStoryboardAutoPipelineService({
   return { enqueue, enqueueVersionBatch };
 }
 
-function collectMaterialFrameMaps(options, baseDir) {
+function collectMaterialFrameMaps(options, baseDir, sourceBaseDir = baseDir) {
   const explicit = Array.isArray(options.materialFrameMaps) ? options.materialFrameMaps : [];
   const requiredCandidates = [
     ...explicit,
@@ -931,8 +939,17 @@ function collectMaterialFrameMaps(options, baseDir) {
     path.join(baseDir, "visual-manifest.json"),
     path.join(baseDir, "user-material-pack.stable.json"),
     path.join(baseDir, "user-material-pack.stable"),
+    path.join(sourceBaseDir, "material-frame-map.json"),
+    path.join(sourceBaseDir, "visual-manifest.json"),
+    path.join(sourceBaseDir, "user-material-pack.stable.json"),
+    path.join(sourceBaseDir, "user-material-pack.stable"),
   ].map((path) => ({ path, required: false }));
   return [...requiredCandidates, ...optionalCandidates];
+}
+
+function normalizeStoryboardArtifactId(value) {
+  const text = normalizeText(value);
+  return /^artifact_[A-Za-z0-9_.-]+$/.test(text) ? text : null;
 }
 
 function isCurrentStoryboardConfirmation(conversation, { confirmationId, turnId }) {

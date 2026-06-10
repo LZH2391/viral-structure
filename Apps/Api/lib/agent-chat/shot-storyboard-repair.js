@@ -18,7 +18,7 @@ function createShotStoryboardRepairRunner({
     if (!threadPool?.ensureRoleReady || !threadPool?.acquireLease || !threadPool?.releaseLease || !appServer?.runTurnWithInputs) {
       throw error;
     }
-    const resolved = await resolveInputs(options, shotDesignPathOverride);
+    const resolved = await resolveInputs(options, shotDesignPathOverride, artifactId);
     const repairedPath = path.join(resolved.baseDir, `shot-design.final.repair-attempt-${repairAttemptCount}.md`);
     const repairRequestPath = path.join(resolved.baseDir, "shot-storyboard.repair-request.json");
     const repairRequest = buildRepairRequest({

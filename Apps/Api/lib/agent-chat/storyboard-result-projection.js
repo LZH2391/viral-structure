@@ -5,7 +5,7 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
   const originalPlan = storyboardResult ?? conversation?.confirmedPlan ?? null;
   const versionSelection = selectStoryboardVersion(originalPlan, versionId);
   const confirmedPlan = versionSelection.plan;
-  const baseDir = resolveStoryboardBaseDir(rootDir, confirmedPlan);
+  const baseDir = await resolveStoryboardBaseDir(rootDir, confirmedPlan);
   if (!conversation || !baseDir) {
     return { ...buildMissingProjection(conversation, "storyboard_source_missing"), versions: versionSelection.versions, defaultVersionId: versionSelection.defaultVersionId, selectedVersionId: versionSelection.selectedVersionId };
   }
@@ -36,8 +36,9 @@ async function buildStoryboardResultProjection({ rootDir, conversation, imageBas
     });
   }
   const pdfMedia = buildPdfInputMediaIndex({ rootDir, pdfInput });
-  const materialFrameIndex = await buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, manifest });
-  const slotLabelIndex = await buildSlotLabelIndex({ baseDir });
+  const sourceBaseDir = resolveStoryboardSourceBaseDir(baseDir);
+  const materialFrameIndex = await buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, sourceBaseDir, manifest });
+  const slotLabelIndex = await buildSlotLabelIndex({ baseDir, sourceBaseDir });
 
   const aspect = resolveAspect(manifest?.aspect, null);
   const selectedImageQuery = ensureVersionInImageQuery(imageQuery, versionSelection.selectedVersionId);
@@ -96,7 +97,7 @@ async function resolveStoryboardImagePath({ rootDir, conversation, shotId, story
   const safeShotId = normalizeShotId(shotId);
   if (!safeShotId) return null;
   const versionSelection = selectStoryboardVersion(storyboardResult ?? conversation?.confirmedPlan ?? null, versionId);
-  const baseDir = resolveStoryboardBaseDir(rootDir, versionSelection.plan);
+  const baseDir = await resolveStoryboardBaseDir(rootDir, versionSelection.plan);
   if (!baseDir) return null;
   const manifestPath = path.join(baseDir, "shot-storyboard-manifest.json");
   const cropsPath = path.join(baseDir, "shot-storyboard-frames", "shot-storyboard-crops.json");
@@ -118,7 +119,7 @@ async function resolveStoryboardImagePath({ rootDir, conversation, shotId, story
   const pdfMedia = buildPdfInputMediaIndex({ rootDir, pdfInput });
   const pdfPath = pdfMedia.shots.get(safeShotId)?.imagePath ?? null;
   if (cropPath || pdfPath) return cropPath ?? pdfPath;
-  const materialFrameIndex = await buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, manifest });
+  const materialFrameIndex = await buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, sourceBaseDir: resolveStoryboardSourceBaseDir(baseDir), manifest });
   const shot = manifest.shots.find((item) => String(item?.shotId ?? "") === safeShotId);
   return firstResolvedMaterialFrame(shot, materialFrameIndex);
 }
@@ -274,12 +275,15 @@ function formatTimelineSeconds(value) {
   return rounded.toFixed(1);
 }
 
-async function buildSlotLabelIndex({ baseDir }) {
+async function buildSlotLabelIndex({ baseDir, sourceBaseDir = baseDir }) {
   const index = new Map();
-  const display = await readJsonIfExists(path.join(baseDir, "restructure.display.json"));
-  addSlotLabelsFromDisplay(display, index);
+  for (const candidateDir of uniquePaths([baseDir, sourceBaseDir])) {
+    const display = await readJsonIfExists(path.join(candidateDir, "restructure.display.json"));
+    addSlotLabelsFromDisplay(display, index);
+    if (index.size) break;
+  }
   if (!index.size) {
-    const finalText = await readTextIfExists(path.join(baseDir, "restructure.final.md"));
+    const finalText = await readTextFromFirstExisting(uniquePaths([baseDir, sourceBaseDir]).map((candidateDir) => path.join(candidateDir, "restructure.final.md")));
     addSlotLabelsFromMarkdown(finalText, index);
   }
   return index;
@@ -361,9 +365,9 @@ function buildPdfInputMediaIndex({ rootDir, pdfInput }) {
   return { cover, shots };
 }
 
-async function buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, manifest }) {
+async function buildReadOnlyMaterialFrameIndex({ rootDir, baseDir, sourceBaseDir = baseDir, manifest }) {
   const index = new Map();
-  const candidates = await collectMaterialFrameMapPaths({ rootDir, baseDir });
+  const candidates = await collectMaterialFrameMapPaths({ rootDir, baseDir, sourceBaseDir });
   for (const filePath of candidates) {
     const value = await readJsonIfExists(filePath);
     if (!value) continue;
@@ -426,15 +430,19 @@ function resolveAspectFromSize(widthValue, heightValue) {
   return { ratio: "9:16", orientation: "portrait", css: "9 / 16" };
 }
 
-async function collectMaterialFrameMapPaths({ rootDir, baseDir }) {
+async function collectMaterialFrameMapPaths({ rootDir, baseDir, sourceBaseDir = baseDir }) {
   const result = [];
   const candidates = [
     path.join(baseDir, "material-frame-map.json"),
     path.join(baseDir, "visual-manifest.json"),
     path.join(baseDir, "user-material-pack.stable.json"),
     path.join(baseDir, "user-material-pack.stable"),
+    path.join(sourceBaseDir, "material-frame-map.json"),
+    path.join(sourceBaseDir, "visual-manifest.json"),
+    path.join(sourceBaseDir, "user-material-pack.stable.json"),
+    path.join(sourceBaseDir, "user-material-pack.stable"),
   ];
-  const restructureText = await readTextIfExists(path.join(baseDir, "restructure.final.md"));
+  const restructureText = await readTextFromFirstExisting(uniquePaths([baseDir, sourceBaseDir]).map((candidateDir) => path.join(candidateDir, "restructure.final.md")));
   const matches = restructureText.matchAll(/`([^`]*(?:user-material-pack|material-frame-map|visual-manifest)[^`]*)`/gi);
   for (const match of matches) {
     const resolved = resolveMediaPath(rootDir, match[1]);
@@ -608,11 +616,67 @@ function normalizeShotId(value) {
   return /^[A-Za-z0-9_.-]+$/.test(text) ? text : null;
 }
 
-function resolveStoryboardBaseDir(rootDir, confirmedPlan) {
+function normalizeArtifactId(value) {
+  const text = String(value ?? "").trim();
+  return /^artifact_[A-Za-z0-9_.-]+$/.test(text) ? text : null;
+}
+
+function resolveStoryboardSourceBaseDir(baseDir) {
+  const runParent = path.dirname(baseDir);
+  if (path.basename(runParent) === "storyboard-runs") return path.dirname(runParent);
+  return baseDir;
+}
+
+async function resolveStoryboardBaseDir(rootDir, confirmedPlan) {
+  const artifactBaseDir = await resolveStoryboardArtifactBaseDir(rootDir, confirmedPlan);
+  if (artifactBaseDir) return artifactBaseDir;
   const shotDesignPath = resolveInsideRoot(rootDir, confirmedPlan?.sourceShotDesignPath);
-  if (shotDesignPath) return path.dirname(shotDesignPath);
+  const artifactId = normalizeArtifactId(confirmedPlan?.storyboardArtifact?.artifactId || confirmedPlan?.artifactId);
+  if (shotDesignPath) {
+    if (artifactId) {
+      const runDir = path.join(path.dirname(shotDesignPath), "storyboard-runs", artifactId);
+      if (await pathExists(runDir)) return runDir;
+    }
+    return path.dirname(shotDesignPath);
+  }
   const restructurePath = resolveInsideRoot(rootDir, confirmedPlan?.sourceRestructurePath);
-  return restructurePath ? path.dirname(restructurePath) : null;
+  if (!restructurePath) return null;
+  if (artifactId) {
+    const runDir = path.join(path.dirname(restructurePath), "storyboard-runs", artifactId);
+    if (await pathExists(runDir)) return runDir;
+  }
+  return path.dirname(restructurePath);
+}
+
+async function resolveStoryboardArtifactBaseDir(rootDir, confirmedPlan) {
+  const artifactId = normalizeArtifactId(confirmedPlan?.storyboardArtifact?.artifactId || confirmedPlan?.artifactId);
+  if (!artifactId) return null;
+  const artifact = await readStoryboardPrepArtifact(rootDir, artifactId);
+  const manifestPath = resolveInsideRoot(rootDir, artifact?.files?.manifestPath);
+  if (manifestPath) return path.dirname(manifestPath);
+  const cropsManifestPath = resolveInsideRoot(rootDir, artifact?.files?.cropsManifestPath);
+  if (cropsManifestPath) return path.dirname(path.dirname(cropsManifestPath));
+  return null;
+}
+
+async function readStoryboardPrepArtifact(rootDir, artifactId) {
+  const safeArtifactId = normalizeArtifactId(artifactId);
+  if (!safeArtifactId) return null;
+  const runtimeArtifactsDir = path.join(rootDir, "Runtime", "Artifacts");
+  let entries = [];
+  try {
+    entries = await fs.readdir(runtimeArtifactsDir, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const artifactPath = path.join(runtimeArtifactsDir, entry.name, "shot-storyboard-prep", safeArtifactId, "artifact.json");
+    const artifact = await readJsonIfExists(artifactPath);
+    if (artifact?.artifactId === safeArtifactId) return artifact;
+  }
+  return null;
 }
 
 function resolveCropPath(rootDir, baseDir, cropPath, shotId) {
@@ -669,6 +733,15 @@ async function readJsonIfExists(filePath) {
   }
 }
 
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function readTextIfExists(filePath) {
   try {
     return await fs.readFile(filePath, "utf8");
@@ -678,13 +751,16 @@ async function readTextIfExists(filePath) {
   }
 }
 
-async function pathExists(filePath) {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
+async function readTextFromFirstExisting(filePaths) {
+  for (const filePath of filePaths) {
+    const text = await readTextIfExists(filePath);
+    if (text) return text;
   }
+  return "";
+}
+
+function uniquePaths(values) {
+  return Array.from(new Set(values.filter(Boolean).map((value) => path.resolve(value))));
 }
 
 function buildMissingProjection(conversation, reason) {
