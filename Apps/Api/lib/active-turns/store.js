@@ -4,9 +4,13 @@ const { randomUUID } = require("crypto");
 const { isRunningTurnStatus, isTerminalTurnStatus, normalizeTurnStatus } = require("./status");
 
 const SCHEMA_VERSION = "active_turn_bindings.v1";
+const FILE_QUEUES = new Map();
+const WRITE_RETRY_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
+const WRITE_RETRY_DELAYS_MS = [20, 50, 100, 200];
 
 function createActiveTurnStore({ store, filePath } = {}) {
   const bindingsPath = filePath || path.join(store.runtimeRoot, "ActiveTurns", "active-turns.json");
+  const queueKey = path.resolve(bindingsPath).toLowerCase();
   let stateQueue = Promise.resolve();
 
   async function upsert(binding) {
@@ -102,8 +106,13 @@ function createActiveTurnStore({ store, filePath } = {}) {
     await fs.mkdir(path.dirname(bindingsPath), { recursive: true });
     const next = { schemaVersion: SCHEMA_VERSION, updatedAt: new Date().toISOString(), bindings: state.bindings };
     const tempPath = `${bindingsPath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
-    await fs.writeFile(tempPath, JSON.stringify(next, null, 2), "utf8");
-    await fs.rename(tempPath, bindingsPath);
+    try {
+      await fs.writeFile(tempPath, JSON.stringify(next, null, 2), "utf8");
+      await renameWithRetry(tempPath, bindingsPath);
+    } catch (error) {
+      await fs.rm(tempPath, { force: true }).catch(() => undefined);
+      throw error;
+    }
   }
 
   async function pruneAndPersistTerminalBindings() {
@@ -116,7 +125,7 @@ function createActiveTurnStore({ store, filePath } = {}) {
   }
 
   function withStateLock(operation) {
-    const run = stateQueue.catch(() => undefined).then(operation);
+    const run = stateQueue.catch(() => undefined).then(() => withFileQueue(queueKey, operation));
     stateQueue = run.catch(() => undefined);
     return run;
   }
@@ -132,6 +141,36 @@ function createActiveTurnStore({ store, filePath } = {}) {
     listActiveBindings: listActiveBindingsRaw,
     toSafeBinding,
   };
+}
+
+function withFileQueue(queueKey, operation) {
+  const previous = FILE_QUEUES.get(queueKey) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(operation);
+  const stored = next.catch(() => undefined);
+  FILE_QUEUES.set(queueKey, stored);
+  stored.finally(() => {
+    if (FILE_QUEUES.get(queueKey) === stored) FILE_QUEUES.delete(queueKey);
+  });
+  return next;
+}
+
+async function renameWithRetry(tempPath, targetPath) {
+  let lastError = null;
+  for (let attempt = 0; attempt <= WRITE_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      await fs.rename(tempPath, targetPath);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!WRITE_RETRY_CODES.has(error?.code) || attempt >= WRITE_RETRY_DELAYS_MS.length) break;
+      await delay(WRITE_RETRY_DELAYS_MS[attempt]);
+    }
+  }
+  throw lastError;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeBinding(value) {

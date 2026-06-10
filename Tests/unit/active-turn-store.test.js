@@ -138,3 +138,40 @@ test("active turn store preserves concurrent upserts", async () => {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("active turn store serializes concurrent upserts across store instances", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "active-turn-store-multi-instance-"));
+  try {
+    const filePath = path.join(tempRoot, "active-turns.json");
+    const stores = [
+      createActiveTurnStore({ filePath }),
+      createActiveTurnStore({ filePath }),
+      createActiveTurnStore({ filePath }),
+    ];
+    await Promise.all(Array.from({ length: 9 }, (_, index) => stores[index % stores.length].upsert({
+      threadId: `thread_${index}`,
+      turnId: `turn_${index}`,
+      ownerType: "processing-job",
+      ownerId: `job_${index}`,
+      currentAttemptId: `attempt_${index}`,
+      stageName: "content.model",
+      replayRef: { type: "processing-job-input", refId: `job_${index}` },
+      status: "submitted",
+    })));
+
+    const active = await stores[0].listActive();
+    assert.deepEqual(active.map((binding) => binding.turnId).sort(), [
+      "turn_0",
+      "turn_1",
+      "turn_2",
+      "turn_3",
+      "turn_4",
+      "turn_5",
+      "turn_6",
+      "turn_7",
+      "turn_8",
+    ]);
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+});

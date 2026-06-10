@@ -332,6 +332,139 @@
       "label": "aspirational_outcome_activation > mechanism_credibility > scenario_value_expansion > wearability_reassurance > value_trust_reinforcement > identity_conversion_close"
     },
     {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::F001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "slot",
+      "sourceId": "F001",
+      "label": "形态可信槽"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::F002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "slot",
+      "sourceId": "F002",
+      "label": "用法兑现槽"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B001",
+      "label": "require"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B002",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B003",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B003",
+      "label": "carryover"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B004",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B004",
+      "label": "sync"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B005",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "binding",
+      "sourceId": "B005",
+      "label": "substitute"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "packaging",
+      "sourceId": "P001",
+      "label": "低干扰实拍质感证明"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "packaging",
+      "sourceId": "P002",
+      "label": "低干扰实拍用法证明"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rhythm",
+      "sourceId": "R001",
+      "label": "短促细节压缩"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rhythm",
+      "sourceId": "R002",
+      "label": "动作推进轻抬升"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "C001",
+      "label": "形态可信槽处于极短细节展示中，不适合加入复杂机制解释或多层卖点堆叠"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "C002",
+      "label": "用法兑现槽依赖动作路径清晰，过强促销包装或多重贴纸会抢走动作理解"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "RULE001",
+      "label": "该结构的可信度来自同一对象从可见状态进入使用场景的连续性"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "RULE002",
+      "label": "极短节奏下观众无法同时处理多主张和复杂包装"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE003",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "rule",
+      "sourceId": "RULE003",
+      "label": "当前节奏适合简单动作兑现，不适合复杂教学"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "script",
+      "sourceId": "S001",
+      "label": "物理质感先证"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S002",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "script",
+      "sourceId": "S002",
+      "label": "使用动作兑现"
+    },
+    {
+      "variantId": "sample_1ca41200-6c48-4338-b703-9513bab19371::template::T001",
+      "sampleId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
+      "kind": "template",
+      "sourceId": "T001",
+      "label": "material_form_proof > usage_method_proof"
+    },
+    {
       "variantId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::F001",
       "sampleId": "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
       "kind": "slot",

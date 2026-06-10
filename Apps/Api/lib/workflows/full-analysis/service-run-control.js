@@ -22,6 +22,11 @@ function createWorkflowRunControl({
   async function resumeRunUnlocked({ workflowRunId } = {}) {
     const run = workflowRunStore.getRun(workflowRunId);
     if (!run) return null;
+    if (["running", "cache_waiting"].includes(run.status)) {
+      await advanceUnlocked(workflowRunId);
+      scheduleAdvance(workflowRunId);
+      return publicRun(workflowRunStore.getRun(workflowRunId));
+    }
     if (!["canceled", "failed", "partial_failed"].includes(run.status)) return publicRun(run);
     const firstStageKey = firstResumeStageKey(run);
     if (!firstStageKey) return publicRun(run);

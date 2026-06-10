@@ -119,6 +119,7 @@ function statusForStage(
   const workflowStatus = workflowStageStatus(workflowStage?.status);
   if (done) return "done";
   if (workflowStatus) return workflowStatus;
+  if (workflowStage) return "waiting";
   return statusFor({ done, dependenciesDone, running });
 }
 

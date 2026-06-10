@@ -362,6 +362,42 @@ test("full analysis rerun waits for in-flight advance before resetting stage", a
   assert.equal(jobs.get("job_script-segments").status, "processed");
 });
 
+test("full analysis resume advances running run with pending structure stages", async () => {
+  const { workflow, artifacts, moduleStarts, workflowRunStore } = createHarness();
+  artifacts.set("sample_1", buildArtifact({ shot: true }));
+  workflowRunStore.createRun({
+    workflowRunId: "workflow_resume_running",
+    workflowKey: "full-analysis",
+    workflowVersion: "full-analysis.v1",
+    status: "running",
+    traceId: "trace_workflow",
+    runId: "run_workflow",
+    sampleVideoId: "sample_1",
+    currentStageKeys: [],
+    stages: [
+      { key: "upload", kind: "module", moduleId: "sample-ingest", stageName: "sample.ingest", label: "上传", status: "processed", artifactKey: "sampleVideo", artifactId: "artifact_video", after: [] },
+      { key: "shotBoundary", kind: "module", moduleId: "shot-boundary", stageName: "shot.boundary", label: "切镜", status: "processed", artifactKey: "shotBoundaryAnalysis", artifactId: "artifact_shot", after: ["upload"] },
+      { key: "scriptSegment", kind: "module", moduleId: "script-segments", stageName: "script.segment.analyze", label: "脚本", status: "pending", artifactKey: "scriptSegmentAnalysis", after: ["shotBoundary"], parallelGroup: "structure-analysis" },
+      { key: "rhythmStructure", kind: "module", moduleId: "rhythm-structure", stageName: "rhythm.structure.analyze", label: "节奏", status: "pending", artifactKey: "rhythmStructureAnalysis", after: ["shotBoundary"], parallelGroup: "structure-analysis" },
+      { key: "packagingStructure", kind: "module", moduleId: "packaging-structure", stageName: "packaging.structure.analyze", label: "包装", status: "pending", artifactKey: "packagingStructureAnalysis", after: ["shotBoundary"], parallelGroup: "structure-analysis" },
+      { key: "functionSlotAtomization", kind: "module", moduleId: "function-slot-atomization", stageName: "function.slot.atomization.analyze", label: "原子化", status: "pending", artifactKey: "functionSlotAtomizationAnalysis", after: ["structure-analysis"] },
+      { key: "aggregate", kind: "builtin", stageName: "workflow.aggregate", label: "汇总", status: "pending", artifactKey: "sampleVideo", after: ["functionSlotAtomization"] },
+    ],
+    createdAt: "2026-06-10T00:00:00.000Z",
+    updatedAt: "2026-06-10T00:01:00.000Z",
+    completedAt: null,
+    errorSummary: null,
+  });
+
+  const resumed = await workflow.resumeRun({ workflowRunId: "workflow_resume_running" });
+
+  assert.equal(resumed.status, "running");
+  assert.equal(resumed.stages.find((stage) => stage.key === "scriptSegment").status, "running");
+  assert.equal(resumed.stages.find((stage) => stage.key === "rhythmStructure").status, "running");
+  assert.equal(resumed.stages.find((stage) => stage.key === "packagingStructure").status, "running");
+  assert.deepEqual(moduleStarts.slice(-3), ["script-segments", "rhythm-structure", "packaging-structure"]);
+});
+
 test("full analysis advance repairs processed run with running completed child", async () => {
   const { workflow, jobs, artifacts, workflowRunStore } = createHarness();
   artifacts.set("sample_1", attachAnalysis(attachAnalysis(attachAnalysis(attachAnalysis(buildArtifact({ shot: true }), "script-segments"), "rhythm-structure"), "packaging-structure"), "function-slot-atomization"));

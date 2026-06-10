@@ -1,0 +1,79 @@
+[
+  {
+    "slotId": "F001",
+    "slotOrder": 1,
+    "slotName": "形态可信槽",
+    "slotType": "material_form_proof",
+    "viewerStateBefore": "观众尚未确认展示对象的可见状态与基础质感",
+    "viewerStateAfter": "观众已看到对象状态，并获得进入使用动作的认知前提",
+    "persuasionTask": "先用低干扰实拍证明对象形态，让简单质感主张被直接看见",
+    "scriptAtomIds": [
+      "S001"
+    ],
+    "rhythmAtomIds": [
+      "R001"
+    ],
+    "packagingAtomIds": [
+      "P001"
+    ],
+    "requiredSyncPoints": [
+      "物理状态进入主视线",
+      "质感解释出现",
+      "识别线索保持可见"
+    ],
+    "substitutionRules": [
+      "对象品类和质感角度可替换，但必须保留可见物理状态证明",
+      "字幕样式可替换，但不能抢走第一证明视线",
+      "近景载体可替换，但需要支持观众快速看清细节"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_1"
+      ]
+    },
+    "confidence": 0.84,
+    "needReview": false
+  },
+  {
+    "slotId": "F002",
+    "slotOrder": 2,
+    "slotName": "用法兑现槽",
+    "slotType": "usage_method_proof",
+    "viewerStateBefore": "观众已看到对象状态，但还未理解它如何进入实际使用场景",
+    "viewerStateAfter": "观众理解关键使用路径，并把前置形态证明与使用结果连接起来",
+    "persuasionTask": "用连续操作动作兑现使用方式，让对象从可见形态进入可执行场景",
+    "scriptAtomIds": [
+      "S002"
+    ],
+    "rhythmAtomIds": [
+      "R002"
+    ],
+    "packagingAtomIds": [
+      "P002"
+    ],
+    "requiredSyncPoints": [
+      "动作开始",
+      "动作落向目标场景",
+      "用法解释跟随动作",
+      "识别线索持续承接"
+    ],
+    "substitutionRules": [
+      "具体动作形式可替换，但必须保留动作路径和目标场景承接",
+      "识别线索形式可替换，但不能断开前后对象关系",
+      "节奏可略加快，但不适合承载复杂说明"
+    ],
+    "sourceRefs": {
+      "scriptSegmentLabels": [],
+      "rhythmSectionLabels": [],
+      "packagingBlockLabels": [],
+      "shotRefs": [
+        "shot_2"
+      ]
+    },
+    "confidence": 0.83,
+    "needReview": false
+  }
+]

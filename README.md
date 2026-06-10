@@ -75,6 +75,20 @@ C:\ByteDanceFullStack\ffmpeg-8.1.1-full_build-shared\bin
 
 推荐流程是：先在 `分析` 中处理样例和素材，再到 `重组` 创建方案；需要查看结构来源或治理结果时，再切到 `库`。
 
+以下截图来自本地运行的新 UI，历史记录内容已做模糊处理；实际使用时会显示你自己的样例、素材和重组会话。
+
+结构分析入口用于上传样例视频，拆出脚本、节奏和包装结构。
+
+![新 UI 结构分析入口](Docs/Images/readme-new-ui-analysis.png)
+
+素材识别入口用于上传用户素材，生成后续重组和分镜可消费的素材能力包。
+
+![新 UI 素材识别入口](Docs/Images/readme-new-ui-material.png)
+
+重组区用于选择已有会话、继续对话、替换槽位原子，并确认方案进入后续 Storyboard 流程。
+
+![新 UI 重组工作区](Docs/Images/readme-new-ui-restructure.png)
+
 ## 切换旧 UI
 
 新 UI 左上角有 `旧 UI` 切换按钮。也可以直接访问：
@@ -88,6 +102,10 @@ http://127.0.0.1:5178/workspace
 ```text
 http://127.0.0.1:5178/
 ```
+
+旧 UI 仍保留工作台、完整分析、素材识别、处理库、结构图谱、ThreadPool、运行面板和 Agent 对话等兼容入口。
+
+![旧 UI 工作台](Docs/Images/readme-old-ui-workspace.png)
 
 ## 常见问题
 
