@@ -1,7 +1,7 @@
 const path = require("path");
 const { readGovernanceFileIfExists } = require("../function-slot-library/governance-store");
 
-const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v14";
+const TRACE_GRAPH_PROJECTION_VERSION = "confirmed_plan_trace_projection.v15";
 const PLAN_COLORS = ["#6ea8fe", "#8ce99a", "#ffd43b", "#ff8787", "#b197fc", "#66d9e8", "#ffa94d", "#f783ac"];
 
 async function buildAndWriteTraceGraph({ rootDir, index, now, readJsonIfExists, writeJson, traceGraphRelativePath, governanceRelativePath }) {
@@ -60,6 +60,7 @@ function projectDisplayToTraceGraph({ nodes, edges, plan, display, color, source
   const planRootId = traceId(plan.planId, "plan");
   const aliasMap = extractSourceAliasMap(display);
   const atomSourceRows = extractAtomSourceRows(display, aliasMap, sourceIndex);
+  const slotChain = extractDisplaySlotChain(display);
   pushGraphNode(nodes, {
     id: planRootId,
     type: "confirmedPlan",
@@ -78,31 +79,32 @@ function projectDisplayToTraceGraph({ nodes, edges, plan, display, color, source
       sourceRestructurePath: plan.sourceRestructurePath ?? null,
       displayJsonPath: plan.displayJsonPath ?? null,
       updatedAt: plan.updatedAt ?? null,
-      evidence: pickPlanSummary(display),
+      evidence: pickPlanSummary(display, slotChain),
     },
   });
 
-  for (let slotIndex = 0; slotIndex < asArray(display.slotChain).length; slotIndex += 1) {
-    const slot = asArray(display.slotChain)[slotIndex];
-    const slotId = firstText(slot.slotSubtype, slot.slotSubtypeId, slot.subtypeId, slot.id);
+  for (let slotIndex = 0; slotIndex < slotChain.length; slotIndex += 1) {
+    const slot = slotChain[slotIndex];
+    const slotId = extractSlotSubtypeId(slot);
     const slotNode = pushSlotSubtypeTrace(nodes, edges, plan.planId, planRootId, { subtypeId: slotId, sourceIndex, slotEvidence: slot, color, slotOrder: slotIndex + 1 });
-    for (const atomVariantId of uniqueStrings(atomSourceRows[slotIndex]?.atomVariantIds ?? [])) {
+    const atomRow = atomSourceRows.bySlotId.get(slotId) ?? atomSourceRows.rows[slotIndex];
+    for (const atomVariantId of uniqueStrings(atomRow?.atomVariantIds ?? [])) {
       pushAtomTrace(nodes, edges, plan.planId, slotNode, atomVariantId, aliasMap, sourceIndex);
     }
   }
-  const orderedSlotIds = asArray(display.slotChain)
-    .map((slot) => firstText(slot.slotSubtype, slot.slotSubtypeId, slot.subtypeId, slot.id))
+  const orderedSlotIds = slotChain
+    .map((slot) => extractSlotSubtypeId(slot))
     .filter(Boolean)
     .map((slotId) => traceId(plan.planId, "slotSubtype", slotId));
   for (let slotIndex = 0; slotIndex < orderedSlotIds.length - 1; slotIndex += 1) {
     pushGraphEdge(edges, plan.planId, orderedSlotIds[slotIndex], orderedSlotIds[slotIndex + 1], "plan_slot_next", "next");
   }
 }
-function pickPlanSummary(display) {
+function pickPlanSummary(display, slotChain = extractDisplaySlotChain(display)) {
   return {
     targetAssumption: display.targetAssumption ?? null,
-    slotCount: asArray(display.slotChain).length,
-    atomCount: asArray(display.atoms).length,
+    slotCount: slotChain.length,
+    atomCount: extractDisplayAtoms(display).length,
     scriptSegmentCount: asArray(display.scriptSegments).length,
     rhythmSectionCount: asArray(display.rhythmCurve).length,
     packagingBlockCount: asArray(display.packagingProof).length,
@@ -352,8 +354,10 @@ function extractSourceAliasMap(display) {
 
 function extractAtomSourceRows(display, aliasMap, sourceIndex = new Map()) {
   const rows = [];
-  for (const atom of asArray(display?.atoms)) {
+  const bySlotId = new Map();
+  for (const atom of extractDisplayAtoms(display)) {
     const atomVariantIds = [];
+    const slotId = extractSlotSubtypeId(atom);
     let hasSlotAnchor = false;
     for (const value of Object.values(atom)) {
       const text = firstText(value);
@@ -365,9 +369,16 @@ function extractAtomSourceRows(display, aliasMap, sourceIndex = new Map()) {
         if (variantId && isKnownSourceVariant(variantId, sourceIndex)) atomVariantIds.push(variantId);
       }
     }
-    if (hasSlotAnchor || atomVariantIds.length) rows.push({ atomVariantIds });
+    if (hasSlotAnchor || atomVariantIds.length) {
+      const row = { slotId, atomVariantIds };
+      rows.push(row);
+      if (slotId) {
+        const current = bySlotId.get(slotId)?.atomVariantIds ?? [];
+        bySlotId.set(slotId, { slotId, atomVariantIds: uniqueStrings([...current, ...atomVariantIds]) });
+      }
+    }
   }
-  return rows;
+  return { rows, bySlotId };
 }
 
 function isKnownSourceVariant(variantId, sourceIndex) {
@@ -406,6 +417,145 @@ function variantDisplayLabel(aliasMap, variantId) {
 
 function normalizeTextArray(value) {
   return asArray(value).map((item) => firstText(item)).filter(Boolean);
+}
+
+function extractDisplaySlotChain(display) {
+  const candidates = [];
+  const topLevelSlots = asArray(display?.slotChain)
+    .map((slot) => normalizeTraceRow(slot, "slotChain"))
+    .filter((slot) => extractSlotSubtypeId(slot));
+  if (topLevelSlots.length) candidates.push({
+    rows: dedupeSlotChainRows(topLevelSlots),
+    score: scoreSlotChainCandidate({ rows: topLevelSlots, sourceKind: "topLevel" }),
+  });
+  candidates.push(...extractSlotChainCandidatesFromSections(display));
+  candidates.sort((left, right) => right.score - left.score || right.rows.length - left.rows.length);
+  return candidates[0]?.rows ?? [];
+}
+
+function extractSlotChainCandidatesFromSections(display) {
+  const candidates = [];
+  for (const section of [display?.sections?.finalSlotChain, display?.sourceDisplay?.sections?.finalSlotChain]) {
+    for (const item of asArray(section?.items)) {
+      if (item?.type !== "table" || !Array.isArray(item.rows)) continue;
+      const rows = item.rows
+        .map((row) => normalizeTraceRow(row, "slotChain"))
+        .filter((row) => extractSlotSubtypeId(row));
+      if (rows.length) candidates.push({
+        rows: dedupeSlotChainRows(rows),
+        score: scoreSlotChainCandidate({ rows, item, sourceKind: "sectionTable" }),
+      });
+    }
+  }
+  return candidates;
+}
+
+function extractDisplayAtoms(display) {
+  const candidates = [];
+  const topLevelAtoms = asArray(display?.atoms).map((atom) => normalizeTraceRow(atom, "atoms"));
+  if (topLevelAtoms.length) candidates.push({
+    rows: topLevelAtoms,
+    score: scoreAtomRowsCandidate(topLevelAtoms, "topLevel"),
+  });
+  for (const section of [display?.sections?.atomLandingTable, display?.sourceDisplay?.sections?.atomLandingTable]) {
+    for (const item of asArray(section?.items)) {
+      if (item?.type !== "table" || !Array.isArray(item.rows)) continue;
+      const rows = item.rows.map((row) => normalizeTraceRow(row, "atoms"));
+      if (rows.length) candidates.push({
+        rows,
+        score: scoreAtomRowsCandidate(rows, "sectionTable", item),
+      });
+    }
+  }
+  candidates.sort((left, right) => right.score - left.score || right.rows.length - left.rows.length);
+  return candidates[0]?.rows ?? [];
+}
+
+function normalizeTraceRow(row, fallbackKey) {
+  const normalized = {};
+  for (const [key, rawValue] of Object.entries(row && typeof row === "object" ? row : {})) {
+    normalized[normalizeTraceKey(key)] = rawValue;
+  }
+  const slotSubtype = extractSlotSubtypeId(normalized);
+  if (slotSubtype) normalized.slotSubtype = slotSubtype;
+  if (!firstText(normalized.id)) normalized.id = firstText(normalized.order, normalized.sequence, normalized.segment, normalized.name, normalized.title, stableLabel(normalized, fallbackKey));
+  if (!firstText(normalized.name)) normalized.name = firstText(normalized.title, normalized.need, normalized.demand, normalized.role, normalized.function, normalized.id);
+  return normalized;
+}
+
+function normalizeTraceKey(key) {
+  const text = String(key ?? "").trim();
+  const lower = text.toLowerCase().replace(/\s+/g, "");
+  if (["顺序", "序号", "order", "index"].includes(lower)) return "order";
+  if (["需求", "观众需求", "need", "demand"].includes(lower)) return "need";
+  if (["slotsubtype", "slotsubtypeid", "slot_subtype", "slot_subtype_id", "subtype", "subtypeid", "对应槽位", "槽位", "功能槽位", "槽位类型", "槽位subtype"].includes(lower)) return "slotSubtype";
+  if (["parentarchetype", "slotarchetype", "archetype", "parent_archetype", "父级原型", "原型", "槽位原型"].includes(lower)) return "slotArchetype";
+  if (["观众状态变化", "状态变化", "audiencestate", "statechange"].includes(lower)) return "audienceState";
+  if (["选择理由", "reason"].includes(lower)) return "reason";
+  if (["名称", "name"].includes(lower)) return "name";
+  if (["标题", "title"].includes(lower)) return "title";
+  if (["段落", "segment"].includes(lower)) return "segment";
+  return text.replace(/[^A-Za-z0-9_]+(.)/g, (_, char) => String(char).toUpperCase()).replace(/^[^A-Za-z_]+/, "") || "value";
+}
+
+function extractSlotSubtypeId(value, ...rest) {
+  if (rest.length) return extractSlotSubtypeId([value, ...rest]);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = extractSlotSubtypeId(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (value && typeof value === "object") {
+    const ownText = firstText(value);
+    if (ownText) {
+      const ownMatch = ownText.match(/\bSUB_[A-Za-z0-9_]+\b/);
+      if (ownMatch?.[0]) return ownMatch[0];
+    }
+    return extractSlotSubtypeId(value.slotSubtypeId, value.subtypeId, value.slotSubtype, value.subtype, value.slot, value.id);
+  }
+  const text = firstText(value);
+  if (!text) return null;
+  const match = text.match(/\bSUB_[A-Za-z0-9_]+\b/);
+  return match?.[0] ?? null;
+}
+
+function scoreSlotChainCandidate({ rows, item = null, sourceKind = "unknown" }) {
+  const columns = Array.isArray(item?.columns) ? item.columns.join(" ") : "";
+  const text = `${columns} ${JSON.stringify(rows.slice(0, 3))}`.toLowerCase();
+  let score = rows.length * 10;
+  if (sourceKind === "topLevel") score += 20;
+  if (/slotsubtype|slot_subtype|槽位|功能槽位|subtype/.test(text)) score += 80;
+  if (/顺序|序号|order|index/.test(text)) score += 35;
+  if (/观众状态|状态变化|链路功能|选择理由|需求|need|demand|reason/.test(text)) score += 35;
+  if (/slotarchetype|parent\s*archetype|archetype|槽位原型|父级原型/.test(text)) score += 20;
+  if (/素材|供给|缺口|得分|能力|推荐素材|shot|group/.test(text)) score -= 30;
+  return score;
+}
+
+function dedupeSlotChainRows(rows) {
+  const seen = new Set();
+  const result = [];
+  for (const row of rows) {
+    const slotId = extractSlotSubtypeId(row);
+    if (!slotId || seen.has(slotId)) continue;
+    seen.add(slotId);
+    result.push({ ...row, slotSubtype: slotId });
+  }
+  return result;
+}
+
+function scoreAtomRowsCandidate(rows, sourceKind = "unknown", item = null) {
+  const columns = Array.isArray(item?.columns) ? item.columns.join(" ") : "";
+  const text = `${columns} ${JSON.stringify(rows.slice(0, 3))}`;
+  let score = rows.length * 8;
+  if (sourceKind === "topLevel") score += 10;
+  if (/\bSUB_[A-Za-z0-9_]+\b/.test(text)) score += 40;
+  if (/[A-Z]::(script|rhythm|packaging)::[A-Za-z0-9_-]+/.test(text)) score += 60;
+  if (/script|rhythm|packaging|atom|原标签|落地|对应槽位|槽位/i.test(text)) score += 30;
+  if (/来源短码|sample_|素材包|缺口|审计/.test(text)) score -= 15;
+  return score;
 }
 
 function uniqueStrings(values) {

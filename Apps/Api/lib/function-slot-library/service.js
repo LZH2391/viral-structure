@@ -99,7 +99,7 @@ function createFunctionSlotLibraryService({
             manifests.push(await enrichManifestForDisplay(manifest));
           }
         }
-        return manifests.sort(compareManifests);
+        return uniqueManifestsBySampleVideo(manifests).sort(compareManifests);
       },
       outputSummary: (items) => ({ itemCount: items.length }),
     });
@@ -486,6 +486,23 @@ function compareManifests(left, right) {
   return String(left.artifactId ?? "").localeCompare(String(right.artifactId ?? ""));
 }
 
+function uniqueManifestsBySampleVideo(manifests) {
+  const bySampleVideoId = new Map();
+  const withoutSampleVideoId = [];
+  for (const manifest of manifests) {
+    const sampleVideoId = normalizeOptionalText(manifest.sampleVideoId);
+    if (!sampleVideoId) {
+      withoutSampleVideoId.push(manifest);
+      continue;
+    }
+    const current = bySampleVideoId.get(sampleVideoId);
+    if (!current || compareManifests(manifest, current) < 0) {
+      bySampleVideoId.set(sampleVideoId, manifest);
+    }
+  }
+  return [...bySampleVideoId.values(), ...withoutSampleVideoId];
+}
+
 function assertPublishableLibraryManifest(manifest) {
   if (isPublishableLibraryManifest(manifest)) return;
   throwHttpError(
@@ -556,4 +573,5 @@ module.exports = {
   buildLibraryPayload,
   SCHEMA_VERSION,
   FILES,
+  uniqueManifestsBySampleVideo,
 };

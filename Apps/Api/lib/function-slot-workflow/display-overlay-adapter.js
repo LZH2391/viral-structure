@@ -9,25 +9,39 @@ const SECTION_KEY_MAP = {
 
 function normalizeDisplayForOverlay(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  if (hasCanonicalOverlayShape(value)) return value;
   if (value.schemaVersion !== "function_slot_restructure_display.v1" || !value.sections || typeof value.sections !== "object") return value;
   const sections = value.sections;
+  const targetAssumption = normalizeSection(sections.goalAndAssumptions, "targetAssumption");
+  const slotChain = normalizeSlotChainSection(sections.finalSlotChain);
+  const atoms = normalizeTableSection(sections.atomLandingTable, "atoms");
+  const scriptSegments = normalizeMixedSection(sections.scriptSegments, "scriptSegments");
+  const rhythmCurve = normalizeMixedSection(sections.rhythmCurve, "rhythmCurve");
+  const packagingProof = normalizeMixedSection(sections.packagingProof, "packagingProof");
   return {
+    ...copyPassthroughFields(value),
     schemaVersion: value.schemaVersion,
     source: value.source ?? null,
-    targetAssumption: normalizeSection(sections.goalAndAssumptions, "targetAssumption"),
-    slotChain: normalizeTableSection(sections.finalSlotChain, "slotChain", { firstTableOnly: true }),
-    atoms: normalizeTableSection(sections.atomLandingTable, "atoms"),
-    scriptSegments: normalizeMixedSection(sections.scriptSegments, "scriptSegments"),
-    rhythmCurve: normalizeMixedSection(sections.rhythmCurve, "rhythmCurve"),
-    packagingProof: normalizeMixedSection(sections.packagingProof, "packagingProof"),
+    targetAssumption: targetAssumption.items.length ? targetAssumption : value.targetAssumption ?? targetAssumption,
+    slotChain: slotChain.length ? slotChain : asArray(value.slotChain),
+    atoms: atoms.length ? atoms : asArray(value.atoms),
+    scriptSegments: scriptSegments.length ? scriptSegments : asArray(value.scriptSegments),
+    rhythmCurve: rhythmCurve.length ? rhythmCurve : asArray(value.rhythmCurve),
+    packagingProof: packagingProof.length ? packagingProof : asArray(value.packagingProof),
     sourceDisplay: value,
     missingSections: Array.isArray(value.missingSections) ? value.missingSections : [],
   };
 }
 
-function hasCanonicalOverlayShape(value) {
-  return Boolean(value.targetAssumption || value.slotChain || value.atoms || value.scriptSegments || value.rhythmCurve || value.packagingProof);
+function copyPassthroughFields(value) {
+  const passthrough = {};
+  for (const key of ["planId", "briefSlug", "slug", "artifactId", "parentArtifactId", "confirmationId", "sourceTurnId"]) {
+    if (key in value) passthrough[key] = value[key];
+  }
+  return passthrough;
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function normalizeSection(section, fallbackId) {
@@ -56,6 +70,20 @@ function normalizeTableSection(section, fallbackKey, options = {}) {
     }
   }
   return rows;
+}
+
+function normalizeSlotChainSection(section) {
+  const items = Array.isArray(section?.items) ? section.items : [];
+  const candidates = [];
+  for (const item of items) {
+    if (item?.type !== "table" || !Array.isArray(item.rows)) continue;
+    const rows = item.rows.map((row) => normalizeRow(row, "slotChain"));
+    const slotRows = rows.filter((row) => canonicalSlotSubtype(row.slotSubtype));
+    if (slotRows.length) candidates.push({ rows: dedupeSlotRows(slotRows), score: scoreSlotChainTable(item, slotRows) });
+  }
+  candidates.sort((left, right) => right.score - left.score || right.rows.length - left.rows.length);
+  if (candidates[0]?.rows?.length) return candidates[0].rows;
+  return normalizeTableSection(section, "slotChain", { firstTableOnly: true });
 }
 
 function normalizeMixedSection(section, fallbackKey) {
@@ -100,8 +128,8 @@ function normalizeKey(key) {
   const lower = text.toLowerCase().replace(/\s+/g, "");
   if (["顺序", "序号", "order", "index"].includes(lower)) return "order";
   if (["需求", "观众需求", "need", "demand"].includes(lower)) return "need";
-  if (["slotsubtype", "slot_subtype", "subtype"].includes(lower)) return "slotSubtype";
-  if (["parentarchetype", "slotarchetype", "archetype", "parent_archetype"].includes(lower)) return "slotArchetype";
+  if (["slotsubtype", "slotsubtypeid", "slot_subtype", "slot_subtype_id", "subtype", "subtypeid", "槽位", "对应槽位", "功能槽位", "槽位类型", "槽位subtype"].includes(lower)) return "slotSubtype";
+  if (["parentarchetype", "slotarchetype", "archetype", "parent_archetype", "父级原型", "原型", "槽位原型"].includes(lower)) return "slotArchetype";
   if (["链路功能", "功能", "function", "role"].includes(lower)) return "function";
   if (["本方案用法", "方案用法", "usage"].includes(lower)) return "usage";
   if (["选择理由", "reason"].includes(lower)) return "reason";
@@ -138,6 +166,37 @@ function firstCodeOrText(...values) {
   const leadingIdentifier = text.match(/^([A-Za-z0-9_.:-]+)`?\b/);
   if (leadingIdentifier?.[1]) return leadingIdentifier[1].trim();
   return (code?.[1] ?? text).trim();
+}
+
+function canonicalSlotSubtype(value) {
+  const text = firstText(value);
+  if (!text) return null;
+  const match = text.match(/\bSUB_[A-Za-z0-9_]+\b/);
+  return match?.[0] ?? null;
+}
+
+function scoreSlotChainTable(item, rows) {
+  const columns = Array.isArray(item?.columns) ? item.columns.join(" ") : "";
+  const text = `${columns} ${JSON.stringify(rows.slice(0, 2))}`.toLowerCase();
+  let score = rows.length * 10;
+  if (/slotsubtype|slot_subtype|槽位|功能槽位|subtype/.test(text)) score += 80;
+  if (/顺序|序号|order|index/.test(text)) score += 35;
+  if (/观众状态|状态变化|链路功能|选择理由|需求|need|demand/.test(text)) score += 35;
+  if (/slotarchetype|parent\s*archetype|archetype|槽位原型|父级原型/.test(text)) score += 20;
+  if (/素材|供给|缺口|得分|能力|推荐素材|shot|group/.test(text)) score -= 30;
+  return score;
+}
+
+function dedupeSlotRows(rows) {
+  const seen = new Set();
+  const result = [];
+  for (const row of rows) {
+    const slotId = canonicalSlotSubtype(row.slotSubtype);
+    if (!slotId || seen.has(slotId)) continue;
+    seen.add(slotId);
+    result.push({ ...row, slotSubtype: slotId });
+  }
+  return result;
 }
 
 function stringOrNull(value) {

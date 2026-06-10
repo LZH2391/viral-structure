@@ -193,6 +193,61 @@ test("display overlay materializes display transformer section schema", async ()
   assert.equal(traceGraph.nodes.some((node) => node.label === "Artifacts/FunctionSlotRestructure/spray-pump-floral-water/restructure.display.json"), false);
 });
 
+test("display overlay selects the real slot chain table from unstable section shapes", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-unstable-slots-"));
+  await fs.mkdir(path.join(rootDir, "Artifacts", "FunctionSlotLibrary", "_governance"), { recursive: true });
+  await fs.writeFile(path.join(rootDir, "Artifacts", "FunctionSlotLibrary", "_governance", "semantic-governance.v1.json"), JSON.stringify({
+    slotSubtypes: [
+      { id: "SUB_scene_problem_activation", name: "场景问题激活" },
+      { id: "SUB_solution_object_entry", name: "解决对象进入" },
+      { id: "SUB_attribute_state_sensing", name: "属性状态感知" },
+      { id: "SUB_immediate_usage_demonstration", name: "即时用法证明" },
+      { id: "SUB_usage_result_confirmation", name: "使用结果确认" },
+      { id: "SUB_conversion_reason_close", name: "转化理由收束" },
+    ],
+    sourceVariants: [
+      { variantId: "sample_a::script::S001", sampleId: "sample_a", kind: "script", sourceId: "S001", label: "痛点开场脚本" },
+      { variantId: "sample_b::script::S003", sampleId: "sample_b", kind: "script", sourceId: "S003", label: "状态感知脚本" },
+    ],
+  }, null, 2), "utf8");
+  const service = createRestructureDisplayOverlayService({
+    rootDir,
+    logger: {
+      writeStageLog: async () => undefined,
+      writeDebugSnapshot: async () => ({ uri: "runtime://debug.json" }),
+    },
+    now: () => "2026-05-30T00:00:00.000Z",
+  });
+
+  const result = await service.materializeFromTurn({
+    finalMessage: JSON.stringify(unstableSlotSectionDisplayJson()),
+    restructureFinalPath: "Artifacts/FunctionSlotRestructure/soy-powder-15s-sell-video/restructure.final.md",
+    sourceTurnId: "turn_unstable_slots",
+    parentArtifactId: "parent_unstable_slots",
+    traceContext: { runId: "run_1", traceId: "trace_1", stageId: "stage_1" },
+  });
+  assert.equal(result.ok, true);
+
+  const traceGraph = await service.readConfirmedPlanTraceGraph();
+  const slotNodes = traceGraph.nodes.filter((node) => node.type === "slotSubtype");
+  const slotIds = slotNodes.map((node) => node.data.governanceId);
+  const expectedSlotIds = [
+    "SUB_scene_problem_activation",
+    "SUB_solution_object_entry",
+    "SUB_attribute_state_sensing",
+    "SUB_immediate_usage_demonstration",
+    "SUB_usage_result_confirmation",
+    "SUB_conversion_reason_close",
+  ];
+  assert.equal(traceGraph.summary.slotCount, 6);
+  assert.deepEqual(slotIds, expectedSlotIds);
+  assert.equal(traceGraph.edges.filter((edge) => edge.type === "plan_slot_next").length, 5);
+  assert.equal(traceGraph.nodes.some((node) => String(node.label).includes("{\"value\"")), false);
+  const sensingSlotNode = slotNodes.find((node) => node.data.governanceId === "SUB_attribute_state_sensing");
+  const sensingAtomNode = traceGraph.nodes.find((node) => node.type === "sourceVariant" && node.data.variantId === "sample_b::script::S003");
+  assert.ok(traceGraph.edges.some((edge) => edge.source === sensingSlotNode.id && edge.target === sensingAtomNode.id && edge.type === "traced_to_source_variant"));
+});
+
 test("display overlay lazily rebuilds trace graph from existing confirmed plan index", async () => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "display-overlay-lazy-trace-"));
   const logger = {
@@ -484,6 +539,67 @@ async function exists(filePath) {
   } catch {
     return false;
   }
+}
+
+function unstableSlotSectionDisplayJson() {
+  return {
+    schemaVersion: "function_slot_restructure_display.v1",
+    source: {
+      restructureFinalPath: "Artifacts/FunctionSlotRestructure/soy-powder-15s-sell-video/restructure.final.md",
+      restructureArtifactId: "artifact_unstable_slots",
+    },
+    slotChain: [
+      { slotSubtype: { value: "`SUB_scene_problem_activation`" }, name: "旧缓存槽位 1" },
+      { slotSubtype: { value: "`SUB_solution_object_entry`" }, name: "旧缓存槽位 2" },
+    ],
+    sections: {
+      goalAndAssumptions: {
+        title: "1. 重组目标与假设",
+        items: [{ type: "paragraph", text: "品类：豆浆粉卖货短视频。" }],
+      },
+      finalSlotChain: {
+        title: "2. 最终功能槽位链",
+        items: [{
+          type: "table",
+          columns: ["供给类型", "关键 shot/group", "后续 shotDesign 注意事项"],
+          rows: [{
+            "供给类型": "`material_insufficient_for_full_video`",
+            "关键 shot/group": "`shot_1`, `shot_2`",
+            "后续 shotDesign 注意事项": "素材不足，不应作为槽位链",
+          }],
+        }, {
+          type: "table",
+          columns: ["顺序", "功能槽位", "槽位原型", "观众状态变化", "选择理由"],
+          rows: [
+            { "顺序": "1", "功能槽位": "`SUB_scene_problem_activation`", "槽位原型": "`ARCH_problem_activation`", "观众状态变化": "未进入早餐语境 -> 识别需求", "选择理由": "建立观看理由" },
+            { "顺序": "2", "功能槽位": "`SUB_solution_object_entry`", "槽位原型": "`ARCH_solution_object_entry`", "观众状态变化": "需求 -> 商品", "选择理由": "商品对象进入" },
+            { "顺序": "3", "功能槽位": "`SUB_attribute_state_sensing`", "槽位原型": "`ARCH_attribute_state_sensing`", "观众状态变化": "商品 -> 状态", "选择理由": "状态感知" },
+            { "顺序": "4", "功能槽位": "`SUB_immediate_usage_demonstration`", "槽位原型": "`ARCH_operation_barrier_reduction`", "观众状态变化": "状态 -> 用法", "选择理由": "降低使用门槛" },
+            { "顺序": "5", "功能槽位": "`SUB_usage_result_confirmation`", "槽位原型": "`ARCH_result_closure`", "观众状态变化": "用法 -> 结果", "选择理由": "结果确认" },
+            { "顺序": "6", "功能槽位": "`SUB_conversion_reason_close`", "槽位原型": "`ARCH_conversion_motivation_close`", "观众状态变化": "结果 -> 转化", "选择理由": "轻转化收口" },
+          ],
+        }],
+      },
+      atomLandingTable: {
+        title: "3. Atoms 落地表",
+        items: [{
+          type: "list",
+          items: ["`A = sample_a`", "`B = sample_b`"],
+        }, {
+          type: "table",
+          columns: ["对应槽位", "Script atom：原标签 -> 本方案落地"],
+          rows: [
+            { "对应槽位": "`SUB_scene_problem_activation`", "Script atom：原标签 -> 本方案落地": "`A::script::S001` 痛点开场" },
+            { "对应槽位": "`SUB_attribute_state_sensing`", "Script atom：原标签 -> 本方案落地": "`B::script::S003` 状态感知" },
+          ],
+        }],
+      },
+      scriptSegments: { title: "5. 脚本段落方案", items: [{ type: "paragraph", text: "脚本。" }] },
+      rhythmCurve: { title: "6. 节奏曲线", items: [{ type: "paragraph", text: "节奏。" }] },
+      packagingProof: { title: "7. 包装与证明方案", items: [{ type: "paragraph", text: "包装。" }] },
+    },
+    missingSections: [],
+  };
 }
 
 async function writeRestructureMarkdown(filePath, title = "demo", slotSubtype = "SUB_demo_slot") {

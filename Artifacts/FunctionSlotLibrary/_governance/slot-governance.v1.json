@@ -1,7 +1,6 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.slots",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
-  "updatedAt": "2026-06-09T23:37:28.588Z",
   "slotFamilies": [
     {
       "id": "FAM_attention_and_need_activation",
@@ -63,16 +62,13 @@
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F004",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::F005",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F003",
-        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
+        "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::F004"
       ],
       "support": {
-        "variantCount": 20,
-        "sampleCount": 8,
+        "variantCount": 18,
+        "sampleCount": 7,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -527,14 +523,12 @@
         "???????????????"
       ],
       "sourceVariantIds": [
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::F003"
       ],
       "support": {
-        "variantCount": 2,
-        "sampleCount": 2,
+        "variantCount": 1,
+        "sampleCount": 1,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
       },
@@ -959,15 +953,11 @@
         "???????????????????",
         "?????????????????"
       ],
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 1,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "attribute_sensing ??????????????????????????????????????????????????????????????????????????????????",
       "differenceNotes": [
@@ -2722,15 +2712,11 @@
           "proofObligation"
         ]
       },
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 1,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "? subtype ?????????????????????????? archetype ??????????",
       "differenceNotes": [
@@ -2768,15 +2754,11 @@
           "proofObligation"
         ]
       },
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 1,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "? subtype ? low_barrier_operation ?????????????????????????????????????????????????",
       "differenceNotes": [

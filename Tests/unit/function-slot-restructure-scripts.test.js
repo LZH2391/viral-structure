@@ -50,6 +50,29 @@ test("slot restructure corpus discovery skips bundled seed samples unless explic
   assert.match(seedRun.stdout, /"sampleCount": 1/);
 });
 
+test("slot library corpus discovery keeps one latest artifact per sample video", async () => {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-slot-dedupe-"));
+  await writeSampleLibrary(path.join(tempRoot, "Artifacts", "FunctionSlotLibrary", "artifact_old"), {
+    artifactId: "artifact_old",
+    sampleVideoId: "sample_shared",
+    exportedAt: "2026-05-27T00:00:01.000Z",
+  });
+  await writeSampleLibrary(path.join(tempRoot, "Artifacts", "FunctionSlotLibrary", "artifact_new"), {
+    artifactId: "artifact_new",
+    sampleVideoId: "sample_shared",
+    exportedAt: "2026-05-27T00:00:02.000Z",
+  });
+
+  const indexRun = runPython(["build_slot_index.py", tempRoot], { cwd: tempRoot });
+  assert.equal(indexRun.status, 0, indexRun.stderr || indexRun.stdout);
+
+  const index = await readJson(path.join(tempRoot, "Runtime", "Temp", "FunctionSlotLibrary", "slot_index.json"));
+
+  assert.equal(index.summary.sampleCount, 1);
+  assert.equal(index.samples[0].artifactId, "artifact_new");
+  assert.equal(index.slotVariants[0].artifactId, "artifact_new");
+});
+
 test("timing evidence backfill dry-run reads runtime artifacts without writing", async () => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "bd-slot-timing-"));
   const sampleDir = path.join(tempRoot, "Artifacts", "FunctionSlotLibrary", "artifact_local");
@@ -82,12 +105,15 @@ test("timing evidence backfill dry-run reads runtime artifacts without writing",
   assert.equal(after[0].timingEvidence, undefined);
 });
 
-async function writeSampleLibrary(sampleDir) {
+async function writeSampleLibrary(sampleDir, overrides = {}) {
   await fs.mkdir(sampleDir, { recursive: true });
+  const artifactId = overrides.artifactId ?? "artifact_local";
+  const sampleVideoId = overrides.sampleVideoId ?? "sample_local";
+  const exportedAt = overrides.exportedAt ?? "2026-05-27T00:00:01.000Z";
   await writeJson(path.join(sampleDir, "manifest.json"), {
     schemaVersion: "function_slot_library.v1",
-    artifactId: "artifact_local",
-    sampleVideoId: "sample_local",
+    artifactId,
+    sampleVideoId,
     traceId: "trace_local",
     parentArtifactId: "artifact_parent",
     sourceScriptSegmentArtifactId: "artifact_script",
@@ -96,7 +122,7 @@ async function writeSampleLibrary(sampleDir) {
     sourceShotBoundaryArtifactId: "artifact_shot",
     status: "processed",
     createdAt: "2026-05-27T00:00:00.000Z",
-    exportedAt: "2026-05-27T00:00:01.000Z",
+    exportedAt,
     contentHash: "hash_local",
     counts: {
       slotCount: 1,

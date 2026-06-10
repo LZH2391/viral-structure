@@ -61,7 +61,7 @@ test("function slot library export supports skip-existing and replace", async ()
   assert.equal(afterReplace.counts.slotCount, 3);
 });
 
-test("function slot library lists manifests in stable order", async () => {
+test("function slot library lists the latest manifest per sample video", async () => {
   const { store, service } = await createTempLibraryService();
   await writeRuntimeArtifact(store, buildArtifact({ artifactId: "artifact_old", exportedAt: "unused", traceId: "trace_old" }));
   await service.exportSampleArtifact("sample_library", { mode: "replace" });
@@ -69,7 +69,7 @@ test("function slot library lists manifests in stable order", async () => {
   await service.exportSampleArtifact("sample_library", { mode: "replace" });
 
   const items = await service.listLibraryItems();
-  assert.deepEqual(items.map((item) => item.artifactId), ["artifact_new", "artifact_old"]);
+  assert.deepEqual(items.map((item) => item.artifactId), ["artifact_new"]);
   assert.equal(items[0].sourceVideoName, "source-library");
 });
 

@@ -242,7 +242,56 @@ def merge_existing(existing: Dict[str, Any], skeleton: Dict[str, Any]) -> Dict[s
             merged[field] = []
         else:
             merged[field] = strip_status_fields(merged[field])
+    prune_stale_source_references(merged, skeleton)
     return merged
+
+
+def prune_stale_source_references(governance: Dict[str, Any], skeleton: Dict[str, Any]) -> None:
+    valid_variant_ids = {
+        str(item.get("variantId"))
+        for item in skeleton.get("sourceVariants", [])
+        if item.get("variantId")
+    }
+    for field in REQUIRED_LIST_FIELDS:
+        items = governance.get(field)
+        if not isinstance(items, list):
+            continue
+        if field in {"unmappedAtomVariants", "unmappedBindingVariants", "unmappedRuleVariants"}:
+            governance[field] = [
+                item for item in items
+                if not isinstance(item, dict) or str(item.get("variantId")) in valid_variant_ids
+            ]
+            continue
+        for item in items:
+            if not isinstance(item, dict) or "sourceVariantIds" not in item:
+                continue
+            item["sourceVariantIds"] = [
+                str(variant_id)
+                for variant_id in as_list(item.get("sourceVariantIds"))
+                if str(variant_id) in valid_variant_ids
+            ]
+            item["support"] = support_from_source_variant_ids(item["sourceVariantIds"])
+
+
+def as_list(value: Any) -> List[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def support_from_source_variant_ids(source_variant_ids: List[str]) -> Dict[str, Any]:
+    sample_ids = sorted({
+        str(variant_id).split("::", 1)[0]
+        for variant_id in source_variant_ids
+        if variant_id
+    })
+    return {
+        "variantCount": len(source_variant_ids),
+        "sampleCount": len(sample_ids),
+        "sampleIds": sample_ids,
+    }
 
 
 def strip_status_fields(value: Any) -> Any:

@@ -1,7 +1,6 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.atoms",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
-  "updatedAt": "2026-06-09T23:37:28.589Z",
   "atomArchetypes": [
     {
       "id": "ATOM_ARCH_script_demand_establishment",
@@ -91,16 +90,13 @@
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S002",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S003",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::script::S004",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S001",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S002"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::script::S003"
       ],
       "support": {
-        "variantCount": 18,
-        "sampleCount": 8,
+        "variantCount": 16,
+        "sampleCount": 7,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -179,15 +175,13 @@
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rhythm::R001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rhythm::R001",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R001"
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R002"
       ],
       "support": {
-        "variantCount": 10,
-        "sampleCount": 8,
+        "variantCount": 9,
+        "sampleCount": 7,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -225,15 +219,13 @@
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::rhythm::R004",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rhythm::R003",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::rhythm::R002",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R002"
+        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rhythm::R003"
       ],
       "support": {
-        "variantCount": 13,
-        "sampleCount": 8,
+        "variantCount": 12,
+        "sampleCount": 7,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -461,15 +453,13 @@
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P002",
         "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac::packaging::P003",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P003",
-        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P001"
+        "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P004"
       ],
       "support": {
-        "variantCount": 8,
-        "sampleCount": 6,
+        "variantCount": 7,
+        "sampleCount": 5,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_3e3391ca-5944-450d-8d7a-3196ea44b5ac",
@@ -499,15 +489,13 @@
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P002",
         "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271::packaging::P006",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P002",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::packaging::P002"
       ],
       "support": {
-        "variantCount": 6,
-        "sampleCount": 5,
+        "variantCount": 5,
+        "sampleCount": 4,
         "sampleIds": [
           "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_3bfd187b-15a7-4661-bb89-fdba66ab4271",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
@@ -2806,14 +2794,12 @@
         "SUB_immediate_usage_demonstration"
       ],
       "sourceVariantIds": [
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P002"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::packaging::P003"
       ],
       "support": {
-        "variantCount": 2,
-        "sampleCount": 2,
+        "variantCount": 1,
+        "sampleCount": 1,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7"
         ]
       },
@@ -3439,15 +3425,11 @@
         "?????",
         "???????"
       ],
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S001"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 1,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "????? problem/value/mechanism/quality/result pattern?? atom ????????????????????????????????????????????????????????????????????? claim-proof ??????????",
       "differenceNotes": [
@@ -3471,15 +3453,11 @@
         "??????",
         "????????"
       ],
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::script::S002"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 1,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "??? existing low_barrier_operation script pattern?????????????? pattern ???/?????? atom ????????????????????????????????????????",
       "differenceNotes": [
@@ -3503,15 +3481,11 @@
         "??????",
         "?????"
       ],
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R001"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 1,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "????????????????????? atom ????/????????????????????????????????????????????????????????",
       "differenceNotes": [
@@ -3535,15 +3509,11 @@
         "??????",
         "??????"
       ],
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rhythm::R002"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 1,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "??????????????????????? atom ???????????????????????????????????????????????????????",
       "differenceNotes": [
@@ -3568,15 +3538,11 @@
         "????????"
       ],
       "riskClass": "???????????????????????????",
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::packaging::P001"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 1,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "?????????????????????????? atom ????????????????????????????????????????????????????????????????????????",
       "differenceNotes": [

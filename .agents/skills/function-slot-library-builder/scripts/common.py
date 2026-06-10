@@ -235,7 +235,39 @@ def discover_sample_dirs(root: Path) -> List[Path]:
         # Allow a directory with all non-manifest files as a partial sample.
         for p in root.rglob("slots*.json"):
             dirs.add(p.parent)
-    return sorted(p for p in dirs if _is_allowed_sample_dir(p, root))
+    allowed_dirs = sorted(p for p in dirs if _is_allowed_sample_dir(p, root))
+    return unique_sample_dirs_by_video(allowed_dirs)
+
+
+def unique_sample_dirs_by_video(sample_dirs: Iterable[Path]) -> List[Path]:
+    """Keep one library artifact per source video sample.
+
+    FunctionSlotLibrary directories are keyed by atomization artifactId, so a
+    rerun can leave multiple library artifacts for the same sampleVideoId. The
+    evidence corpus should treat one source video as one sample.
+    """
+    by_sample_video_id: Dict[str, Path] = {}
+    without_sample_video_id: List[Path] = []
+    for sample_dir in sample_dirs:
+        manifest_path = find_file(sample_dir, "manifest")
+        manifest = read_json(manifest_path) if manifest_path else {}
+        sample_video_id = str(manifest.get("sampleVideoId") or "").strip()
+        if not sample_video_id:
+            without_sample_video_id.append(sample_dir)
+            continue
+        current = by_sample_video_id.get(sample_video_id)
+        if current is None or sample_dir_sort_key(sample_dir) > sample_dir_sort_key(current):
+            by_sample_video_id[sample_video_id] = sample_dir
+    return sorted([*by_sample_video_id.values(), *without_sample_video_id])
+
+
+def sample_dir_sort_key(sample_dir: Path) -> Tuple[str, str, str]:
+    manifest_path = find_file(sample_dir, "manifest")
+    manifest = read_json(manifest_path) if manifest_path else {}
+    exported_at = str(manifest.get("exportedAt") or "")
+    created_at = str(manifest.get("createdAt") or "")
+    artifact_id = str(manifest.get("artifactId") or sample_dir.name)
+    return (exported_at, created_at, artifact_id)
 
 
 def _is_allowed_sample_dir(sample_dir: Path, search_root: Path) -> bool:

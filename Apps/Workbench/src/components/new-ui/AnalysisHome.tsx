@@ -59,6 +59,7 @@ export type AnalysisHomeQueueState = {
 const ANALYSIS_DETAIL_HEAVY_MOUNT_DELAY_MS = 240;
 const ANALYSIS_PLAYER_QUEUE_REFRESH_MS = 3200;
 const ANALYSIS_QUEUE_DONE_VISIBLE_MS = 3000;
+const VISIBLE_GOVERNANCE_SCHEDULER_STATUSES = new Set(["scheduled", "running", "dirty", "failed", "skipped"]);
 
 export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, onQueueStateChange, openRequest = null, onOpenRequestResolved, timelineSelectionClearRequest = 0 }: AnalysisHomeProps = {}) {
   const lastTimelineSelectionClearRequestRef = useRef(timelineSelectionClearRequest);
@@ -198,7 +199,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
     try {
       setHomeQueueItems(await loadLatestVideoProcessingQueue(mode));
       if (mode === "structureAnalysis") {
-        setGovernanceSchedulerState(await getFunctionSlotGovernanceSchedulerState().catch(() => null));
+        setGovernanceSchedulerState(toVisibleGovernanceSchedulerState(await getFunctionSlotGovernanceSchedulerState().catch(() => null)));
       } else {
         setGovernanceSchedulerState(null);
       }
@@ -221,7 +222,7 @@ export function AnalysisHome({ mode = "structureAnalysis", onDetailStateChange, 
       ])
         .then(([items, schedulerState]) => {
           if (mounted) setHomeQueueItems(items);
-          if (mounted) setGovernanceSchedulerState(schedulerState);
+          if (mounted) setGovernanceSchedulerState(toVisibleGovernanceSchedulerState(schedulerState));
         })
         .catch(() => {
           if (mounted) setHomeQueueItems([]);
@@ -849,6 +850,11 @@ function resolveQueueBadgeLabel(item: AnalysisHistoryItem | null, media: Analysi
   if (status === "waiting") return "排队中";
   if (media?.analysisKind === "material" || item?.workflowRun?.workflowKey === "material-recognition") return "识别中";
   return "分析中";
+}
+
+function toVisibleGovernanceSchedulerState(state: FunctionSlotGovernanceSchedulerState | null) {
+  if (!state) return null;
+  return VISIBLE_GOVERNANCE_SCHEDULER_STATUSES.has(state.status) ? state : null;
 }
 
 async function loadLatestVideoProcessingQueue(mode: AnalysisWorkflowMode = "structureAnalysis"): Promise<AnalysisHomeQueueItem[]> {

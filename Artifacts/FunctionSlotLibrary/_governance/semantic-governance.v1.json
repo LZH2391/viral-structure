@@ -7,19 +7,6 @@
   "createdAt": "2026-06-09T23:36:53.578Z",
   "sourceSnapshot": [
     {
-      "artifactId": "artifact_37d50292-28d4-4d1b-8318-00f9fdecc64a",
-      "sampleVideoId": "sample_fcf2e190-dbfc-478d-b327-854948b792eb",
-      "traceId": "trace_6b087065-8bea-4567-ba5e-e84654c68e30",
-      "contentHash": "ec260d31264d1a9d0fbb31e6a4660117f3159f809c03cfba14f72f3963aacadd",
-      "counts": {
-        "slotCount": 5,
-        "atomCount": 16,
-        "bindingCount": 9,
-        "ruleCount": 11,
-        "templateCount": 2
-      }
-    },
-    {
       "artifactId": "artifact_60639ab5-6ae6-47cf-9f27-fa43f9435b0b",
       "sampleVideoId": "sample_1538315c-a8a4-443a-8d4e-8c0901794653",
       "traceId": "trace_dca3f301-6bc6-435f-b981-d590f1e95876",
@@ -72,19 +59,6 @@
       }
     },
     {
-      "artifactId": "artifact_e9e1c2b0-f489-484e-ac94-9310963c1bd1",
-      "sampleVideoId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
-      "traceId": "trace_652c3d0c-5a0b-4385-a247-97fbc18655c8",
-      "contentHash": "f9d7bb4e8021bfc02a5da1bdf5c4219f5c3362eb322b3860aa8496af79a9512a",
-      "counts": {
-        "slotCount": 2,
-        "atomCount": 6,
-        "bindingCount": 4,
-        "ruleCount": 5,
-        "templateCount": 1
-      }
-    },
-    {
       "artifactId": "artifact_ee6a1aa7-6957-438f-8a8d-6f46a6cea486",
       "sampleVideoId": "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
       "traceId": "trace_fcc19b85-5bef-46c0-a2ab-00ac3bd42944",
@@ -122,34 +96,16 @@
         "ruleCount": 10,
         "templateCount": 1
       }
-    },
-    {
-      "artifactId": "artifact_fbf82b46-94fa-49eb-a623-580ea92b5a20",
-      "sampleVideoId": "sample_1ca41200-6c48-4338-b703-9513bab19371",
-      "traceId": "trace_2b32110e-68d5-4359-ad4d-d119d290a22a",
-      "contentHash": "1dd5c6b8fd131eef9147222e020063487b908c8d002c1c2112c39f9e77826733",
-      "counts": {
-        "slotCount": 2,
-        "atomCount": 6,
-        "bindingCount": 5,
-        "ruleCount": 5,
-        "templateCount": 1
-      }
     }
   ],
   "coverage": {
-    "sampleCount": 10,
-    "slotVariantCount": 48,
-    "atomVariantCount": 146,
-    "bindingCount": 79,
-    "ruleCount": 90,
-    "templateCount": 14,
+    "sampleCount": 7,
+    "slotVariantCount": 39,
+    "atomVariantCount": 118,
+    "bindingCount": 61,
+    "ruleCount": 69,
+    "templateCount": 10,
     "slotTypeSupport": {
-      "instant_solution_preview": 1,
-      "pain_backfill": 2,
-      "coverage_bridge": 1,
-      "mechanism_trust": 2,
-      "life_benefit_close": 1,
       "aspirational_outcome_activation": 1,
       "mechanism_credibility": 2,
       "wearability_reassurance": 1,
@@ -173,39 +129,33 @@
       "objective_proof_release": 1,
       "sensory_proof_stack": 1,
       "scenario_value_close": 1,
-      "attribute_sensing": 1,
-      "usage_demonstration": 1,
       "problem_activation": 1,
       "low_barrier_operation": 1,
       "result_confirmation": 1,
       "long_term_trust_close": 1,
       "low_barrier_entry": 1,
       "stress_result_validation": 1,
+      "pain_backfill": 1,
       "scope_assurance": 1,
+      "mechanism_trust": 1,
       "lifestyle_result_close": 1,
       "familiarity_bridge_hook": 1,
       "combination_claim_peak": 1,
       "sensory_evidence_deepening": 1,
       "trust_assurance_shift": 1,
-      "conversion_reason_close": 1,
-      "material_form_proof": 1,
-      "usage_method_proof": 1
+      "conversion_reason_close": 1
     },
     "chainPatternSupport": {
-      "instant_solution_preview > pain_backfill > coverage_bridge > mechanism_trust > life_benefit_close": 1,
-      "instant_solution_preview > pain_backfill > mechanism_trust > life_benefit_close": 1,
       "aspirational_outcome_activation > mechanism_credibility > wearability_reassurance > scenario_value_expansion > value_trust_reinforcement > identity_conversion_close": 1,
       "aspirational_outcome_activation > mechanism_credibility > scenario_value_expansion > wearability_reassurance > value_trust_reinforcement > identity_conversion_close": 1,
       "value_anchor > quantity_value_confirmation > quality_trust_build > sensory_proof_peak > usage_scene_close": 1,
       "scene_problem_activation > solution_entry > alternative_contrast > mechanism_proof > usage_result_confirmation > choice_close": 1,
       "scene_problem_activation > alternative_contrast > solution_entry > mechanism_proof > usage_result_confirmation > choice_close": 1,
       "core_interest_conflict > value_positioning > credibility_question > objective_proof_release > sensory_proof_stack > scenario_value_close": 1,
-      "attribute_sensing > usage_demonstration": 1,
       "problem_activation > mechanism_credibility > low_barrier_operation > result_confirmation > long_term_trust_close": 1,
       "low_barrier_entry > stress_result_validation > pain_backfill > scope_assurance > mechanism_trust > lifestyle_result_close": 1,
       "pain_backfill > low_barrier_entry > stress_result_validation > scope_assurance > mechanism_trust > lifestyle_result_close": 1,
-      "familiarity_bridge_hook > combination_claim_peak > sensory_evidence_deepening > trust_assurance_shift > conversion_reason_close": 1,
-      "material_form_proof > usage_method_proof": 1
+      "familiarity_bridge_hook > combination_claim_peak > sensory_evidence_deepening > trust_assurance_shift > conversion_reason_close": 1
     }
   },
   "governanceFormat": "split_manifest.v1",

@@ -1,7 +1,6 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.bundles",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
-  "updatedAt": "2026-06-09T23:37:28.591Z",
   "implementationBundles": [
     {
       "id": "BUNDLE_result_first_reverse_need",
@@ -626,16 +625,11 @@
         "SUB_attribute_state_sensing",
         "SUB_immediate_usage_demonstration"
       ],
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::F001",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::F002"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 2,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "useAs": "observed_order_and_carryover_evidence",
       "notUseAs": "archetype_merge_basis_or_fixed_template",

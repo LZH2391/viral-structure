@@ -1,7 +1,6 @@
 {
   "schemaVersion": "function_slot_semantic_governance.v1.bindingRules",
   "governanceId": "governance_20260528_function_slot_library_semantic_v1",
-  "updatedAt": "2026-06-09T23:37:28.591Z",
   "bindingPatterns": [
     {
       "id": "BIND_pattern_attention_sync",
@@ -13,14 +12,12 @@
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B005",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B001",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B002"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B001"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 4,
+        "variantCount": 3,
+        "sampleCount": 3,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
@@ -44,14 +41,12 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B002",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B007",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B006",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B004",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B003"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B004"
       ],
       "support": {
-        "variantCount": 5,
-        "sampleCount": 5,
+        "variantCount": 4,
+        "sampleCount": 4,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -102,18 +97,15 @@
       "requirement": "???????????????????????????????????",
       "riskIfBroken": "????????????????????????????????????????????????",
       "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B004",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B005",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B008",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B006",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B006",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B008"
       ],
       "support": {
-        "variantCount": 6,
-        "sampleCount": 5,
+        "variantCount": 4,
+        "sampleCount": 4,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -167,14 +159,12 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B002",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B004",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B001"
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007"
       ],
       "support": {
-        "variantCount": 5,
-        "sampleCount": 4,
+        "variantCount": 4,
+        "sampleCount": 3,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
@@ -205,17 +195,15 @@
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B007",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B006",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B004",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B003",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B005",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B004",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B003",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B005"
       ],
       "support": {
-        "variantCount": 9,
-        "sampleCount": 5,
+        "variantCount": 8,
+        "sampleCount": 4,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -242,7 +230,6 @@
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B006",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B008",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B006",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B004",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B005",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B004",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B003",
@@ -250,14 +237,12 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B003",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B002",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B004",
-        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B001"
+        "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B007"
       ],
       "support": {
-        "variantCount": 14,
-        "sampleCount": 5,
+        "variantCount": 12,
+        "sampleCount": 4,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -283,17 +268,15 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B005",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B001",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::binding::B002",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::binding::B009",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::binding::B008",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::binding::B009",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::binding::B007"
       ],
       "support": {
-        "variantCount": 8,
-        "sampleCount": 5,
+        "variantCount": 7,
+        "sampleCount": 4,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -345,14 +328,12 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE005",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C003",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE003",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE005",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C002"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE005"
       ],
       "support": {
-        "variantCount": 5,
-        "sampleCount": 5,
+        "variantCount": 4,
+        "sampleCount": 4,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -378,14 +359,12 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C001",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C001"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002"
       ],
       "support": {
-        "variantCount": 5,
-        "sampleCount": 5,
+        "variantCount": 4,
+        "sampleCount": 4,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -408,19 +387,17 @@
       "violation": "展示漂亮画面、泛化状态或无关好处",
       "fix": "把结果字幕、使用状态、近景或购买对象调整回前置关切",
       "sourceVariantIds": [
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE007",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE003",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE004",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE001"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 4,
+        "variantCount": 3,
+        "sampleCount": 3,
         "sampleIds": [
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
-          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
-          "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
+          "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca"
         ]
       },
       "judgementReason": "四个样例均出现结果必须回扣前置关切，是当前最稳的闭环 rule pattern。",
@@ -466,14 +443,12 @@
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE006",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE006",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE002"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 4,
+        "variantCount": 3,
+        "sampleCount": 3,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
@@ -494,16 +469,11 @@
       "requirement": "?????????????????????????????????????????",
       "violation": "????????????????????/???????",
       "fix": "?????????????????????????????????",
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE001",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE003"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 2,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "??? rule ??? attribute_sensing > usage_demonstration ????????????????????????????????????????????????????? sequence integrity ???",
       "differenceNotes": [
@@ -526,13 +496,12 @@
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C002",
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE001",
-        "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE007",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::RULE003",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE004",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE001"
       ],
       "support": {
-        "variantCount": 6,
+        "variantCount": 5,
         "sampleCount": 4,
         "sampleIds": [
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
@@ -563,15 +532,13 @@
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C003",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE003",
         "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE005",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C002",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C004",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE002"
       ],
       "support": {
-        "variantCount": 7,
-        "sampleCount": 5,
+        "variantCount": 6,
+        "sampleCount": 4,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -598,14 +565,12 @@
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::C001",
         "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca::rule::C001",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::C001",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::C001"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::C002"
       ],
       "support": {
-        "variantCount": 5,
-        "sampleCount": 5,
+        "variantCount": 4,
+        "sampleCount": 4,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_8d8c00da-4bf6-4a3e-969c-8b2a920830ca",
@@ -631,14 +596,12 @@
       "sourceVariantIds": [
         "sample_fcf2e190-dbfc-478d-b327-854948b792eb::rule::RULE006",
         "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9::rule::RULE006",
-        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE002"
+        "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7::rule::RULE006"
       ],
       "support": {
-        "variantCount": 4,
-        "sampleCount": 4,
+        "variantCount": 3,
+        "sampleCount": 3,
         "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371",
           "sample_2251c516-4267-4c1e-871c-bb67f6cf13d9",
           "sample_793ce355-f3e6-4a76-8b25-98ee829dd3d7",
           "sample_fcf2e190-dbfc-478d-b327-854948b792eb"
@@ -660,16 +623,11 @@
       ],
       "policy": "????????????????????????????????????????????????????????????",
       "riskIfBroken": "??????????????????????????????????????",
-      "sourceVariantIds": [
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE001",
-        "sample_1ca41200-6c48-4338-b703-9513bab19371::rule::RULE003"
-      ],
+      "sourceVariantIds": [],
       "support": {
-        "variantCount": 2,
-        "sampleCount": 1,
-        "sampleIds": [
-          "sample_1ca41200-6c48-4338-b703-9513bab19371"
-        ]
+        "variantCount": 0,
+        "sampleCount": 0,
+        "sampleIds": []
       },
       "judgementReason": "??????????????? candidate rule ????????????????????",
       "differenceNotes": [
