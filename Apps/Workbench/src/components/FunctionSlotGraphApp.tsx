@@ -445,7 +445,7 @@ export function FunctionSlotGraphWorkspace({ embedded = false, active = true, fi
   const waitingForSelectedStructureGraph = mode === "structure" && Boolean(selectedArtifactId) && rawGraph?.artifactId !== selectedArtifactId;
   const loadingGraph = loadingByMode[mode] || waitingForSelectedStructureGraph;
   const renderedGraph = graph ?? (loadingGraph ? rawGraph : null);
-  const activeGraph = useMemo(() => mode === "planTrace" ? filterPlanTraceGraph(renderedGraph, selectedPlanIds) : renderedGraph, [renderedGraph, mode, selectedPlanIds]);
+  const activeGraph = useMemo(() => mode === "planTrace" ? filterPlanTraceGraph(mergePlanTraceSourceSamples(renderedGraph), selectedPlanIds) : renderedGraph, [renderedGraph, mode, selectedPlanIds]);
   const visible = useMemo(() => {
     if (
       mode === "governance"
@@ -877,6 +877,90 @@ function planTraceNodeMatchesSelectedPlans(node: FunctionSlotGraphNode, selected
   if (selectedPlanIds.has(String(node.data?.planId ?? ""))) return true;
   const planIds = Array.isArray(node.data?.planIds) ? node.data.planIds : [];
   return planIds.some((planId) => selectedPlanIds.has(String(planId)));
+}
+
+function mergePlanTraceSourceSamples(graph: FunctionSlotLibraryGraph | null) {
+  if (!graph || graph.schemaVersion !== "confirmed_plan_trace_graph.v1") return graph;
+  const canonicalByNodeId = new Map<string, string>();
+  const sampleNodesByKey = new Map<string, FunctionSlotGraphNode>();
+  const nodes: FunctionSlotGraphNode[] = [];
+  for (const node of graph.nodes) {
+    if (node.type !== "sourceSample") {
+      nodes.push(node);
+      continue;
+    }
+    const key = planTraceSourceSampleKey(node);
+    if (!key) {
+      nodes.push(node);
+      continue;
+    }
+    const canonicalId = `sourceSample:${sanitizeGraphNodeId(key)}`;
+    canonicalByNodeId.set(node.id, canonicalId);
+    const existing = sampleNodesByKey.get(key);
+    const planIds = collectPlanIds(existing, node);
+    if (existing) {
+      sampleNodesByKey.set(key, {
+        ...existing,
+        data: {
+          ...existing.data,
+          ...node.data,
+          sampleVideoId: existing.data.sampleVideoId ?? node.data.sampleVideoId,
+          sampleId: existing.data.sampleId ?? node.data.sampleId,
+          sourceAlias: existing.data.sourceAlias ?? node.data.sourceAlias,
+          planIds,
+        },
+      });
+      continue;
+    }
+    const canonicalNode = {
+      ...node,
+      id: canonicalId,
+      data: {
+        ...node.data,
+        planIds,
+      },
+    };
+    sampleNodesByKey.set(key, canonicalNode);
+    nodes.push(canonicalNode);
+  }
+  const mergedNodes = nodes.map((node) => {
+    if (node.type !== "sourceSample") return node;
+    const key = planTraceSourceSampleKey(node);
+    return key ? sampleNodesByKey.get(key) ?? node : node;
+  });
+  const seenEdges = new Set<string>();
+  const edges = graph.edges.flatMap((edge) => {
+    const source = canonicalByNodeId.get(edge.source) ?? edge.source;
+    const target = canonicalByNodeId.get(edge.target) ?? edge.target;
+    if (source === target) return [];
+    const edgeKey = `${source}->${target}:${edge.type}:${edge.label ?? ""}`;
+    if (seenEdges.has(edgeKey)) return [];
+    seenEdges.add(edgeKey);
+    return [{ ...edge, id: edgeKey, source, target }];
+  });
+  return { ...graph, nodes: mergedNodes, edges };
+}
+
+function planTraceSourceSampleKey(node: FunctionSlotGraphNode) {
+  return String(node.data?.sampleVideoId ?? node.data?.sampleId ?? node.data?.sourceVideoName ?? node.label ?? "").trim();
+}
+
+function sanitizeGraphNodeId(value: string) {
+  return value.replace(/[^A-Za-z0-9_.:-]/g, "_");
+}
+
+function collectPlanIds(...nodes: Array<FunctionSlotGraphNode | undefined>) {
+  const ids = new Set<string>();
+  for (const node of nodes) {
+    const planId = String(node?.data?.planId ?? "").trim();
+    if (planId) ids.add(planId);
+    const planIds = Array.isArray(node?.data?.planIds) ? node.data.planIds : [];
+    for (const value of planIds) {
+      const text = String(value ?? "").trim();
+      if (text) ids.add(text);
+    }
+  }
+  return [...ids];
 }
 
 function getTracePlans(graph: FunctionSlotLibraryGraph | null) {

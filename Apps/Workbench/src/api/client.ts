@@ -251,7 +251,17 @@ export type AgentChatStoryboardShot = {
   durationTooltip?: string | null;
   dialogue?: string | null;
   strategy?: string | null;
+  strategyRaw?: string | null;
   sourceRefs?: string[];
+  slotSubtype?: string | null;
+  slotKey?: string | null;
+  scriptSegment?: string | null;
+  rhythmRange?: string | null;
+  packagingBlock?: string | null;
+  visualPrompt?: string | null;
+  overlayPackaging?: string | null;
+  syncPoint?: string | null;
+  proofFunction?: string | null;
   kind: "material" | "generated" | string;
   kindLabel: string;
   imageUrl?: string | null;

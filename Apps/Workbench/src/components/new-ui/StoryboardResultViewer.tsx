@@ -121,7 +121,6 @@ export function StoryboardResultViewer({ conversationId, resultId = null, status
 function StoryboardVersionSelector({ versions, selectedVersionId, onSelect }: { versions: AgentChatStoryboardVersion[]; selectedVersionId?: string | null; onSelect: (versionId: string) => void }) {
   return (
     <div className="new-ui-storyboard-version-bar" aria-label="故事板方案版本">
-      <span>方案</span>
       {versions.map((version) => {
         const versionId = String(version.versionId ?? "");
         if (!versionId) return null;
@@ -225,63 +224,137 @@ function StoryboardShotCard({ shot, selected, onSelect }: { shot: AgentChatStory
 
 function StoryboardShotDetail({ item, onClose }: { item: SelectableStoryboardShot; onClose: () => void }) {
   const { shot } = item;
+  const mediaStyle = {
+    "--new-ui-storyboard-card-aspect": normalizeAspectCss(shot.aspect?.css),
+  } as CSSProperties;
   const sourceRefs = Array.isArray(shot.sourceRefs) ? shot.sourceRefs.filter(Boolean) : [];
+  const strategyText = firstDetailText(shot.strategyRaw, shot.strategy);
   const detailRows = [
-    ["段落", `${item.groupLabel} ${item.groupTitle}`.trim()],
+    ["槽位段落", `${item.groupLabel} ${item.groupTitle}`.trim()],
     ["类型", shot.kindLabel || shot.kind],
     ["时长", shot.duration || shot.durationRaw || null],
     ["画幅", shot.aspect?.ratio || shot.aspect?.orientation || null],
   ].filter((row): row is [string, string] => Boolean(row[1]));
+  const detailSections = [
+    {
+      key: "task",
+      title: "镜头任务",
+      body: firstDetailText(shot.scriptSegment, item.groupTitle),
+      meta: firstDetailText(shot.slotSubtype, shot.slotKey),
+    },
+    {
+      key: "visual",
+      title: "画面与素材",
+      body: shot.visualPrompt,
+      meta: strategyText,
+      chips: sourceRefs,
+    },
+    {
+      key: "packaging",
+      title: "包装设计",
+      body: shot.overlayPackaging,
+      meta: shot.dialogue,
+    },
+    {
+      key: "rhythm",
+      title: "节奏同步",
+      body: firstDetailText(shot.rhythmRange, shot.durationRaw, shot.duration),
+      meta: shot.syncPoint,
+    },
+    {
+      key: "proof",
+      title: "证明功能",
+      body: shot.proofFunction,
+      meta: shot.packagingBlock,
+    },
+  ].filter((section) => Boolean(section.body || section.meta || section.chips?.length));
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
 
   return (
-    <aside className="new-ui-storyboard-shot-detail" aria-label="镜头详情">
-      <header className="new-ui-storyboard-shot-detail-head">
-        <span className="new-ui-storyboard-shot-detail-icon" aria-hidden="true">
-          <IconListDetails />
-        </span>
-        <div>
-          <span>镜头详情</span>
-          <strong>{shot.title}</strong>
-        </div>
-        <button type="button" aria-label="关闭镜头详情" onClick={onClose}>
-          <IconX aria-hidden="true" />
-        </button>
-      </header>
-      <div className="new-ui-storyboard-shot-detail-meta">
-        {detailRows.map(([label, value]) => (
-          <span key={label}>
-            <small>{label}</small>
-            <strong>{value}</strong>
+    <div
+      className="new-ui-storyboard-shot-detail-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="镜头详情"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <aside className="new-ui-storyboard-shot-detail" aria-label="镜头详情">
+        <header className="new-ui-storyboard-shot-detail-head">
+          <span className="new-ui-storyboard-shot-detail-icon" aria-hidden="true">
+            <IconListDetails />
           </span>
-        ))}
-      </div>
-      {sourceRefs.length ? (
-        <div className="new-ui-storyboard-shot-detail-section">
-          <span>素材来源</span>
-          <div className="new-ui-storyboard-shot-detail-chips">
-            {sourceRefs.map((sourceRef) => <code key={sourceRef}>{sourceRef}</code>)}
+          <div>
+            <span>镜头详情</span>
+            <strong>{shot.title}</strong>
+          </div>
+          <button type="button" aria-label="关闭镜头详情" onClick={onClose}>
+            <IconX aria-hidden="true" />
+          </button>
+        </header>
+        <div className="new-ui-storyboard-shot-detail-layout">
+          <div className="new-ui-storyboard-shot-detail-preview">
+            <div className="new-ui-storyboard-shot-media" style={mediaStyle}>
+              <span className="new-ui-storyboard-shot-kind">{shot.kindLabel}</span>
+              {shot.imageUrl ? (
+                <img src={`${API_BASE_URL}${shot.imageUrl}`} alt={shot.title} loading="lazy" />
+              ) : (
+                <span className="new-ui-storyboard-shot-placeholder" aria-hidden="true">
+                  {shot.kind === "material" ? <IconVideo /> : <IconPhoto />}
+                </span>
+              )}
+            </div>
+            <div className="new-ui-storyboard-shot-detail-preview-caption">
+              <span>{shot.kindLabel || "镜头"}</span>
+              <strong>{shot.dialogue || shot.visualPrompt || shot.title}</strong>
+            </div>
+          </div>
+          <div className="new-ui-storyboard-shot-detail-content">
+            <div className="new-ui-storyboard-shot-detail-meta">
+              {detailRows.map(([label, value]) => (
+                <span key={label}>
+                  <small>{label}</small>
+                  <strong>{value}</strong>
+                </span>
+              ))}
+            </div>
+            <div className="new-ui-storyboard-shot-detail-sections">
+              {detailSections.length ? detailSections.map((section) => (
+                <section key={section.key} className={`new-ui-storyboard-shot-detail-section is-${section.key}`.trim()}>
+                  <span>{section.title}</span>
+                  {section.body ? <p>{section.body}</p> : null}
+                  {section.meta ? <small>{section.meta}</small> : null}
+                  {section.chips?.length ? (
+                    <div className="new-ui-storyboard-shot-detail-chips">
+                      {section.chips.map((sourceRef) => <code key={sourceRef}>{sourceRef}</code>)}
+                    </div>
+                  ) : null}
+                </section>
+              )) : (
+                <section className="new-ui-storyboard-shot-detail-section is-empty">
+                  <span>镜头信息</span>
+                  <p>{shot.dialogue || strategyText || "该镜头暂无更多详情。"}</p>
+                </section>
+              )}
+            </div>
+            {shot.durationTooltip ? (
+              <div className="new-ui-storyboard-shot-detail-note">
+                <IconClock aria-hidden="true" />
+                <span>{shot.durationTooltip}</span>
+              </div>
+            ) : null}
           </div>
         </div>
-      ) : null}
-      {shot.strategy ? (
-        <div className="new-ui-storyboard-shot-detail-section">
-          <span>执行策略</span>
-          <p>{shot.strategy}</p>
-        </div>
-      ) : null}
-      {shot.dialogue ? (
-        <div className="new-ui-storyboard-shot-detail-section">
-          <span>口播/字幕</span>
-          <p>{shot.dialogue}</p>
-        </div>
-      ) : null}
-      {shot.durationTooltip ? (
-        <div className="new-ui-storyboard-shot-detail-note">
-          <IconClock aria-hidden="true" />
-          <span>{shot.durationTooltip}</span>
-        </div>
-      ) : null}
-    </aside>
+      </aside>
+    </div>
   );
 }
 
@@ -335,4 +408,12 @@ function createStoryboardShotKey(groupId: string, shot: AgentChatStoryboardShot)
 function normalizeAspectCss(value: string | null | undefined) {
   const css = String(value ?? "").trim();
   return css === "16 / 9" ? "16 / 9" : "9 / 16";
+}
+
+function firstDetailText(...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return null;
 }

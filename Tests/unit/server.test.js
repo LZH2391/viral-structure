@@ -923,9 +923,20 @@ test("agent chat storyboard result projects generated images and upstream aspect
         {
           shotId: "new_shot_01",
           slotKey: "SUB_hook",
+          slotSubtype: "`SUB_hook` 熟悉经验钩子槽",
           shouldGenerate: false,
+          strategy: "existing_material_packaging_caption",
+          strategyRaw: "`existing_material_packaging_caption`：使用 `shot_1`",
+          sourceRefs: ["shot_1"],
+          scriptSegment: "第 5 节：熟悉需求入口",
+          rhythmRange: "第 6 节：入口快节奏",
+          packagingBlock: "第 7 节：标题和字幕",
+          imagePrompt: "原素材 `shot_1`：杯中豆浆勺取",
+          overlayPackaging: "上方标题，底部字幕，关键词高亮",
           dialogue: "后期字幕/旁白：“素材镜头。”",
           duration: "0.8-1.0s",
+          syncPoint: "动作、标题和字幕同步",
+          proofFunction: "用现有素材建立需求入口",
         },
         {
           shotId: "new_shot_02",
@@ -1114,6 +1125,15 @@ test("agent chat storyboard result projects generated images and upstream aspect
       assert.equal(response.body.groups[0].shots[0].duration, "0-0.9s");
       assert.equal(response.body.groups[0].shots[0].durationRaw, "0.8-1.0s");
       assert.match(response.body.groups[0].shots[0].durationTooltip, /预计时间轴/);
+      assert.equal(response.body.groups[0].shots[0].slotSubtype, "`SUB_hook` 熟悉经验钩子槽");
+      assert.equal(response.body.groups[0].shots[0].strategyRaw, "`existing_material_packaging_caption`：使用 `shot_1`");
+      assert.equal(response.body.groups[0].shots[0].scriptSegment, "第 5 节：熟悉需求入口");
+      assert.equal(response.body.groups[0].shots[0].rhythmRange, "第 6 节：入口快节奏");
+      assert.equal(response.body.groups[0].shots[0].packagingBlock, "第 7 节：标题和字幕");
+      assert.equal(response.body.groups[0].shots[0].visualPrompt, "原素材 `shot_1`：杯中豆浆勺取");
+      assert.equal(response.body.groups[0].shots[0].overlayPackaging, "上方标题，底部字幕，关键词高亮");
+      assert.equal(response.body.groups[0].shots[0].syncPoint, "动作、标题和字幕同步");
+      assert.equal(response.body.groups[0].shots[0].proofFunction, "用现有素材建立需求入口");
       assert.equal(response.body.groups[0].shots[1].aspect.ratio, "16:9");
       assert.equal(response.body.groups[0].shots[1].duration, "0.9-2.0s");
       assert.match(response.body.groups[0].shots[1].imageUrl, /^\/api\/agent-chat\/conversations\/conversation_storyboard\/storyboard-result\/images\/new_shot_02$/);

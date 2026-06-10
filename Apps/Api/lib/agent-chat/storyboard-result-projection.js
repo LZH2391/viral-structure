@@ -205,6 +205,7 @@ function buildGroups({ shots, cropByShotId, pdfShotMediaById, materialFrameIndex
     const imagePath = crop?.imagePath ?? pdfMedia?.imagePath ?? materialFrame;
     const shotAspect = resolveAspectFromSize(pdfMedia?.width, pdfMedia?.height) ?? resolveAspect(null, crop?.cropBox) ?? manifestAspect;
     const strategy = normalizeText(shot.strategyRaw) || normalizeText(shot.strategy);
+    const shotDetail = buildShotDetailFields(shot);
     const shouldGenerate = Boolean(shot.shouldGenerate);
     const durationSeconds = parseDurationMidpointSeconds(shot.duration);
     const timelineRange = durationSeconds == null
@@ -220,7 +221,17 @@ function buildGroups({ shots, cropByShotId, pdfShotMediaById, materialFrameIndex
       durationTooltip: timelineRange ? "预计时间轴，非精确剪辑点；按预计时长区间中间值累加" : null,
       dialogue: normalizeDialogue(shot.dialogue),
       strategy,
+      strategyRaw: normalizeText(shot.strategyRaw),
       sourceRefs: Array.isArray(shot.sourceRefs) ? shot.sourceRefs.map((item) => String(item)).filter(Boolean) : [],
+      slotSubtype: normalizeText(shot.slotSubtype),
+      slotKey: normalizeText(shot.slotKey),
+      scriptSegment: shotDetail.scriptSegment,
+      rhythmRange: shotDetail.rhythmRange,
+      packagingBlock: shotDetail.packagingBlock,
+      visualPrompt: shotDetail.visualPrompt,
+      overlayPackaging: shotDetail.overlayPackaging,
+      syncPoint: shotDetail.syncPoint,
+      proofFunction: shotDetail.proofFunction,
       kind: shouldGenerate ? "generated" : "material",
       kindLabel: shouldGenerate ? "自设计" : "素材",
       imageUrl: imagePath ? buildImageUrl(imageBasePath, shotId, imageQuery) : null,
@@ -229,6 +240,18 @@ function buildGroups({ shots, cropByShotId, pdfShotMediaById, materialFrameIndex
     group.shotCount = group.shots.length;
   });
   return groups;
+}
+
+function buildShotDetailFields(shot) {
+  return {
+    scriptSegment: normalizeText(shot?.scriptSegment),
+    rhythmRange: normalizeText(shot?.rhythmRange),
+    packagingBlock: normalizeText(shot?.packagingBlock),
+    visualPrompt: normalizeText(shot?.imagePrompt || shot?.visualPrompt),
+    overlayPackaging: normalizeText(shot?.overlayPackaging),
+    syncPoint: normalizeText(shot?.syncPoint),
+    proofFunction: normalizeText(shot?.proofFunction),
+  };
 }
 
 function buildImageUrl(imageBasePath, shotId, imageQuery) {
